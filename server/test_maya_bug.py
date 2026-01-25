@@ -315,5 +315,164 @@ class TestEdgeCases:
         )
 
 
+class TestAvoidBadPairs:
+    """Test that AI avoids creating wasteful pairs with negative cards."""
+
+    def test_filter_bad_pair_positions_with_visible_two(self):
+        """
+        When placing a 2, avoid positions where column partner is a visible 2.
+
+        Setup: Visible 2 at position 0
+        Placing: Another 2
+        Expected: Position 3 should be filtered out (would pair with position 0)
+        """
+        from ai import filter_bad_pair_positions
+
+        game = create_test_game()
+        player = game.get_player("maya")
+
+        # Position 0 has a visible 2
+        player.cards = [
+            Card(Suit.HEARTS, Rank.TWO, face_up=True),   # Pos 0: visible 2
+            Card(Suit.HEARTS, Rank.FIVE, face_up=True),  # Pos 1
+            Card(Suit.HEARTS, Rank.SIX, face_up=True),   # Pos 2
+            Card(Suit.SPADES, Rank.SEVEN, face_up=False), # Pos 3: column partner of 0
+            Card(Suit.SPADES, Rank.EIGHT, face_up=False), # Pos 4
+            Card(Suit.SPADES, Rank.NINE, face_up=False),  # Pos 5
+        ]
+
+        drawn_two = Card(Suit.CLUBS, Rank.TWO)
+        face_down = [3, 4, 5]
+
+        safe_positions = filter_bad_pair_positions(face_down, drawn_two, player, game.options)
+
+        # Position 3 should be filtered out (would pair with visible 2 at position 0)
+        assert 3 not in safe_positions, (
+            "Position 3 should be filtered - would create wasteful 2-2 pair"
+        )
+        assert 4 in safe_positions
+        assert 5 in safe_positions
+
+    def test_filter_allows_positive_card_pairs(self):
+        """
+        Positive value cards can be paired - no filtering needed.
+
+        Pairing a 5 with another 5 is GOOD (saves 10 points).
+        """
+        from ai import filter_bad_pair_positions
+
+        game = create_test_game()
+        player = game.get_player("maya")
+
+        # Position 0 has a visible 5
+        player.cards = [
+            Card(Suit.HEARTS, Rank.FIVE, face_up=True),   # Pos 0: visible 5
+            Card(Suit.HEARTS, Rank.SIX, face_up=True),
+            Card(Suit.HEARTS, Rank.SEVEN, face_up=True),
+            Card(Suit.SPADES, Rank.EIGHT, face_up=False), # Pos 3: column partner
+            Card(Suit.SPADES, Rank.NINE, face_up=False),
+            Card(Suit.SPADES, Rank.TEN, face_up=False),
+        ]
+
+        drawn_five = Card(Suit.CLUBS, Rank.FIVE)
+        face_down = [3, 4, 5]
+
+        safe_positions = filter_bad_pair_positions(face_down, drawn_five, player, game.options)
+
+        # All positions should be allowed - pairing 5s is good!
+        assert safe_positions == face_down
+
+    def test_choose_swap_avoids_pairing_twos(self):
+        """
+        The full choose_swap_or_discard flow should avoid placing 2s
+        in positions that would pair them.
+
+        Run multiple times to verify randomness doesn't cause bad pairs.
+        """
+        game = create_test_game()
+        maya = game.get_player("maya")
+        profile = get_maya_profile()
+
+        # Position 0 has a visible 2
+        maya.cards = [
+            Card(Suit.HEARTS, Rank.TWO, face_up=True),    # Pos 0: visible 2
+            Card(Suit.HEARTS, Rank.FIVE, face_up=True),   # Pos 1
+            Card(Suit.HEARTS, Rank.SIX, face_up=True),    # Pos 2
+            Card(Suit.SPADES, Rank.SEVEN, face_up=False), # Pos 3: BAD - would pair
+            Card(Suit.SPADES, Rank.EIGHT, face_up=False), # Pos 4: OK
+            Card(Suit.SPADES, Rank.NINE, face_up=False),  # Pos 5: OK
+        ]
+
+        drawn_two = Card(Suit.CLUBS, Rank.TWO)
+
+        # Run 100 times - should NEVER pick position 3
+        bad_pair_count = 0
+        for _ in range(100):
+            swap_pos = GolfAI.choose_swap_or_discard(drawn_two, maya, profile, game)
+            if swap_pos == 3:
+                bad_pair_count += 1
+
+        assert bad_pair_count == 0, (
+            f"AI picked position 3 (creating 2-2 pair) {bad_pair_count}/100 times. "
+            "Should avoid positions that waste negative card value."
+        )
+
+    def test_forced_swap_avoids_pairing_twos(self):
+        """
+        Even when forced to swap from discard, AI should avoid bad pairs.
+        """
+        from ai import filter_bad_pair_positions
+
+        game = create_test_game()
+        player = game.get_player("maya")
+
+        # Position 1 has a visible 2, only positions 3, 4 are face-down
+        player.cards = [
+            Card(Suit.HEARTS, Rank.FIVE, face_up=True),
+            Card(Suit.HEARTS, Rank.TWO, face_up=True),    # Pos 1: visible 2
+            Card(Suit.HEARTS, Rank.SIX, face_up=True),
+            Card(Suit.SPADES, Rank.SEVEN, face_up=True),
+            Card(Suit.SPADES, Rank.EIGHT, face_up=False), # Pos 4: BAD - pairs with pos 1
+            Card(Suit.SPADES, Rank.NINE, face_up=False),  # Pos 5: OK
+        ]
+
+        drawn_two = Card(Suit.CLUBS, Rank.TWO)
+        face_down = [4, 5]
+
+        safe_positions = filter_bad_pair_positions(face_down, drawn_two, player, game.options)
+
+        # Position 4 should be filtered out (would pair with visible 2 at position 1)
+        assert 4 not in safe_positions
+        assert 5 in safe_positions
+
+    def test_all_positions_bad_falls_back(self):
+        """
+        If ALL positions would create bad pairs, fall back to original list.
+        (Must place the card somewhere)
+        """
+        from ai import filter_bad_pair_positions
+
+        game = create_test_game()
+        player = game.get_player("maya")
+
+        # Only position 3 is face-down, and it would pair with visible 2 at position 0
+        player.cards = [
+            Card(Suit.HEARTS, Rank.TWO, face_up=True),    # Pos 0: visible 2
+            Card(Suit.HEARTS, Rank.FIVE, face_up=True),
+            Card(Suit.HEARTS, Rank.SIX, face_up=True),
+            Card(Suit.SPADES, Rank.SEVEN, face_up=False), # Pos 3: only option, but bad
+            Card(Suit.SPADES, Rank.EIGHT, face_up=True),
+            Card(Suit.SPADES, Rank.NINE, face_up=True),
+        ]
+
+        drawn_two = Card(Suit.CLUBS, Rank.TWO)
+        face_down = [3]  # Only option
+
+        safe_positions = filter_bad_pair_positions(face_down, drawn_two, player, game.options)
+
+        # Should return original list since there's no alternative
+        assert safe_positions == face_down
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

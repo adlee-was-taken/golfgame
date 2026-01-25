@@ -20,8 +20,10 @@ from typing import Optional
 from game import Game, Player, GamePhase, GameOptions
 from ai import (
     GolfAI, CPUProfile, CPU_PROFILES,
-    get_ai_card_value, has_worse_visible_card
+    get_ai_card_value, has_worse_visible_card,
+    filter_bad_pair_positions, get_column_partner_position
 )
+from game import Rank
 from game_log import GameLogger
 
 
@@ -35,6 +37,15 @@ class SimulationStats:
         self.player_wins: dict[str, int] = {}
         self.player_scores: dict[str, list[int]] = {}
         self.decisions: dict[str, dict] = {}  # player -> {action: count}
+
+        # Dumb move tracking
+        self.discarded_jokers = 0
+        self.discarded_twos = 0
+        self.discarded_kings = 0
+        self.took_bad_card_without_pair = 0
+        self.paired_negative_cards = 0
+        self.swapped_good_for_bad = 0
+        self.total_opportunities = 0  # Total decision points
 
     def record_game(self, game: Game, winner_name: str):
         self.games_played += 1
@@ -56,6 +67,40 @@ class SimulationStats:
         if action not in self.decisions[player_name]:
             self.decisions[player_name][action] = 0
         self.decisions[player_name][action] += 1
+
+    def record_dumb_move(self, move_type: str):
+        """Record a dumb move for analysis."""
+        if move_type == "discarded_joker":
+            self.discarded_jokers += 1
+        elif move_type == "discarded_two":
+            self.discarded_twos += 1
+        elif move_type == "discarded_king":
+            self.discarded_kings += 1
+        elif move_type == "took_bad_without_pair":
+            self.took_bad_card_without_pair += 1
+        elif move_type == "paired_negative":
+            self.paired_negative_cards += 1
+        elif move_type == "swapped_good_for_bad":
+            self.swapped_good_for_bad += 1
+
+    def record_opportunity(self):
+        """Record a decision opportunity for rate calculation."""
+        self.total_opportunities += 1
+
+    @property
+    def dumb_move_rate(self) -> float:
+        """Calculate overall dumb move rate."""
+        total_dumb = (
+            self.discarded_jokers +
+            self.discarded_twos +
+            self.discarded_kings +
+            self.took_bad_card_without_pair +
+            self.paired_negative_cards +
+            self.swapped_good_for_bad
+        )
+        if self.total_opportunities == 0:
+            return 0.0
+        return total_dumb / self.total_opportunities * 100
 
     def report(self) -> str:
         lines = [
@@ -94,6 +139,21 @@ class SimulationStats:
             for action, count in sorted(actions.items()):
                 pct = count / max(1, total) * 100
                 lines.append(f"    {action}: {count} ({pct:.1f}%)")
+
+        lines.append("")
+        lines.append("DUMB MOVE ANALYSIS:")
+        lines.append(f"  Total decision opportunities: {self.total_opportunities}")
+        lines.append(f"  Dumb move rate: {self.dumb_move_rate:.3f}%")
+        lines.append("")
+        lines.append("  Blunders (should be 0):")
+        lines.append(f"    Discarded Jokers: {self.discarded_jokers}")
+        lines.append(f"    Discarded 2s: {self.discarded_twos}")
+        lines.append(f"    Took bad card without pair: {self.took_bad_card_without_pair}")
+        lines.append(f"    Paired negative cards: {self.paired_negative_cards}")
+        lines.append("")
+        lines.append("  Mistakes (should be < 0.1%):")
+        lines.append(f"    Discarded Kings: {self.discarded_kings}")
+        lines.append(f"    Swapped good for bad: {self.swapped_good_for_bad}")
 
         return "\n".join(lines)
 
@@ -134,6 +194,27 @@ def run_cpu_turn(
     action = "take_discard" if take_discard else "draw_deck"
     stats.record_turn(player.name, action)
 
+    # Check for dumb move: taking bad card from discard without good reason
+    if take_discard:
+        drawn_val = get_ai_card_value(drawn, game.options)
+        # Bad cards are 8, 9, 10, J, Q (value >= 8)
+        if drawn_val >= 8:
+            # Check if there's pair potential
+            has_pair_potential = False
+            for i, card in enumerate(player.cards):
+                if card.face_up and card.rank == drawn.rank:
+                    partner_pos = get_column_partner_position(i)
+                    if not player.cards[partner_pos].face_up:
+                        has_pair_potential = True
+                        break
+
+            # Check if player has a WORSE visible card to replace
+            has_worse_to_replace = has_worse_visible_card(player, drawn_val, game.options)
+
+            # Only flag as dumb if no pair potential AND no worse card to replace
+            if not has_pair_potential and not has_worse_to_replace:
+                stats.record_dumb_move("took_bad_without_pair")
+
     # Log draw decision
     if logger and game_id:
         reason = f"took {discard_top.rank.value} from discard" if take_discard else "drew from deck"
@@ -154,7 +235,9 @@ def run_cpu_turn(
     if swap_pos is None and game.drawn_from_discard:
         face_down = [i for i, c in enumerate(player.cards) if not c.face_up]
         if face_down:
-            swap_pos = random.choice(face_down)
+            # Use filter to avoid bad pairs with negative cards
+            safe_positions = filter_bad_pair_positions(face_down, drawn, player, game.options)
+            swap_pos = random.choice(safe_positions)
         else:
             # Find worst card using house rules
             worst_pos = 0
@@ -166,8 +249,27 @@ def run_cpu_turn(
                     worst_pos = i
             swap_pos = worst_pos
 
+    # Record this as a decision opportunity for dumb move rate calculation
+    stats.record_opportunity()
+
     if swap_pos is not None:
         old_card = player.cards[swap_pos]
+
+        # Check for dumb moves: swapping good card for bad
+        drawn_val = get_ai_card_value(drawn, game.options)
+        old_val = get_ai_card_value(old_card, game.options)
+        if old_card.face_up and old_val < drawn_val and old_val <= 1:
+            stats.record_dumb_move("swapped_good_for_bad")
+
+        # Check for dumb move: creating bad pair with negative card
+        partner_pos = get_column_partner_position(swap_pos)
+        partner = player.cards[partner_pos]
+        if (partner.face_up and
+            partner.rank == drawn.rank and
+            drawn_val < 0 and
+            not (game.options.eagle_eye and drawn.rank == Rank.JOKER)):
+            stats.record_dumb_move("paired_negative")
+
         game.swap_card(player.id, swap_pos)
         action = "swap"
         stats.record_turn(player.name, action)
@@ -184,6 +286,14 @@ def run_cpu_turn(
                 decision_reason=f"swapped {drawn.rank.value} for {old_card.rank.value} at pos {swap_pos}",
             )
     else:
+        # Check for dumb moves: discarding excellent cards
+        if drawn.rank == Rank.JOKER:
+            stats.record_dumb_move("discarded_joker")
+        elif drawn.rank == Rank.TWO:
+            stats.record_dumb_move("discarded_two")
+        elif drawn.rank == Rank.KING:
+            stats.record_dumb_move("discarded_king")
+
         game.discard_drawn(player.id)
         action = "discard"
         stats.record_turn(player.name, action)

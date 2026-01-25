@@ -148,15 +148,6 @@ class TestHouseRulesScoring:
         # K=-2, 3=3, columns 1&2 matched = 0
         assert score == 1
 
-    def test_lucky_sevens_zero(self):
-        """With lucky_sevens, 7s worth 0."""
-        options = GameOptions(lucky_sevens=True)
-        self.set_hand([Rank.SEVEN, Rank.ACE, Rank.ACE,
-                       Rank.THREE, Rank.ACE, Rank.ACE])
-        score = self.player.calculate_score(options)
-        # 7=0, 3=3, columns 1&2 matched = 0
-        assert score == 3
-
     def test_ten_penny(self):
         """With ten_penny, 10s worth 1."""
         options = GameOptions(ten_penny=True)

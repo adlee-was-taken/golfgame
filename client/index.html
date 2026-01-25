@@ -200,19 +200,24 @@
 
         <!-- Game Screen -->
         <div id="game-screen" class="screen">
+            <!-- Card layer for persistent card elements -->
+            <div id="card-layer"></div>
             <div class="game-layout">
                 <div class="game-main">
                     <div class="game-header">
                         <div class="round-info">Hole <span id="current-round">1</span>/<span id="total-rounds">9</span></div>
-                        <div id="active-rules-bar" class="active-rules-bar hidden">
-                            <span class="rules-label">Rules:</span>
-                            <span id="active-rules-list" class="rules-list"></span>
+                        <div class="game-header-center">
+                            <div id="active-rules-bar" class="active-rules-bar hidden">
+                                <span class="rules-label">Rules:</span>
+                                <span id="active-rules-list" class="rules-list"></span>
+                            </div>
+                            <div class="header-status">
+                                <div id="status-message" class="status-message"></div>
+                            </div>
                         </div>
-                        <div class="turn-info" id="turn-info">Your turn</div>
-                        <div class="score-info">Showing: <span id="your-score">0</span></div>
                         <div class="header-buttons">
-                            <button id="leave-game-btn" class="btn btn-small btn-danger">Leave</button>
                             <button id="mute-btn" class="mute-btn" title="Toggle sound">🔊</button>
+                            <button id="leave-game-btn" class="btn btn-small btn-danger">Leave</button>
                         </div>
                     </div>
 
@@ -225,22 +230,30 @@
                                     <div id="deck" class="card card-back">
                                         <span>?</span>
                                     </div>
-                                    <div id="discard" class="card">
-                                        <span id="discard-content"></span>
+                                    <div class="discard-stack">
+                                        <div id="discard" class="card">
+                                            <span id="discard-content"></span>
+                                        </div>
+                                        <button id="discard-btn" class="btn btn-small hidden">Discard</button>
                                     </div>
-                                </div>
-                                <div id="drawn-card-area" class="hidden">
-                                    <div id="drawn-card" class="card"></div>
-                                    <button id="discard-btn" class="btn btn-small">Discard</button>
                                 </div>
                             </div>
 
                             <div class="player-section">
-                                <div id="flip-prompt" class="flip-prompt hidden"></div>
                                 <div class="player-area">
+                                    <h4 id="player-header">You<span id="your-score" class="player-showing">0</span></h4>
                                     <div id="player-cards" class="card-grid"></div>
                                 </div>
-                                <div id="toast" class="toast hidden"></div>
+                            </div>
+
+                            <!-- Legacy swap animation overlay (kept for rollback) -->
+                            <div id="swap-animation" class="swap-animation hidden">
+                                <div id="swap-card-from-hand" class="swap-card">
+                                    <div class="swap-card-inner">
+                                        <div class="swap-card-front"></div>
+                                        <div class="swap-card-back">?</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -287,6 +300,9 @@
         </div>
     </div>
 
+    <script src="card-manager.js"></script>
+    <script src="state-differ.js"></script>
+    <script src="animation-queue.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

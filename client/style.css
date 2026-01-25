@@ -462,13 +462,11 @@ input::placeholder {
 
 /* Game Screen */
 .game-header {
-    display: grid;
-    grid-template-columns: auto 1fr auto auto auto;
+    display: flex;
     align-items: center;
-    gap: 15px;
-    padding: 10px 25px;
+    justify-content: space-between;
+    padding: 10px 20px;
     background: rgba(0,0,0,0.35);
-    border-radius: 0;
     font-size: 0.9rem;
     width: 100vw;
     margin-left: calc(-50vw + 50%);
@@ -480,20 +478,22 @@ input::placeholder {
     white-space: nowrap;
 }
 
+.game-header-center {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+}
+
 .game-header .turn-info {
     font-weight: 600;
     color: #f4a460;
     white-space: nowrap;
 }
 
-.game-header .score-info {
-    white-space: nowrap;
-}
-
 .game-header .header-buttons {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 #leave-game-btn {
@@ -602,8 +602,24 @@ input::placeholder {
 }
 
 .card-front.joker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.card-front.joker .joker-icon {
+    font-size: 1.6em;
+    line-height: 1;
+}
+
+.card-front.joker .joker-label {
+    font-size: 0.45em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     color: #9b59b6;
-    font-size: 1.1rem;
 }
 
 .card.clickable {
@@ -762,6 +778,25 @@ input::placeholder {
     border: 2px solid #ddd;
 }
 
+/* Holding state - when player has drawn a card */
+#discard.holding {
+    background: #fff;
+    border: 3px solid #f4a460;
+    box-shadow: 0 0 15px rgba(244, 164, 96, 0.6);
+    transform: scale(1.05);
+}
+
+.discard-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.discard-stack .btn {
+    white-space: nowrap;
+}
+
 #deck.disabled,
 #discard.disabled {
     opacity: 0.5;
@@ -777,45 +812,140 @@ input::placeholder {
 
 /* Card flip animation for discard pile */
 .card-flip-in {
-    animation: cardFlipIn 0.4s ease-out;
+    animation: cardFlipIn 0.5s ease-out;
 }
 
 @keyframes cardFlipIn {
     0% {
-        transform: scale(1.3) rotateY(90deg);
-        opacity: 0.5;
-        box-shadow: 0 0 30px rgba(244, 164, 96, 0.8);
+        transform: scale(1.4) translateY(-20px);
+        opacity: 0;
+        box-shadow: 0 0 40px rgba(244, 164, 96, 1);
     }
-    50% {
-        transform: scale(1.15) rotateY(0deg);
+    30% {
+        transform: scale(1.25) translateY(-10px);
         opacity: 1;
-        box-shadow: 0 0 25px rgba(244, 164, 96, 0.6);
+        box-shadow: 0 0 35px rgba(244, 164, 96, 0.9);
+    }
+    70% {
+        transform: scale(1.1) translateY(0);
+        box-shadow: 0 0 20px rgba(244, 164, 96, 0.5);
     }
     100% {
-        transform: scale(1) rotateY(0deg);
+        transform: scale(1) translateY(0);
         opacity: 1;
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
 }
 
-#drawn-card-area {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    background: rgba(0,0,0,0.25);
+/* Swap animation overlay */
+.swap-animation {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1000;
+    perspective: 1000px;
+}
+
+.swap-animation.hidden {
+    display: none;
+}
+
+.swap-card {
+    position: absolute;
+    width: 70px;
+    height: 98px;
+    perspective: 1000px;
+}
+
+.swap-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.4s ease-in-out;
+}
+
+.swap-card.flipping .swap-card-inner {
+    transform: rotateY(180deg);
+}
+
+.swap-card-front,
+.swap-card-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
     border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
 }
 
-#drawn-card-area .card {
-    width: clamp(80px, 7vw, 120px);
-    height: clamp(112px, 9.8vw, 168px);
-    font-size: clamp(2.4rem, 3.2vw, 4rem);
+.swap-card-back {
+    background: linear-gradient(135deg, #c0392b 0%, #922b21 100%);
+    color: rgba(255,255,255,0.4);
+    font-size: 2rem;
 }
 
-#drawn-card-area .btn {
-    white-space: nowrap;
+.swap-card-front {
+    background: linear-gradient(145deg, #fff 0%, #f0f0f0 100%);
+    transform: rotateY(180deg);
+    font-size: 2rem;
+    flex-direction: column;
+    color: #2c3e50;
+    line-height: 1.1;
+    font-weight: bold;
+}
+
+.swap-card-front.red {
+    color: #e74c3c;
+}
+
+.swap-card-front.black {
+    color: #2c3e50;
+}
+
+.swap-card-front.joker {
+    color: #9b59b6;
+}
+
+.swap-card-front .joker-icon {
+    font-size: 1.6em;
+    line-height: 1;
+}
+
+.swap-card-front .joker-label {
+    font-size: 0.45em;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+/* Movement animation */
+.swap-card.flipping {
+    filter: drop-shadow(0 0 20px rgba(244, 164, 96, 0.8));
+}
+
+.swap-card.moving {
+    transition: top 0.4s cubic-bezier(0.4, 0, 0.2, 1), left 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s ease-out;
+    transform: scale(1.1) rotate(-5deg);
+    filter: drop-shadow(0 0 25px rgba(244, 164, 96, 1));
+}
+
+/* Card in hand fading during swap */
+.card.swap-out {
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+/* Discard fading during swap */
+#discard.swap-to-hand {
+    opacity: 0;
+    transition: opacity 0.2s;
 }
 
 /* Player Area */
@@ -856,7 +986,8 @@ input::placeholder {
     align-items: center;
 }
 
-.opponent-showing {
+.opponent-showing,
+.player-showing {
     font-weight: 700;
     color: rgba(255, 255, 255, 0.9);
     background: rgba(0, 0, 0, 0.25);
@@ -864,6 +995,18 @@ input::placeholder {
     border-radius: 3px;
     font-size: 0.9em;
     margin-left: 8px;
+}
+
+/* Player area header - matches opponent style */
+.player-area h4 {
+    font-size: clamp(0.8rem, 1vw, 1.1rem);
+    margin: 0 0 8px 0;
+    padding: clamp(4px, 0.4vw, 8px) clamp(10px, 1vw, 16px);
+    background: rgba(244, 164, 96, 0.6);
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .opponent-area .card-grid {
@@ -885,25 +1028,27 @@ input::placeholder {
 }
 
 /* Toast Notification */
-.toast {
-    background: rgba(0, 0, 0, 0.9);
-    color: #fff;
-    padding: 8px 20px;
-    border-radius: 6px;
-    font-size: 0.85rem;
+/* Header status area */
+.header-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 200px;
+}
+
+.status-message {
+    padding: 6px 16px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 600;
     text-align: center;
-    margin-top: 8px;
-    animation: toastIn 0.3s ease;
+    white-space: nowrap;
+    color: #fff;
 }
 
-.toast.hidden {
-    display: none;
-}
-
-.toast.your-turn {
+.status-message.your-turn {
     background: linear-gradient(135deg, #f4a460 0%, #e8914d 100%);
     color: #1a472a;
-    font-weight: 600;
 }
 
 @keyframes toastIn {
@@ -915,12 +1060,12 @@ input::placeholder {
 .flip-prompt {
     background: linear-gradient(135deg, #f4a460 0%, #e8914d 100%);
     color: #1a472a;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-size: 0.9rem;
+    padding: 6px 16px;
+    border-radius: 4px;
+    font-size: 0.8rem;
     font-weight: 600;
     text-align: center;
-    margin-bottom: 8px;
+    white-space: nowrap;
 }
 
 .flip-prompt.hidden {
@@ -955,44 +1100,40 @@ input::placeholder {
 /* Side Panels - positioned in bottom corners */
 .side-panel {
     position: fixed;
-    bottom: 20px;
+    bottom: 15px;
     background: linear-gradient(145deg, rgba(15, 50, 35, 0.92) 0%, rgba(8, 30, 20, 0.95) 100%);
-    border-radius: 16px;
-    padding: 18px 20px;
-    width: 263px;
+    border-radius: 10px;
+    padding: 10px 12px;
+    width: 200px;
     z-index: 100;
     backdrop-filter: blur(10px);
     border: 1px solid rgba(244, 164, 96, 0.25);
-    box-shadow:
-        0 4px 24px rgba(0, 0, 0, 0.5),
-        0 0 40px rgba(244, 164, 96, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .side-panel.left-panel {
-    left: 20px;
+    left: 15px;
 }
 
 .side-panel.right-panel {
-    right: 20px;
+    right: 15px;
 }
 
 .side-panel > h4 {
-    font-size: 1rem;
+    font-size: 0.7rem;
     text-align: center;
-    margin-bottom: 14px;
+    margin-bottom: 8px;
     color: #f4a460;
     text-transform: uppercase;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.15em;
     font-weight: 700;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
     border-bottom: 1px solid rgba(244, 164, 96, 0.2);
-    padding-bottom: 12px;
+    padding-bottom: 6px;
 }
 
 /* Standings list - two sections, top 4 each */
 .standings-section {
-    margin-bottom: 10px;
+    margin-bottom: 6px;
 }
 
 .standings-section:last-child {
@@ -1000,27 +1141,27 @@ input::placeholder {
 }
 
 .standings-title {
-    font-size: 0.7rem;
+    font-size: 0.6rem;
     color: rgba(255,255,255,0.5);
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    padding-bottom: 3px;
-    margin-bottom: 3px;
+    padding-bottom: 2px;
+    margin-bottom: 2px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
 .standings-list .rank-row {
     display: grid;
-    grid-template-columns: 22px 1fr 36px;
-    gap: 4px;
-    font-size: 0.8rem;
-    padding: 2px 0;
+    grid-template-columns: 18px 1fr 30px;
+    gap: 3px;
+    font-size: 0.7rem;
+    padding: 1px 0;
     align-items: center;
 }
 
 .standings-list .rank-pos {
     text-align: center;
-    font-size: 0.75rem;
+    font-size: 0.65rem;
 }
 
 .standings-list .rank-name {
@@ -1031,7 +1172,7 @@ input::placeholder {
 
 .standings-list .rank-val {
     text-align: right;
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     color: rgba(255,255,255,0.7);
 }
 
@@ -1047,12 +1188,12 @@ input::placeholder {
 .side-panel table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 1rem;
+    font-size: 0.75rem;
 }
 
 .side-panel th,
 .side-panel td {
-    padding: 8px 6px;
+    padding: 4px 3px;
     text-align: center;
     border-bottom: 1px solid rgba(255,255,255,0.08);
 }
@@ -1060,9 +1201,9 @@ input::placeholder {
 .side-panel th {
     font-weight: 600;
     background: rgba(0,0,0,0.25);
-    font-size: 0.85rem;
+    font-size: 0.65rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.03em;
     color: rgba(255, 255, 255, 0.6);
 }
 
@@ -1081,15 +1222,15 @@ input::placeholder {
 }
 
 .game-buttons {
-    margin-top: 12px;
+    margin-top: 8px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 5px;
 }
 
 .game-buttons .btn {
-    font-size: 0.8rem;
-    padding: 10px 12px;
+    font-size: 0.7rem;
+    padding: 6px 8px;
     width: 100%;
 }
 
@@ -1346,6 +1487,181 @@ input::placeholder {
 .suit-diamonds::after { content: "♦"; }
 .suit-clubs::after { content: "♣"; }
 .suit-spades::after { content: "♠"; }
+
+/* ============================================
+   New Card System - Persistent Card Elements
+   ============================================ */
+
+/* Card Layer - container for all persistent cards */
+#card-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 500;
+    perspective: 1000px;
+}
+
+#card-layer .real-card {
+    pointer-events: auto;
+}
+
+/* Card Slot - only used when USE_NEW_CARD_SYSTEM is true */
+.card-slot {
+    display: none;
+}
+
+/* Real Card - persistent card element with 3D structure */
+.real-card {
+    position: fixed;
+    border-radius: 6px;
+    perspective: 1000px;
+    z-index: 501;
+    cursor: pointer;
+    transition: box-shadow 0.2s, opacity 0.2s;
+}
+
+.real-card:hover {
+    z-index: 510;
+}
+
+.real-card .card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.4s ease-in-out;
+}
+
+.real-card .card-inner.flipped {
+    transform: rotateY(180deg);
+}
+
+.real-card .card-face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Card Front */
+.real-card .card-face-front {
+    background: linear-gradient(145deg, #fff 0%, #f5f5f5 100%);
+    border: 2px solid #ddd;
+    color: #333;
+    font-size: clamp(1.8rem, 2.2vw, 2.8rem);
+    line-height: 1.1;
+}
+
+.real-card .card-face-front.red {
+    color: #c0392b;
+}
+
+.real-card .card-face-front.black {
+    color: #2c3e50;
+}
+
+.real-card .card-face-front.joker {
+    color: #9b59b6;
+}
+
+.real-card .card-face-front .joker-icon {
+    font-size: 1.5em;
+    line-height: 1;
+}
+
+.real-card .card-face-front .joker-label {
+    font-size: 0.4em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Card Back */
+.real-card .card-face-back {
+    background-color: #c41e3a;
+    background-image:
+        linear-gradient(45deg, rgba(255,255,255,0.25) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,0.25) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.25) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.25) 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+    border: 3px solid #8b1528;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: clamp(1.8rem, 2.5vw, 3rem);
+    transform: rotateY(180deg);
+}
+
+/* Card States */
+.real-card.moving,
+.real-card.anim-card.moving {
+    z-index: 600;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                top 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.3s ease-out;
+    filter: drop-shadow(0 0 20px rgba(244, 164, 96, 0.8));
+    transform: scale(1.08) rotate(-3deg);
+}
+
+/* Animation card - temporary cards used for animations */
+.real-card.anim-card {
+    z-index: 700;
+    pointer-events: none;
+}
+
+.real-card.anim-card .card-inner {
+    transition: transform 0.4s ease-in-out;
+}
+
+.real-card.holding {
+    z-index: 550;
+    box-shadow: 0 0 20px rgba(244, 164, 96, 0.6),
+                0 4px 15px rgba(0, 0, 0, 0.4);
+    transform: scale(1.08);
+}
+
+.real-card.clickable {
+    box-shadow: 0 0 0 2px rgba(244, 164, 96, 0.5);
+}
+
+.real-card.clickable:hover {
+    box-shadow: 0 0 0 3px #f4a460,
+                0 4px 12px rgba(0, 0, 0, 0.3);
+    transform: scale(1.02);
+}
+
+.real-card.selected {
+    box-shadow: 0 0 0 4px #fff, 0 0 15px 5px #f4a460;
+    transform: scale(1.06);
+    z-index: 520;
+}
+
+.real-card.drawing {
+    z-index: 590;
+}
+
+/* Deck card styling in new system */
+#deck.new-system {
+    cursor: pointer;
+    position: relative;
+}
+
+/* Discard styling for new system */
+#discard.new-system.holding {
+    box-shadow: none;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px dashed rgba(244, 164, 96, 0.5);
+}
 
 /* Modal */
 .modal {

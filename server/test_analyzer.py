@@ -40,9 +40,6 @@ class TestCardValues:
         opts = {'super_kings': True}
         assert get_card_value('K', opts) == -2
 
-        opts = {'lucky_sevens': True}
-        assert get_card_value('7', opts) == 0
-
         opts = {'ten_penny': True}
         assert get_card_value('10', opts) == 1
 

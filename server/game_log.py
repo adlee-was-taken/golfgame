@@ -76,14 +76,11 @@ class GameLogger:
             "use_jokers": options.use_jokers,
             "lucky_swing": options.lucky_swing,
             "super_kings": options.super_kings,
-            "lucky_sevens": options.lucky_sevens,
             "ten_penny": options.ten_penny,
             "knock_bonus": options.knock_bonus,
             "underdog_bonus": options.underdog_bonus,
             "tied_shame": options.tied_shame,
             "blackjack": options.blackjack,
-            "queens_wild": options.queens_wild,
-            "four_of_a_kind": options.four_of_a_kind,
             "eagle_eye": options.eagle_eye,
         }
 
