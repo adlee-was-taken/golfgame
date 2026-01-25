@@ -138,7 +138,9 @@ class GolfGame {
         // Game elements
         this.currentRoundSpan = document.getElementById('current-round');
         this.totalRoundsSpan = document.getElementById('total-rounds');
-        this.deckCountSpan = document.getElementById('deck-count');
+        this.turnInfo = document.getElementById('turn-info');
+        this.leaderInfo = document.getElementById('leader-info');
+        this.yourScore = document.getElementById('your-score');
         this.muteBtn = document.getElementById('mute-btn');
         this.opponentsRow = document.getElementById('opponents-row');
         this.deck = document.getElementById('deck');
@@ -762,7 +764,33 @@ class GolfGame {
         // Update header
         this.currentRoundSpan.textContent = this.gameState.current_round;
         this.totalRoundsSpan.textContent = this.gameState.total_rounds;
-        this.deckCountSpan.textContent = this.gameState.deck_remaining;
+
+        // Update turn info
+        const currentPlayer = this.gameState.players.find(p => p.id === this.gameState.current_player_id);
+        if (currentPlayer) {
+            if (currentPlayer.id === this.playerId) {
+                this.turnInfo.textContent = "Your turn!";
+                this.turnInfo.style.color = "#f4a460";
+            } else {
+                this.turnInfo.textContent = `${currentPlayer.name}'s turn`;
+                this.turnInfo.style.color = "#fff";
+            }
+        }
+
+        // Update leader info (by total score)
+        const sortedByTotal = [...this.gameState.players].sort((a, b) => a.total_score - b.total_score);
+        const leader = sortedByTotal[0];
+        if (leader && this.gameState.current_round > 1) {
+            this.leaderInfo.textContent = `Leader: ${leader.name} (${leader.total_score})`;
+        } else {
+            this.leaderInfo.textContent = "";
+        }
+
+        // Update your score
+        const me = this.gameState.players.find(p => p.id === this.playerId);
+        if (me) {
+            this.yourScore.textContent = me.round_score ?? 0;
+        }
 
         // Update discard pile
         if (this.gameState.discard_top) {
