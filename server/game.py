@@ -5,6 +5,14 @@ from dataclasses import dataclass, field
 from typing import Optional
 from enum import Enum
 
+from constants import (
+    DEFAULT_CARD_VALUES,
+    SUPER_KINGS_VALUE,
+    LUCKY_SEVENS_VALUE,
+    TEN_PENNY_VALUE,
+    LUCKY_SWING_JOKER_VALUE,
+)
+
 
 class Suit(Enum):
     HEARTS = "hearts"
@@ -30,22 +38,34 @@ class Rank(Enum):
     JOKER = "★"
 
 
-RANK_VALUES = {
-    Rank.ACE: 1,
-    Rank.TWO: -2,
-    Rank.THREE: 3,
-    Rank.FOUR: 4,
-    Rank.FIVE: 5,
-    Rank.SIX: 6,
-    Rank.SEVEN: 7,
-    Rank.EIGHT: 8,
-    Rank.NINE: 9,
-    Rank.TEN: 10,
-    Rank.JACK: 10,
-    Rank.QUEEN: 10,
-    Rank.KING: 0,
-    Rank.JOKER: -2,
-}
+# Derive RANK_VALUES from DEFAULT_CARD_VALUES (single source of truth in constants.py)
+RANK_VALUES = {rank: DEFAULT_CARD_VALUES[rank.value] for rank in Rank}
+
+
+def get_card_value(card: "Card", options: Optional["GameOptions"] = None) -> int:
+    """
+    Get point value for a card, with house rules applied.
+
+    This is the single source of truth for Card object value calculations.
+    Use this instead of card.value() when house rules need to be considered.
+
+    Args:
+        card: Card object to evaluate
+        options: Optional GameOptions with house rule flags
+
+    Returns:
+        Point value for the card
+    """
+    if options:
+        if card.rank == Rank.JOKER:
+            return LUCKY_SWING_JOKER_VALUE if options.lucky_swing else RANK_VALUES[Rank.JOKER]
+        if card.rank == Rank.KING and options.super_kings:
+            return SUPER_KINGS_VALUE
+        if card.rank == Rank.SEVEN and options.lucky_sevens:
+            return LUCKY_SEVENS_VALUE
+        if card.rank == Rank.TEN and options.ten_penny:
+            return TEN_PENNY_VALUE
+    return RANK_VALUES[card.rank]
 
 
 @dataclass
@@ -128,19 +148,6 @@ class Player:
         if len(self.cards) != 6:
             return 0
 
-        def get_card_value(card: Card) -> int:
-            """Get card value with house rules applied."""
-            if options:
-                if card.rank == Rank.JOKER:
-                    return -5 if options.lucky_swing else -2
-                if card.rank == Rank.KING and options.super_kings:
-                    return -2
-                if card.rank == Rank.SEVEN and options.lucky_sevens:
-                    return 0
-                if card.rank == Rank.TEN and options.ten_penny:
-                    return 1
-            return card.value()
-
         def cards_match(card1: Card, card2: Card) -> bool:
             """Check if two cards match for pairing (with Queens Wild support)."""
             if card1.rank == card2.rank:
@@ -190,9 +197,9 @@ class Player:
                 continue
             else:
                 if top_idx not in four_of_kind_positions:
-                    total += get_card_value(top_card)
+                    total += get_card_value(top_card, options)
                 if bottom_idx not in four_of_kind_positions:
-                    total += get_card_value(bottom_card)
+                    total += get_card_value(bottom_card, options)
 
         self.score = total
         return total
@@ -256,6 +263,22 @@ class Game:
     @property
     def flip_on_discard(self) -> bool:
         return self.options.flip_on_discard
+
+    def get_card_values(self) -> dict:
+        """Get current card values with house rules applied."""
+        values = DEFAULT_CARD_VALUES.copy()
+
+        # Apply house rule modifications
+        if self.options.super_kings:
+            values['K'] = SUPER_KINGS_VALUE
+        if self.options.lucky_sevens:
+            values['7'] = LUCKY_SEVENS_VALUE
+        if self.options.ten_penny:
+            values['10'] = TEN_PENNY_VALUE
+        if self.options.lucky_swing:
+            values['★'] = LUCKY_SWING_JOKER_VALUE
+
+        return values
 
     def add_player(self, player: Player) -> bool:
         if len(self.players) >= 6:
@@ -606,4 +629,5 @@ class Game:
             ),
             "initial_flips": self.options.initial_flips,
             "flip_on_discard": self.flip_on_discard,
+            "card_values": self.get_card_values(),
         }

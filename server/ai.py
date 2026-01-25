@@ -6,20 +6,16 @@ from dataclasses import dataclass
 from typing import Optional
 from enum import Enum
 
-from game import Card, Player, Game, GamePhase, GameOptions, RANK_VALUES, Rank
+from game import Card, Player, Game, GamePhase, GameOptions, RANK_VALUES, Rank, get_card_value
 
 
+# Alias for backwards compatibility - use the centralized function from game.py
 def get_ai_card_value(card: Card, options: GameOptions) -> int:
-    """Get card value with house rules applied for AI decisions."""
-    if card.rank == Rank.JOKER:
-        return -5 if options.lucky_swing else -2
-    if card.rank == Rank.KING and options.super_kings:
-        return -2
-    if card.rank == Rank.SEVEN and options.lucky_sevens:
-        return 0
-    if card.rank == Rank.TEN and options.ten_penny:
-        return 0
-    return card.value()
+    """Get card value with house rules applied for AI decisions.
+
+    This is an alias for game.get_card_value() for backwards compatibility.
+    """
+    return get_card_value(card, options)
 
 
 def can_make_pair(card1: Card, card2: Card, options: GameOptions) -> bool:

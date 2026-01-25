@@ -280,29 +280,35 @@ input::placeholder {
 
 /* Game Screen */
 .game-header {
-    display: flex;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
     align-items: center;
-    gap: clamp(15px, 3vw, 40px);
-    padding: 6px 15px;
-    background: rgba(0,0,0,0.2);
-    border-radius: 6px;
-    font-size: 0.85rem;
-    width: calc(100vw - 250px);
-    margin-left: 10px;
+    padding: 10px 25px;
+    background: rgba(0,0,0,0.35);
+    border-radius: 0;
+    font-size: 0.9rem;
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    box-sizing: border-box;
+}
+
+.game-header .round-info {
+    justify-self: start;
+    font-weight: 600;
 }
 
 .game-header .turn-info {
+    justify-self: center;
     font-weight: 600;
     color: #f4a460;
 }
 
-.game-header .leader-info {
-    opacity: 0.9;
+.game-header .score-info {
+    justify-self: center;
 }
 
-.game-header .score-info {
-    opacity: 0.9;
+.game-header .mute-btn {
+    justify-self: end;
 }
 
 .mute-btn {
@@ -323,13 +329,13 @@ input::placeholder {
 
 /* Card Styles */
 .card {
-    width: clamp(60px, 6vw, 80px);
-    height: clamp(84px, 8.4vw, 112px);
+    width: clamp(65px, 5.5vw, 100px);
+    height: clamp(91px, 7.7vw, 140px);
     border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(1.2rem, 1.4vw, 1.7rem);
+    font-size: clamp(2rem, 2.5vw, 3.2rem);
     font-weight: bold;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
@@ -386,8 +392,8 @@ input::placeholder {
 /* Card Grid */
 .card-grid {
     display: grid;
-    grid-template-columns: repeat(3, clamp(60px, 6vw, 80px));
-    gap: clamp(6px, 0.8vw, 12px);
+    grid-template-columns: repeat(3, clamp(65px, 5.5vw, 100px));
+    gap: clamp(8px, 0.8vw, 14px);
     justify-content: center;
 }
 
@@ -415,11 +421,10 @@ input::placeholder {
     flex-wrap: nowrap;
     justify-content: center;
     align-items: flex-end;
-    gap: clamp(10px, 2vw, 30px);
-    min-height: clamp(100px, 12vw, 150px);
-    padding: 0 10px;
-    width: calc(100vw - 240px);
-    margin-left: 10px;
+    gap: clamp(12px, 1.8vw, 35px);
+    min-height: clamp(120px, 14vw, 200px);
+    padding: 0 20px;
+    width: 100%;
 }
 
 /* Arch layout - middle items higher, edges lower with rotation for "around the table" feel */
@@ -566,15 +571,15 @@ input::placeholder {
 /* Opponent Areas */
 .opponent-area {
     background: rgba(0,0,0,0.2);
-    border-radius: 6px;
-    padding: clamp(3px, 0.4vw, 6px) clamp(5px, 0.6vw, 10px) clamp(5px, 0.6vw, 10px);
+    border-radius: 8px;
+    padding: clamp(4px, 0.5vw, 10px) clamp(6px, 0.7vw, 14px) clamp(6px, 0.7vw, 14px);
     text-align: center;
 }
 
 .opponent-area h4 {
-    font-size: clamp(0.65rem, 0.75vw, 0.85rem);
-    margin: 0 0 4px 0;
-    padding: clamp(2px, 0.3vw, 4px) clamp(6px, 0.8vw, 10px);
+    font-size: clamp(0.7rem, 0.8vw, 1rem);
+    margin: 0 0 6px 0;
+    padding: clamp(3px, 0.35vw, 6px) clamp(8px, 0.9vw, 14px);
     background: rgba(244, 164, 96, 0.5);
     border-radius: 4px;
     white-space: nowrap;
@@ -584,15 +589,15 @@ input::placeholder {
 
 .opponent-area .card-grid {
     display: grid;
-    grid-template-columns: repeat(3, clamp(40px, 4.5vw, 60px));
-    gap: clamp(3px, 0.4vw, 6px);
+    grid-template-columns: repeat(3, clamp(45px, 4vw, 75px));
+    gap: clamp(4px, 0.4vw, 8px);
 }
 
 .opponent-area .card {
-    width: clamp(40px, 4.5vw, 60px);
-    height: clamp(56px, 6.3vw, 84px);
-    font-size: clamp(0.75rem, 0.9vw, 1.1rem);
-    border-radius: 4px;
+    width: clamp(45px, 4vw, 75px);
+    height: clamp(63px, 5.6vw, 105px);
+    font-size: clamp(1.3rem, 1.5vw, 2.2rem);
+    border-radius: 5px;
 }
 
 .opponent-area.current-turn {
@@ -647,13 +652,14 @@ input::placeholder {
 #game-screen.active {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
     position: relative;
+    padding: 10px;
 }
 
 .game-layout {
     display: flex;
-    justify-content: flex-start;
+    justify-content: center;
     width: 100%;
     align-items: flex-start;
 }
@@ -664,86 +670,136 @@ input::placeholder {
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    width: calc(100vw - 230px);
+    width: 100%;
 }
 
-/* Scoreboard Panel - positioned as overlay with cool styling */
-.scoreboard-panel {
+/* Side Panels - positioned in bottom corners */
+.side-panel {
     position: fixed;
-    top: 15px;
-    right: 15px;
-    background: linear-gradient(145deg, rgba(20, 60, 40, 0.95) 0%, rgba(10, 35, 25, 0.98) 100%);
-    border-radius: 12px;
-    padding: 12px;
-    width: 210px;
-    flex-shrink: 0;
-    overflow: hidden;
+    bottom: 20px;
+    background: linear-gradient(145deg, rgba(15, 50, 35, 0.92) 0%, rgba(8, 30, 20, 0.95) 100%);
+    border-radius: 14px;
+    padding: 16px 18px;
+    width: 235px;
     z-index: 100;
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(244, 164, 96, 0.3);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(244, 164, 96, 0.25);
     box-shadow:
-        0 4px 20px rgba(0, 0, 0, 0.4),
-        0 0 30px rgba(244, 164, 96, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        0 4px 24px rgba(0, 0, 0, 0.5),
+        0 0 40px rgba(244, 164, 96, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.scoreboard-panel > h4 {
+.side-panel.left-panel {
+    left: 20px;
+}
+
+.side-panel.right-panel {
+    right: 20px;
+}
+
+.side-panel > h4 {
     font-size: 0.9rem;
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     color: #f4a460;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.2em;
     font-weight: 700;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    border-bottom: 1px solid rgba(244, 164, 96, 0.2);
+    padding-bottom: 10px;
 }
 
-.scoreboard-panel table {
+/* Standings list */
+.standings-list {
+    font-size: 0.95rem;
+}
+
+.standings-list .standing-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px;
+    border-radius: 5px;
+    margin-bottom: 4px;
+}
+
+.standings-list .standing-row.leader {
+    background: rgba(244, 164, 96, 0.2);
+    border-left: 3px solid #f4a460;
+}
+
+.standings-list .standing-row.you {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.standings-list .standing-pos {
+    font-weight: 700;
+    color: #f4a460;
+    width: 20px;
+}
+
+.standings-list .standing-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.standings-list .standing-score {
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+/* Score table */
+.side-panel table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
 }
 
-.scoreboard-panel th,
-.scoreboard-panel td {
-    padding: 6px 5px;
+.side-panel th,
+.side-panel td {
+    padding: 7px 5px;
     text-align: center;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
-.scoreboard-panel th {
+.side-panel th {
     font-weight: 600;
-    background: rgba(0,0,0,0.3);
-    font-size: 0.7rem;
+    background: rgba(0,0,0,0.25);
+    font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.6);
 }
 
-.scoreboard-panel td:first-child {
+.side-panel td:first-child {
     text-align: left;
     font-weight: 500;
 }
 
-.scoreboard-panel tr.winner {
-    background: linear-gradient(90deg, rgba(244, 164, 96, 0.4) 0%, rgba(244, 164, 96, 0.2) 100%);
+.side-panel tr.winner {
+    background: linear-gradient(90deg, rgba(244, 164, 96, 0.35) 0%, rgba(244, 164, 96, 0.15) 100%);
 }
 
-.scoreboard-panel tr.current-player {
-    background: rgba(244, 164, 96, 0.2);
+.side-panel tr.current-player {
+    background: rgba(244, 164, 96, 0.15);
     box-shadow: inset 3px 0 0 #f4a460;
 }
 
 .game-buttons {
-    margin-top: 8px;
+    margin-top: 10px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
 }
 
 .game-buttons .btn {
-    font-size: 0.75rem;
-    padding: 6px 10px;
+    font-size: 0.7rem;
+    padding: 8px 10px;
+    width: 100%;
 }
 
 /* Rankings Announcement */

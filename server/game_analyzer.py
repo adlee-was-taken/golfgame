@@ -14,6 +14,7 @@ from typing import Optional
 from enum import Enum
 
 from game import Rank, RANK_VALUES, GameOptions
+from constants import get_card_value_for_rank
 
 
 # =============================================================================
@@ -21,25 +22,12 @@ from game import Rank, RANK_VALUES, GameOptions
 # =============================================================================
 
 def get_card_value(rank: str, options: Optional[dict] = None) -> int:
-    """Get point value for a card rank string."""
-    rank_map = {
-        'A': 1, '2': -2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
-        '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 0, '★': -2
-    }
-    value = rank_map.get(rank, 0)
+    """Get point value for a card rank string.
 
-    # Apply house rules if provided
-    if options:
-        if rank == '★' and options.get('lucky_swing'):
-            value = -5
-        if rank == 'K' and options.get('super_kings'):
-            value = -2
-        if rank == '7' and options.get('lucky_sevens'):
-            value = 0
-        if rank == '10' and options.get('ten_penny'):
-            value = 1
-
-    return value
+    This is a wrapper around constants.get_card_value_for_rank() for
+    backwards compatibility with existing analyzer code.
+    """
+    return get_card_value_for_rank(rank, options)
 
 
 def rank_quality(rank: str, options: Optional[dict] = None) -> str:

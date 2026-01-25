@@ -139,7 +139,6 @@ class GolfGame {
         this.currentRoundSpan = document.getElementById('current-round');
         this.totalRoundsSpan = document.getElementById('total-rounds');
         this.turnInfo = document.getElementById('turn-info');
-        this.leaderInfo = document.getElementById('leader-info');
         this.yourScore = document.getElementById('your-score');
         this.muteBtn = document.getElementById('mute-btn');
         this.opponentsRow = document.getElementById('opponents-row');
@@ -154,6 +153,7 @@ class GolfGame {
         this.toast = document.getElementById('toast');
         this.scoreboard = document.getElementById('scoreboard');
         this.scoreTable = document.getElementById('score-table').querySelector('tbody');
+        this.standingsList = document.getElementById('standings-list');
         this.gameButtons = document.getElementById('game-buttons');
         this.nextRoundBtn = document.getElementById('next-round-btn');
         this.newGameBtn = document.getElementById('new-game-btn');
@@ -739,6 +739,43 @@ class GolfGame {
         return suit === 'hearts' || suit === 'diamonds';
     }
 
+    calculateShowingScore(cards) {
+        if (!cards || cards.length !== 6) return 0;
+
+        // Use card values from server (includes house rules) or defaults
+        const cardValues = this.gameState?.card_values || {
+            'A': 1, '2': -2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
+            '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 0, '★': -2
+        };
+
+        const getCardValue = (card) => {
+            if (!card.face_up) return 0;
+            return cardValues[card.rank] ?? 0;
+        };
+
+        // Check for column pairs (cards in same column cancel out if matching)
+        let total = 0;
+        for (let col = 0; col < 3; col++) {
+            const topCard = cards[col];
+            const bottomCard = cards[col + 3];
+
+            const topUp = topCard.face_up;
+            const bottomUp = bottomCard.face_up;
+
+            // If both face up and matching rank, they cancel (score 0)
+            if (topUp && bottomUp && topCard.rank === bottomCard.rank) {
+                // Matching pair = 0 points for both
+                continue;
+            }
+
+            // Otherwise add individual values
+            total += getCardValue(topCard);
+            total += getCardValue(bottomCard);
+        }
+
+        return total;
+    }
+
     getSuitSymbol(suit) {
         const symbols = {
             hearts: '♥',
@@ -777,19 +814,12 @@ class GolfGame {
             }
         }
 
-        // Update leader info (by total score)
-        const sortedByTotal = [...this.gameState.players].sort((a, b) => a.total_score - b.total_score);
-        const leader = sortedByTotal[0];
-        if (leader && this.gameState.current_round > 1) {
-            this.leaderInfo.textContent = `Leader: ${leader.name} (${leader.total_score})`;
-        } else {
-            this.leaderInfo.textContent = "";
-        }
-
-        // Update your score
+        // Update your score (points currently showing on your cards)
         const me = this.gameState.players.find(p => p.id === this.playerId);
         if (me) {
-            this.yourScore.textContent = me.round_score ?? 0;
+            // Calculate visible score from face-up cards
+            const showingScore = this.calculateShowingScore(me.cards);
+            this.yourScore.textContent = showingScore;
         }
 
         // Update discard pile
@@ -833,7 +863,7 @@ class GolfGame {
                 div.classList.add('current-turn');
             }
 
-            const displayName = player.name.length > 8 ? player.name.substring(0, 7) + '…' : player.name;
+            const displayName = player.name.length > 12 ? player.name.substring(0, 11) + '…' : player.name;
 
             div.innerHTML = `
                 <h4>${displayName}${player.all_face_up ? ' ✓' : ''}</h4>
@@ -895,6 +925,10 @@ class GolfGame {
     updateScorePanel() {
         if (!this.gameState) return;
 
+        // Update standings (left panel)
+        this.updateStandings();
+
+        // Update score table (right panel)
         this.scoreTable.innerHTML = '';
 
         this.gameState.players.forEach(player => {
@@ -906,8 +940,8 @@ class GolfGame {
             }
 
             // Truncate long names
-            const displayName = player.name.length > 10
-                ? player.name.substring(0, 9) + '…'
+            const displayName = player.name.length > 12
+                ? player.name.substring(0, 11) + '…'
                 : player.name;
 
             const roundScore = player.score !== null ? player.score : '-';
@@ -920,6 +954,39 @@ class GolfGame {
                 <td>${roundsWon}</td>
             `;
             this.scoreTable.appendChild(tr);
+        });
+    }
+
+    updateStandings() {
+        if (!this.gameState || !this.standingsList) return;
+
+        // Sort players by total score (lowest is best in golf)
+        const sorted = [...this.gameState.players].sort((a, b) => a.total_score - b.total_score);
+
+        this.standingsList.innerHTML = '';
+
+        sorted.forEach((player, index) => {
+            const div = document.createElement('div');
+            div.className = 'standing-row';
+
+            if (index === 0 && player.total_score < sorted[sorted.length - 1]?.total_score) {
+                div.classList.add('leader');
+            }
+            if (player.id === this.playerId) {
+                div.classList.add('you');
+            }
+
+            const displayName = player.name.length > 12
+                ? player.name.substring(0, 11) + '…'
+                : player.name;
+
+            div.innerHTML = `
+                <span class="standing-pos">${index + 1}.</span>
+                <span class="standing-name">${displayName}</span>
+                <span class="standing-score">${player.total_score} pts</span>
+            `;
+
+            this.standingsList.appendChild(div);
         });
     }
 
@@ -959,8 +1026,8 @@ class GolfGame {
             const roundsWon = score.rounds_won || 0;
 
             // Truncate long names
-            const displayName = score.name.length > 10
-                ? score.name.substring(0, 9) + '…'
+            const displayName = score.name.length > 12
+                ? score.name.substring(0, 11) + '…'
                 : score.name;
 
             if (total === minScore) {
@@ -1023,7 +1090,7 @@ class GolfGame {
                 prevPoints = p.total;
             }
             const medal = pointsRank === 0 ? '🥇' : pointsRank === 1 ? '🥈' : pointsRank === 2 ? '🥉' : `${pointsRank + 1}.`;
-            const name = p.name.length > 8 ? p.name.substring(0, 7) + '…' : p.name;
+            const name = p.name.length > 12 ? p.name.substring(0, 11) + '…' : p.name;
             return `<div class="rank-row ${pointsRank === 0 ? 'leader' : ''}"><span class="rank-pos">${medal}</span><span class="rank-name">${name}</span><span class="rank-val">${p.total}pt</span></div>`;
         }).join('');
 
@@ -1038,7 +1105,7 @@ class GolfGame {
             // No medal for 0 wins
             const medal = p.rounds_won === 0 ? '-' :
                           holesRank === 0 ? '🥇' : holesRank === 1 ? '🥈' : holesRank === 2 ? '🥉' : `${holesRank + 1}.`;
-            const name = p.name.length > 8 ? p.name.substring(0, 7) + '…' : p.name;
+            const name = p.name.length > 12 ? p.name.substring(0, 11) + '…' : p.name;
             return `<div class="rank-row ${holesRank === 0 && p.rounds_won > 0 ? 'leader' : ''}"><span class="rank-pos">${medal}</span><span class="rank-name">${name}</span><span class="rank-val">${p.rounds_won}W</span></div>`;
         }).join('');
 

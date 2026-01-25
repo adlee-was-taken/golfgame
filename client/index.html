@@ -15,7 +15,7 @@
 
             <div class="form-group">
                 <label for="player-name">Your Name</label>
-                <input type="text" id="player-name" placeholder="Enter your name" maxlength="20">
+                <input type="text" id="player-name" placeholder="Enter your name" maxlength="12">
             </div>
 
             <div class="button-group">
@@ -192,8 +192,7 @@
                     <div class="game-header">
                         <div class="round-info">Hole <span id="current-round">1</span>/<span id="total-rounds">9</span></div>
                         <div class="turn-info" id="turn-info">Your turn</div>
-                        <div class="leader-info" id="leader-info">Leader: -</div>
-                        <div class="score-info">You: <span id="your-score">0</span> pts</div>
+                        <div class="score-info">Showing: <span id="your-score">0</span></div>
                         <button id="mute-btn" class="mute-btn" title="Toggle sound">🔊</button>
                     </div>
 
@@ -227,7 +226,14 @@
                     </div>
                 </div>
 
-                <div id="scoreboard" class="scoreboard-panel">
+                <!-- Left panel: Standings -->
+                <div id="standings-panel" class="side-panel left-panel">
+                    <h4>Standings</h4>
+                    <div id="standings-list" class="standings-list"></div>
+                </div>
+
+                <!-- Right panel: Scores -->
+                <div id="scoreboard" class="side-panel right-panel">
                     <h4>Scores</h4>
                     <table id="score-table">
                         <thead>
