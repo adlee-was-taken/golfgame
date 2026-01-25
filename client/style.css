@@ -463,8 +463,9 @@ input::placeholder {
 /* Game Screen */
 .game-header {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-template-columns: auto 1fr auto auto auto;
     align-items: center;
+    gap: 15px;
     padding: 10px 25px;
     background: rgba(0,0,0,0.35);
     border-radius: 0;
@@ -475,22 +476,21 @@ input::placeholder {
 }
 
 .game-header .round-info {
-    justify-self: start;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .game-header .turn-info {
-    justify-self: center;
     font-weight: 600;
     color: #f4a460;
+    white-space: nowrap;
 }
 
 .game-header .score-info {
-    justify-self: center;
+    white-space: nowrap;
 }
 
 .game-header .header-buttons {
-    justify-self: end;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -517,16 +517,17 @@ input::placeholder {
     background: rgba(255,255,255,0.1);
 }
 
-/* Active Rules Bar */
+/* Active Rules (in header) */
 .active-rules-bar {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 6px 20px;
-    background: rgba(0, 0, 0, 0.25);
-    font-size: 0.8rem;
-    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.85rem;
+}
+
+.active-rules-bar.hidden {
+    display: none;
 }
 
 .active-rules-bar .rules-label {
@@ -536,18 +537,17 @@ input::placeholder {
 
 .active-rules-bar .rules-list {
     display: flex;
-    gap: 6px;
+    gap: 5px;
     flex-wrap: wrap;
-    justify-content: center;
 }
 
 .active-rules-bar .rule-tag {
-    background: rgba(244, 164, 96, 0.25);
+    background: rgba(244, 164, 96, 0.3);
     color: #f4a460;
     padding: 2px 8px;
     border-radius: 4px;
     font-size: 0.75rem;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 /* Card Styles */

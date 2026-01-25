@@ -1,6 +1,22 @@
-# Card values - Single source of truth for all card scoring
-# Per RULES.md: A=1, 2=-2, 3-10=face, J/Q=10, K=0, Joker=-2
-DEFAULT_CARD_VALUES = {
+"""
+Card value constants for 6-Card Golf.
+
+This module is the single source of truth for all card point values.
+House rule modifications are defined here and applied in game.py.
+
+Standard Golf Scoring:
+    - Ace: 1 point
+    - Two: -2 points (special - only negative non-joker)
+    - 3-9: Face value
+    - 10, Jack, Queen: 10 points
+    - King: 0 points
+    - Joker: -2 points (when enabled)
+"""
+
+from typing import Optional
+
+# Base card values (no house rules applied)
+DEFAULT_CARD_VALUES: dict[str, int] = {
     'A': 1,
     '2': -2,
     '3': 3,
@@ -14,17 +30,19 @@ DEFAULT_CARD_VALUES = {
     'J': 10,
     'Q': 10,
     'K': 0,
-    '★': -2,  # Joker (standard)
+    '★': -2,  # Joker (standard mode)
 }
 
-# House rule modifications (per RULES.md House Rules section)
-SUPER_KINGS_VALUE = -2        # K worth -2 instead of 0
-LUCKY_SEVENS_VALUE = 0        # 7 worth 0 instead of 7
-TEN_PENNY_VALUE = 1           # 10 worth 1 instead of 10
-LUCKY_SWING_JOKER_VALUE = -5  # Joker worth -5 in Lucky Swing mode
+# --- House Rule Value Overrides ---
+SUPER_KINGS_VALUE: int = -2        # Kings worth -2 instead of 0
+TEN_PENNY_VALUE: int = 1           # 10s worth 1 instead of 10
+LUCKY_SWING_JOKER_VALUE: int = -5  # Single joker worth -5
 
 
-def get_card_value_for_rank(rank_str: str, options: dict | None = None) -> int:
+def get_card_value_for_rank(
+    rank_str: str,
+    options: Optional[dict] = None,
+) -> int:
     """
     Get point value for a card rank string, with house rules applied.
 
@@ -45,8 +63,6 @@ def get_card_value_for_rank(rank_str: str, options: dict | None = None) -> int:
             value = LUCKY_SWING_JOKER_VALUE
         elif rank_str == 'K' and options.get('super_kings'):
             value = SUPER_KINGS_VALUE
-        elif rank_str == '7' and options.get('lucky_sevens'):
-            value = LUCKY_SEVENS_VALUE
         elif rank_str == '10' and options.get('ten_penny'):
             value = TEN_PENNY_VALUE
 

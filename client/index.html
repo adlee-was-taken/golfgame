@@ -127,12 +127,12 @@
                                     <label class="radio-label">
                                         <input type="radio" name="joker-mode" value="lucky-swing">
                                         <span>Lucky Swing</span>
-                                        <span class="rule-desc">1-2-3 decks - 1 Joker, -5 pt</span>
+                                        <span class="rule-desc">1-3 decks: 1 Joker, -5 pts!</span>
                                     </label>
                                     <label class="radio-label">
                                         <input type="radio" name="joker-mode" value="eagle-eye">
                                         <span>Eagle-Eyed</span>
-                                        <span class="rule-desc">★ = +2 pts, -4 pts paired</span>
+                                        <span class="rule-desc">2 per deck, +2 pts / -4 paired</span>
                                     </label>
                                 </div>
                             </div>
@@ -204,17 +204,16 @@
                 <div class="game-main">
                     <div class="game-header">
                         <div class="round-info">Hole <span id="current-round">1</span>/<span id="total-rounds">9</span></div>
+                        <div id="active-rules-bar" class="active-rules-bar hidden">
+                            <span class="rules-label">Rules:</span>
+                            <span id="active-rules-list" class="rules-list"></span>
+                        </div>
                         <div class="turn-info" id="turn-info">Your turn</div>
                         <div class="score-info">Showing: <span id="your-score">0</span></div>
                         <div class="header-buttons">
                             <button id="leave-game-btn" class="btn btn-small btn-danger">Leave</button>
                             <button id="mute-btn" class="mute-btn" title="Toggle sound">🔊</button>
                         </div>
-                    </div>
-
-                    <div id="active-rules-bar" class="active-rules-bar hidden">
-                        <span class="rules-label">Rules:</span>
-                        <span id="active-rules-list" class="rules-list"></span>
                     </div>
 
                     <div class="game-table">
