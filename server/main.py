@@ -184,17 +184,14 @@ async def websocket_endpoint(websocket: WebSocket):
                     # House Rules - Point Modifiers
                     lucky_swing=data.get("lucky_swing", False),
                     super_kings=data.get("super_kings", False),
-                    lucky_sevens=data.get("lucky_sevens", False),
                     ten_penny=data.get("ten_penny", False),
                     # House Rules - Bonuses/Penalties
                     knock_bonus=data.get("knock_bonus", False),
                     underdog_bonus=data.get("underdog_bonus", False),
                     tied_shame=data.get("tied_shame", False),
                     blackjack=data.get("blackjack", False),
-                    # House Rules - Gameplay Twists
-                    queens_wild=data.get("queens_wild", False),
-                    four_of_a_kind=data.get("four_of_a_kind", False),
                     eagle_eye=data.get("eagle_eye", False),
+                    wolfpack=data.get("wolfpack", False),
                 )
 
                 # Validate settings
@@ -330,6 +327,37 @@ async def websocket_endpoint(websocket: WebSocket):
                 if current_room:
                     await handle_player_leave(current_room, player_id)
                     current_room = None
+
+            elif msg_type == "leave_game":
+                # Player leaves during an active game
+                if current_room:
+                    await handle_player_leave(current_room, player_id)
+                    current_room = None
+
+            elif msg_type == "end_game":
+                # Host ends the game for everyone
+                if not current_room:
+                    continue
+
+                room_player = current_room.get_player(player_id)
+                if not room_player or not room_player.is_host:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Only the host can end the game",
+                    })
+                    continue
+
+                # Notify all players that the game has ended
+                await current_room.broadcast({
+                    "type": "game_ended",
+                    "reason": "Host ended the game",
+                })
+
+                # Clean up the room
+                for cpu in list(current_room.get_cpu_players()):
+                    current_room.remove_player(cpu.id)
+                room_manager.remove_room(current_room.code)
+                current_room = None
 
     except WebSocketDisconnect:
         if current_room:

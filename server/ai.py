@@ -18,14 +18,9 @@ def get_ai_card_value(card: Card, options: GameOptions) -> int:
     return get_card_value(card, options)
 
 
-def can_make_pair(card1: Card, card2: Card, options: GameOptions) -> bool:
-    """Check if two cards can form a pair (with Queens Wild support)."""
-    if card1.rank == card2.rank:
-        return True
-    if options.queens_wild:
-        if card1.rank == Rank.QUEEN or card2.rank == Rank.QUEEN:
-            return True
-    return False
+def can_make_pair(card1: Card, card2: Card) -> bool:
+    """Check if two cards can form a pair."""
+    return card1.rank == card2.rank
 
 
 def estimate_opponent_min_score(player: Player, game: Game) -> int:
@@ -41,9 +36,117 @@ def estimate_opponent_min_score(player: Player, game: Game) -> int:
     return min_est
 
 
+def get_end_game_pressure(player: Player, game: Game) -> float:
+    """
+    Calculate pressure level based on how close opponents are to going out.
+    Returns 0.0-1.0 where higher means more pressure to improve hand NOW.
+
+    Pressure increases when:
+    - Opponents have few hidden cards (close to going out)
+    - We have many hidden cards (stuck with unknown values)
+    """
+    my_hidden = sum(1 for c in player.cards if not c.face_up)
+
+    # Find the opponent closest to going out
+    min_opponent_hidden = 6
+    for p in game.players:
+        if p.id == player.id:
+            continue
+        opponent_hidden = sum(1 for c in p.cards if not c.face_up)
+        min_opponent_hidden = min(min_opponent_hidden, opponent_hidden)
+
+    # No pressure if opponents have lots of hidden cards
+    if min_opponent_hidden >= 4:
+        return 0.0
+
+    # Pressure scales based on how close opponent is to finishing
+    # 3 hidden = mild pressure (0.4), 2 hidden = medium (0.7), 1 hidden = high (0.9), 0 = max (1.0)
+    base_pressure = {0: 1.0, 1: 0.9, 2: 0.7, 3: 0.4}.get(min_opponent_hidden, 0.0)
+
+    # Increase pressure further if WE have many hidden cards (more unknowns to worry about)
+    hidden_risk_bonus = (my_hidden - 2) * 0.05  # +0.05 per hidden card above 2
+    hidden_risk_bonus = max(0, hidden_risk_bonus)
+
+    return min(1.0, base_pressure + hidden_risk_bonus)
+
+
 def count_rank_in_hand(player: Player, rank: Rank) -> int:
     """Count how many cards of a given rank the player has visible."""
     return sum(1 for c in player.cards if c.face_up and c.rank == rank)
+
+
+def count_visible_cards_by_rank(game: Game) -> dict[Rank, int]:
+    """
+    Count all visible cards of each rank across the entire table.
+    Includes: all face-up player cards + top of discard pile.
+
+    Note: Buried discard cards are NOT counted because they reshuffle
+    back into the deck when it empties.
+    """
+    counts: dict[Rank, int] = {rank: 0 for rank in Rank}
+
+    # Count all face-up cards in all players' hands
+    for player in game.players:
+        for card in player.cards:
+            if card.face_up:
+                counts[card.rank] += 1
+
+    # Count top of discard pile (the only visible discard)
+    discard_top = game.discard_top()
+    if discard_top:
+        counts[discard_top.rank] += 1
+
+    return counts
+
+
+def get_pair_viability(rank: Rank, game: Game, exclude_discard_top: bool = False) -> float:
+    """
+    Calculate how viable it is to pair a card of this rank.
+    Returns 0.0-1.0 where higher means better odds of finding a pair.
+
+    In a standard deck: 4 of each rank (2 Jokers).
+    If you can see N cards of that rank, only (4-N) remain.
+
+    Args:
+        rank: The rank we want to pair
+        exclude_discard_top: If True, don't count discard top (useful when
+                            evaluating taking that card - it won't be visible after)
+    """
+    counts = count_visible_cards_by_rank(game)
+    visible = counts.get(rank, 0)
+
+    # Adjust if we're evaluating the discard top card itself
+    if exclude_discard_top:
+        discard_top = game.discard_top()
+        if discard_top and discard_top.rank == rank:
+            visible = max(0, visible - 1)
+
+    # Cards in deck for this rank
+    max_copies = 2 if rank == Rank.JOKER else 4
+    remaining = max(0, max_copies - visible)
+
+    # Viability scales with remaining copies
+    # 4 remaining = 1.0, 3 = 0.75, 2 = 0.5, 1 = 0.25, 0 = 0.0
+    return remaining / max_copies
+
+
+def get_game_phase(game: Game) -> str:
+    """
+    Determine current game phase based on average hidden cards.
+    Returns: 'early', 'mid', or 'late'
+    """
+    total_hidden = sum(
+        sum(1 for c in p.cards if not c.face_up)
+        for p in game.players
+    )
+    avg_hidden = total_hidden / len(game.players) if game.players else 6
+
+    if avg_hidden >= 4.5:
+        return 'early'
+    elif avg_hidden >= 2.5:
+        return 'mid'
+    else:
+        return 'late'
 
 
 def has_worse_visible_card(player: Player, card_value: int, options: GameOptions) -> bool:
@@ -255,28 +358,9 @@ class GolfAI:
         if discard_card.rank == Rank.KING:
             return True
 
-        # Auto-take 7s when lucky_sevens enabled (they're worth 0)
-        if discard_card.rank == Rank.SEVEN and options.lucky_sevens:
-            return True
-
-        # Auto-take 10s when ten_penny enabled (they're worth 0)
+        # Auto-take 10s when ten_penny enabled (they're worth 1)
         if discard_card.rank == Rank.TEN and options.ten_penny:
             return True
-
-        # Queens Wild: Queen can complete ANY pair
-        if options.queens_wild and discard_card.rank == Rank.QUEEN:
-            for i, card in enumerate(player.cards):
-                if card.face_up:
-                    pair_pos = (i + 3) % 6 if i < 3 else i - 3
-                    if not player.cards[pair_pos].face_up:
-                        # We have an incomplete column - Queen could pair it
-                        return True
-
-        # Four of a Kind: If we have 2+ of this rank, consider taking
-        if options.four_of_a_kind:
-            rank_count = count_rank_in_hand(player, discard_card.rank)
-            if rank_count >= 2:
-                return True
 
         # Take card if it could make a column pair (but NOT for negative value cards)
         # Pairing negative cards is bad - you lose the negative benefit
@@ -289,14 +373,29 @@ class GolfAI:
                 if card.face_up and card.rank == discard_card.rank and not pair_card.face_up:
                     return True
 
-                # Queens Wild: check if we can pair with Queen
-                if options.queens_wild:
-                    if card.face_up and can_make_pair(card, discard_card, options) and not pair_card.face_up:
-                        return True
-
         # Take low cards (using house rule adjusted values)
-        if discard_value <= 2:
+        # Threshold adjusts by game phase - early game be picky, late game less so
+        phase = get_game_phase(game)
+        base_threshold = {'early': 2, 'mid': 3, 'late': 4}.get(phase, 2)
+
+        if discard_value <= base_threshold:
             return True
+
+        # Calculate end-game pressure from opponents close to going out
+        pressure = get_end_game_pressure(player, game)
+
+        # Under pressure, expand what we consider "worth taking"
+        # When opponents are close to going out, take decent cards to avoid
+        # getting stuck with unknown bad cards when the round ends
+        if pressure > 0.2:
+            # Scale threshold: at pressure 0.2 take 4s, at 0.5+ take 6s
+            pressure_threshold = 3 + int(pressure * 6)  # 4 to 9 based on pressure
+            pressure_threshold = min(pressure_threshold, 7)  # Cap at 7
+            if discard_value <= pressure_threshold:
+                # Only take if we have hidden cards that could be worse
+                my_hidden = sum(1 for c in player.cards if not c.face_up)
+                if my_hidden > 0:
+                    return True
 
         # Check if we have cards worse than the discard
         worst_visible = -999
@@ -338,15 +437,6 @@ class GolfAI:
                     if not player.cards[pair_pos].face_up:
                         return pair_pos
 
-        # Four of a Kind: If we have 3 of this rank and draw the 4th, prioritize keeping
-        if options.four_of_a_kind:
-            rank_count = count_rank_in_hand(player, drawn_card.rank)
-            if rank_count >= 3:
-                # We'd have 4 - swap into any face-down spot
-                face_down = [i for i, c in enumerate(player.cards) if not c.face_up]
-                if face_down:
-                    return random.choice(face_down)
-
         # Check for column pair opportunity first
         # But DON'T pair negative value cards (2s, Jokers) - keeping them unpaired is better!
         # Exception: Eagle Eye makes pairing Jokers GOOD (doubled negative)
@@ -365,13 +455,6 @@ class GolfAI:
 
                 if pair_card.face_up and pair_card.rank == drawn_card.rank and not card.face_up:
                     return i
-
-                # Queens Wild: Queen can pair with anything
-                if options.queens_wild:
-                    if card.face_up and can_make_pair(card, drawn_card, options) and not pair_card.face_up:
-                        return pair_pos
-                    if pair_card.face_up and can_make_pair(pair_card, drawn_card, options) and not card.face_up:
-                        return i
 
         # Find best swap among face-up cards that are BAD (positive value)
         # Don't swap good cards (Kings, 2s, etc.) just for marginal gains -
@@ -409,27 +492,44 @@ class GolfAI:
                                 return i
 
         # Consider swapping with face-down cards for very good cards (negative or zero value)
-        # 7s (lucky_sevens) and 10s (ten_penny) become "excellent" cards worth keeping
+        # 10s (ten_penny) become "excellent" cards worth keeping
         is_excellent = (drawn_value <= 0 or
                         drawn_card.rank == Rank.ACE or
-                        (options.lucky_sevens and drawn_card.rank == Rank.SEVEN) or
                         (options.ten_penny and drawn_card.rank == Rank.TEN))
+
+        # Calculate pair viability and game phase for smarter decisions
+        pair_viability = get_pair_viability(drawn_card.rank, game)
+        phase = get_game_phase(game)
+        pressure = get_end_game_pressure(player, game)
 
         if is_excellent:
             face_down = [i for i, c in enumerate(player.cards) if not c.face_up]
             if face_down:
                 # Pair hunters might hold out hoping for matches
-                if profile.pair_hope > 0.6 and random.random() < profile.pair_hope:
+                # BUT: reduce hope if pair is unlikely or late game pressure
+                effective_hope = profile.pair_hope * pair_viability
+                if phase == 'late' or pressure > 0.5:
+                    effective_hope *= 0.3  # Much less willing to gamble late game
+                if effective_hope > 0.6 and random.random() < effective_hope:
                     return None
                 return random.choice(face_down)
 
         # For medium cards, swap threshold based on profile
-        if drawn_value <= profile.swap_threshold:
+        # Late game: be more willing to swap in medium cards
+        effective_threshold = profile.swap_threshold
+        if phase == 'late' or pressure > 0.5:
+            effective_threshold += 2  # Accept higher value cards under pressure
+
+        if drawn_value <= effective_threshold:
             face_down = [i for i, c in enumerate(player.cards) if not c.face_up]
             if face_down:
                 # Pair hunters hold high cards hoping for matches
-                if profile.pair_hope > 0.5 and drawn_value >= 6:
-                    if random.random() < profile.pair_hope:
+                # BUT: check if pairing is actually viable
+                effective_hope = profile.pair_hope * pair_viability
+                if phase == 'late' or pressure > 0.5:
+                    effective_hope *= 0.3  # Don't gamble late game
+                if effective_hope > 0.5 and drawn_value >= 6:
+                    if random.random() < effective_hope:
                         return None
                 return random.choice(face_down)
 

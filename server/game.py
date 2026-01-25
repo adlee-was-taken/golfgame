@@ -8,7 +8,6 @@ from enum import Enum
 from constants import (
     DEFAULT_CARD_VALUES,
     SUPER_KINGS_VALUE,
-    LUCKY_SEVENS_VALUE,
     TEN_PENNY_VALUE,
     LUCKY_SWING_JOKER_VALUE,
 )
@@ -58,11 +57,11 @@ def get_card_value(card: "Card", options: Optional["GameOptions"] = None) -> int
     """
     if options:
         if card.rank == Rank.JOKER:
+            if options.eagle_eye:
+                return 2  # Eagle-eyed: jokers worth +2 unpaired, -4 when paired (handled in calculate_score)
             return LUCKY_SWING_JOKER_VALUE if options.lucky_swing else RANK_VALUES[Rank.JOKER]
         if card.rank == Rank.KING and options.super_kings:
             return SUPER_KINGS_VALUE
-        if card.rank == Rank.SEVEN and options.lucky_sevens:
-            return LUCKY_SEVENS_VALUE
         if card.rank == Rank.TEN and options.ten_penny:
             return TEN_PENNY_VALUE
     return RANK_VALUES[card.rank]
@@ -148,33 +147,13 @@ class Player:
         if len(self.cards) != 6:
             return 0
 
-        def cards_match(card1: Card, card2: Card) -> bool:
-            """Check if two cards match for pairing (with Queens Wild support)."""
-            if card1.rank == card2.rank:
-                return True
-            if options and options.queens_wild:
-                if card1.rank == Rank.QUEEN or card2.rank == Rank.QUEEN:
-                    return True
-            return False
-
         total = 0
+        jack_pairs = 0  # Track paired Jacks for Wolfpack bonus
+
         # Cards are arranged in 2 rows x 3 columns
         # Position mapping: [0, 1, 2] (top row)
         #                   [3, 4, 5] (bottom row)
         # Columns: (0,3), (1,4), (2,5)
-
-        # Check for Four of a Kind first (4 cards same rank = all score 0)
-        four_of_kind_positions: set[int] = set()
-        if options and options.four_of_a_kind:
-            from collections import Counter
-            rank_positions: dict[Rank, list[int]] = {}
-            for i, card in enumerate(self.cards):
-                if card.rank not in rank_positions:
-                    rank_positions[card.rank] = []
-                rank_positions[card.rank].append(i)
-            for rank, positions in rank_positions.items():
-                if len(positions) >= 4:
-                    four_of_kind_positions.update(positions)
 
         for col in range(3):
             top_idx = col
@@ -182,24 +161,25 @@ class Player:
             top_card = self.cards[top_idx]
             bottom_card = self.cards[bottom_idx]
 
-            # Skip if part of four of a kind
-            if top_idx in four_of_kind_positions and bottom_idx in four_of_kind_positions:
-                continue
-
-            # Check if column pair matches (same rank or Queens Wild)
-            if cards_match(top_card, bottom_card):
-                # Eagle Eye: paired jokers score -8 (2³) instead of canceling
+            # Check if column pair matches (same rank)
+            if top_card.rank == bottom_card.rank:
+                # Track Jack pairs for Wolfpack
+                if top_card.rank == Rank.JACK:
+                    jack_pairs += 1
+                # Eagle Eye: paired jokers score -4 (reward for spotting the pair)
                 if (options and options.eagle_eye and
                     top_card.rank == Rank.JOKER and bottom_card.rank == Rank.JOKER):
-                    total -= 8
+                    total -= 4
                     continue
                 # Normal matching pair scores 0
                 continue
             else:
-                if top_idx not in four_of_kind_positions:
-                    total += get_card_value(top_card, options)
-                if bottom_idx not in four_of_kind_positions:
-                    total += get_card_value(bottom_card, options)
+                total += get_card_value(top_card, options)
+                total += get_card_value(bottom_card, options)
+
+        # Wolfpack bonus: 2 pairs of Jacks = -5 pts
+        if options and options.wolfpack and jack_pairs >= 2:
+            total -= 5
 
         self.score = total
         return total
@@ -228,7 +208,6 @@ class GameOptions:
     # House Rules - Point Modifiers
     lucky_swing: bool = False          # Single joker worth -5 instead of two -2 jokers
     super_kings: bool = False          # Kings worth -2 instead of 0
-    lucky_sevens: bool = False         # 7s worth 0 instead of 7
     ten_penny: bool = False            # 10s worth 1 (like Ace) instead of 10
 
     # House Rules - Bonuses/Penalties
@@ -236,10 +215,9 @@ class GameOptions:
     underdog_bonus: bool = False       # Lowest score player gets -3 each hole
     tied_shame: bool = False           # Tie with someone's score = +5 penalty to both
     blackjack: bool = False            # Hole score of exactly 21 becomes 0
+    wolfpack: bool = False             # 2 pairs of Jacks = -5 bonus
 
-    # House Rules - Gameplay Twists
-    queens_wild: bool = False          # Queens count as any rank for pairing
-    four_of_a_kind: bool = False       # 4 cards of same rank in grid = all 4 score 0
+    # House Rules - Special
     eagle_eye: bool = False            # Paired jokers double instead of cancel (-4 or -10)
 
 
@@ -271,12 +249,12 @@ class Game:
         # Apply house rule modifications
         if self.options.super_kings:
             values['K'] = SUPER_KINGS_VALUE
-        if self.options.lucky_sevens:
-            values['7'] = LUCKY_SEVENS_VALUE
         if self.options.ten_penny:
             values['10'] = TEN_PENNY_VALUE
         if self.options.lucky_swing:
             values['★'] = LUCKY_SWING_JOKER_VALUE
+        elif self.options.eagle_eye:
+            values['★'] = 2  # Eagle-eyed: +2 unpaired, -4 paired
 
         return values
 
@@ -613,6 +591,34 @@ class Game:
 
         discard_top = self.discard_top()
 
+        # Build active rules list for display
+        active_rules = []
+        if self.options:
+            if self.options.flip_on_discard:
+                active_rules.append("Flip on Discard")
+            if self.options.knock_penalty:
+                active_rules.append("Knock Penalty")
+            if self.options.use_jokers and not self.options.lucky_swing and not self.options.eagle_eye:
+                active_rules.append("Jokers")
+            if self.options.lucky_swing:
+                active_rules.append("Lucky Swing")
+            if self.options.eagle_eye:
+                active_rules.append("Eagle-Eye")
+            if self.options.super_kings:
+                active_rules.append("Super Kings")
+            if self.options.ten_penny:
+                active_rules.append("Ten Penny")
+            if self.options.knock_bonus:
+                active_rules.append("Knock Bonus")
+            if self.options.underdog_bonus:
+                active_rules.append("Underdog")
+            if self.options.tied_shame:
+                active_rules.append("Tied Shame")
+            if self.options.blackjack:
+                active_rules.append("Blackjack")
+            if self.options.wolfpack:
+                active_rules.append("Wolfpack")
+
         return {
             "phase": self.phase.value,
             "players": players_data,
@@ -630,4 +636,5 @@ class Game:
             "initial_flips": self.options.initial_flips,
             "flip_on_discard": self.flip_on_discard,
             "card_values": self.get_card_values(),
+            "active_rules": active_rules,
         }

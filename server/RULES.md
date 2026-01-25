@@ -116,7 +116,6 @@ Our implementation supports these optional rule variations:
 |--------|--------|
 | `lucky_swing` | Single Joker worth **-5** (instead of two -2 Jokers) |
 | `super_kings` | Kings worth **-2** (instead of 0) |
-| `lucky_sevens` | 7s worth **0** (instead of 7) |
 | `ten_penny` | 10s worth **1** (instead of 10) |
 
 ## Bonuses & Penalties
@@ -128,13 +127,11 @@ Our implementation supports these optional rule variations:
 | `tied_shame` | Tying another player's score = **+5** penalty to both |
 | `blackjack` | Exact score of 21 becomes **0** |
 
-## Gameplay Twists
+## Special Rules
 
 | Option | Effect |
 |--------|--------|
-| `queens_wild` | Queens match any rank for column pairing |
-| `four_of_a_kind` | 4 cards of same rank in grid = all 4 score 0 |
-| `eagle_eye` | Paired Jokers score **-8** (instead of canceling to 0) |
+| `eagle_eye` | Jokers worth **+2 unpaired**, **-4 paired** (spot the pair!) |
 
 ---
 

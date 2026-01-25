@@ -235,11 +235,6 @@ def get_test_configs() -> list[tuple[str, GameOptions]]:
         super_kings=True,
     )))
 
-    configs.append(("lucky_sevens", GameOptions(
-        initial_flips=2,
-        lucky_sevens=True,
-    )))
-
     configs.append(("ten_penny", GameOptions(
         initial_flips=2,
         ten_penny=True,
@@ -267,17 +262,7 @@ def get_test_configs() -> list[tuple[str, GameOptions]]:
         blackjack=True,
     )))
 
-    # === Gameplay Twists ===
-
-    configs.append(("queens_wild", GameOptions(
-        initial_flips=2,
-        queens_wild=True,
-    )))
-
-    configs.append(("four_of_a_kind", GameOptions(
-        initial_flips=2,
-        four_of_a_kind=True,
-    )))
+    # === Special Rules ===
 
     configs.append(("eagle_eye", GameOptions(
         initial_flips=2,
@@ -292,7 +277,6 @@ def get_test_configs() -> list[tuple[str, GameOptions]]:
         use_jokers=True,
         lucky_swing=True,
         super_kings=True,
-        lucky_sevens=True,
         ten_penny=True,
     )))
 
@@ -311,8 +295,6 @@ def get_test_configs() -> list[tuple[str, GameOptions]]:
     configs.append(("WILD CARDS", GameOptions(
         initial_flips=2,
         use_jokers=True,
-        queens_wild=True,
-        four_of_a_kind=True,
         eagle_eye=True,
     )))
 
@@ -329,14 +311,11 @@ def get_test_configs() -> list[tuple[str, GameOptions]]:
         use_jokers=True,
         lucky_swing=True,
         super_kings=True,
-        lucky_sevens=True,
         ten_penny=True,
         knock_bonus=True,
         underdog_bonus=True,
         tied_shame=True,
         blackjack=True,
-        queens_wild=True,
-        four_of_a_kind=True,
         eagle_eye=True,
     )))
 
@@ -450,15 +429,6 @@ def print_expected_effects(results: list[RuleTestResult]):
 
     # super_kings should lower scores (Kings worth -2 instead of 0)
     r = find("super_kings")
-    if r and r.scores:
-        diff = r.mean_score - baseline.mean_score
-        expected = "LOWER scores"
-        actual = "lower" if diff < -1 else "higher" if diff > 1 else "similar"
-        status = "✓" if diff < 0 else "✗"
-        checks.append((r.name, expected, f"{actual} ({diff:+.1f})", status))
-
-    # lucky_sevens should lower scores (7s worth 0 instead of 7)
-    r = find("lucky_sevens")
     if r and r.scores:
         diff = r.mean_score - baseline.mean_score
         expected = "LOWER scores"

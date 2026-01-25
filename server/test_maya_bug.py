@@ -145,7 +145,7 @@ class TestMayaBugFix:
         When forced to swap (drew from discard), the AI should use
         get_ai_card_value() to find the worst card, not raw value().
 
-        This matters for house rules like super_kings, lucky_sevens, etc.
+        This matters for house rules like super_kings, ten_penny, etc.
         """
         game = create_test_game()
         game.options = GameOptions(super_kings=True)  # Kings now worth -2

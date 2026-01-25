@@ -62,6 +62,15 @@ class GolfGame {
             gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
             oscillator.start(ctx.currentTime);
             oscillator.stop(ctx.currentTime + 0.2);
+        } else if (type === 'flip') {
+            // Sharp quick click for card flips
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(1800, ctx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.02);
+            gainNode.gain.setValueAtTime(0.12, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.025);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.025);
         } else if (type === 'shuffle') {
             // Multiple quick sounds to simulate shuffling
             for (let i = 0; i < 8; i++) {
@@ -102,6 +111,7 @@ class GolfGame {
 
         // Waiting room elements
         this.displayRoomCode = document.getElementById('display-room-code');
+        this.copyRoomCodeBtn = document.getElementById('copy-room-code');
         this.playersList = document.getElementById('players-list');
         this.hostSettings = document.getElementById('host-settings');
         this.waitingMessage = document.getElementById('waiting-message');
@@ -111,21 +121,15 @@ class GolfGame {
         this.initialFlipsSelect = document.getElementById('initial-flips');
         this.flipOnDiscardCheckbox = document.getElementById('flip-on-discard');
         this.knockPenaltyCheckbox = document.getElementById('knock-penalty');
-        this.jokerModeSelect = document.getElementById('joker-mode');
         // House Rules - Point Modifiers
         this.superKingsCheckbox = document.getElementById('super-kings');
-        this.luckySevensCheckbox = document.getElementById('lucky-sevens');
         this.tenPennyCheckbox = document.getElementById('ten-penny');
         // House Rules - Bonuses/Penalties
         this.knockBonusCheckbox = document.getElementById('knock-bonus');
         this.underdogBonusCheckbox = document.getElementById('underdog-bonus');
         this.tiedShameCheckbox = document.getElementById('tied-shame');
         this.blackjackCheckbox = document.getElementById('blackjack');
-        // House Rules - Gameplay Twists
-        this.queensWildCheckbox = document.getElementById('queens-wild');
-        this.fourOfAKindCheckbox = document.getElementById('four-of-a-kind');
-        this.eagleEyeCheckbox = document.getElementById('eagle-eye');
-        this.eagleEyeLabel = document.getElementById('eagle-eye-label');
+        this.wolfpackCheckbox = document.getElementById('wolfpack');
         this.startGameBtn = document.getElementById('start-game-btn');
         this.leaveRoomBtn = document.getElementById('leave-room-btn');
         this.addCpuBtn = document.getElementById('add-cpu-btn');
@@ -157,6 +161,9 @@ class GolfGame {
         this.gameButtons = document.getElementById('game-buttons');
         this.nextRoundBtn = document.getElementById('next-round-btn');
         this.newGameBtn = document.getElementById('new-game-btn');
+        this.leaveGameBtn = document.getElementById('leave-game-btn');
+        this.activeRulesBar = document.getElementById('active-rules-bar');
+        this.activeRulesList = document.getElementById('active-rules-list');
     }
 
     bindEvents() {
@@ -174,6 +181,13 @@ class GolfGame {
         this.cancelCpuBtn.addEventListener('click', () => { this.playSound('click'); this.hideCpuSelect(); });
         this.addSelectedCpusBtn.addEventListener('click', () => { this.playSound('success'); this.addSelectedCpus(); });
         this.muteBtn.addEventListener('click', () => this.toggleSound());
+        this.leaveGameBtn.addEventListener('click', () => { this.playSound('click'); this.leaveGame(); });
+
+        // Copy room code to clipboard
+        this.copyRoomCodeBtn.addEventListener('click', () => {
+            this.playSound('click');
+            this.copyRoomCode();
+        });
 
         // Enter key handlers
         this.playerNameInput.addEventListener('keypress', (e) => {
@@ -187,20 +201,6 @@ class GolfGame {
         this.roomCodeInput.addEventListener('input', (e) => {
             e.target.value = e.target.value.toUpperCase();
         });
-
-        // Eagle Eye only works with Standard Jokers (need 2 to pair them)
-        const updateEagleEyeVisibility = () => {
-            const isStandardJokers = this.jokerModeSelect.value === 'standard';
-            if (isStandardJokers) {
-                this.eagleEyeLabel.classList.remove('hidden');
-            } else {
-                this.eagleEyeLabel.classList.add('hidden');
-                this.eagleEyeCheckbox.checked = false;
-            }
-        };
-        this.jokerModeSelect.addEventListener('change', updateEagleEyeVisibility);
-        // Check initial state
-        updateEagleEyeVisibility();
 
         // Update deck recommendation when deck selection changes
         this.numDecksSelect.addEventListener('change', () => {
@@ -322,6 +322,15 @@ class GolfGame {
                 this.showScoreboard(data.final_scores, true, data.rankings);
                 break;
 
+            case 'game_ended':
+                // Host ended the game or player was kicked
+                this.ws.close();
+                this.showLobby();
+                if (data.reason) {
+                    this.showError(data.reason);
+                }
+                break;
+
             case 'error':
                 this.showError(data.message);
                 break;
@@ -358,6 +367,26 @@ class GolfGame {
         this.showLobby();
     }
 
+    copyRoomCode() {
+        if (!this.roomCode) return;
+
+        navigator.clipboard.writeText(this.roomCode).then(() => {
+            // Show brief visual feedback
+            const originalText = this.copyRoomCodeBtn.textContent;
+            this.copyRoomCodeBtn.textContent = '✓';
+            setTimeout(() => {
+                this.copyRoomCodeBtn.textContent = originalText;
+            }, 1500);
+        }).catch(err => {
+            console.error('Failed to copy room code:', err);
+            // Fallback: select the text for manual copy
+            const range = document.createRange();
+            range.selectNode(this.displayRoomCode);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+        });
+    }
+
     startGame() {
         const decks = parseInt(this.numDecksSelect.value);
         const rounds = parseInt(this.numRoundsSelect.value);
@@ -367,14 +396,14 @@ class GolfGame {
         const flip_on_discard = this.flipOnDiscardCheckbox.checked;
         const knock_penalty = this.knockPenaltyCheckbox.checked;
 
-        // Joker mode
-        const joker_mode = this.jokerModeSelect.value;
+        // Joker mode (radio buttons)
+        const joker_mode = document.querySelector('input[name="joker-mode"]:checked').value;
         const use_jokers = joker_mode !== 'none';
         const lucky_swing = joker_mode === 'lucky-swing';
+        const eagle_eye = joker_mode === 'eagle-eye';
 
         // House Rules - Point Modifiers
         const super_kings = this.superKingsCheckbox.checked;
-        const lucky_sevens = this.luckySevensCheckbox.checked;
         const ten_penny = this.tenPennyCheckbox.checked;
 
         // House Rules - Bonuses/Penalties
@@ -382,11 +411,7 @@ class GolfGame {
         const underdog_bonus = this.underdogBonusCheckbox.checked;
         const tied_shame = this.tiedShameCheckbox.checked;
         const blackjack = this.blackjackCheckbox.checked;
-
-        // House Rules - Gameplay Twists
-        const queens_wild = this.queensWildCheckbox.checked;
-        const four_of_a_kind = this.fourOfAKindCheckbox.checked;
-        const eagle_eye = this.eagleEyeCheckbox.checked;
+        const wolfpack = this.wolfpackCheckbox.checked;
 
         this.send({
             type: 'start_game',
@@ -398,15 +423,13 @@ class GolfGame {
             use_jokers,
             lucky_swing,
             super_kings,
-            lucky_sevens,
             ten_penny,
             knock_bonus,
             underdog_bonus,
             tied_shame,
             blackjack,
-            queens_wild,
-            four_of_a_kind,
-            eagle_eye
+            eagle_eye,
+            wolfpack
         });
     }
 
@@ -549,7 +572,7 @@ class GolfGame {
         if (this.gameState.waiting_for_initial_flip) {
             if (card.face_up) return;
 
-            this.playSound('card');
+            this.playSound('flip');
             const requiredFlips = this.gameState.initial_flips || 2;
 
             if (this.selectedCards.includes(position)) {
@@ -594,6 +617,22 @@ class GolfGame {
         this.leaveRoom();
     }
 
+    leaveGame() {
+        if (this.isHost) {
+            // Host ending game affects everyone
+            if (confirm('End game for all players?')) {
+                this.send({ type: 'end_game' });
+            }
+        } else {
+            // Regular player just leaves
+            if (confirm('Leave this game?')) {
+                this.send({ type: 'leave_game' });
+                this.ws.close();
+                this.showLobby();
+            }
+        }
+    }
+
     // UI Helpers
     showScreen(screen) {
         this.lobbyScreen.classList.remove('active');
@@ -630,6 +669,28 @@ class GolfGame {
         this.drawnCard = null;
         this.selectedCards = [];
         this.waitingForFlip = false;
+        // Update leave button text based on role
+        this.leaveGameBtn.textContent = this.isHost ? 'End Game' : 'Leave';
+        // Update active rules bar
+        this.updateActiveRulesBar();
+    }
+
+    updateActiveRulesBar() {
+        if (!this.gameState || !this.gameState.active_rules) {
+            this.activeRulesBar.classList.add('hidden');
+            return;
+        }
+
+        const rules = this.gameState.active_rules;
+        if (rules.length === 0) {
+            this.activeRulesBar.classList.add('hidden');
+            return;
+        }
+
+        this.activeRulesList.innerHTML = rules
+            .map(rule => `<span class="rule-tag">${rule}</span>`)
+            .join('');
+        this.activeRulesBar.classList.remove('hidden');
     }
 
     showError(message) {
@@ -825,6 +886,15 @@ class GolfGame {
         // Update discard pile
         if (this.gameState.discard_top) {
             const discardCard = this.gameState.discard_top;
+            const cardKey = `${discardCard.rank}-${discardCard.suit}`;
+
+            // Animate if discard changed
+            if (this.lastDiscardKey && this.lastDiscardKey !== cardKey) {
+                this.discard.classList.add('card-flip-in');
+                setTimeout(() => this.discard.classList.remove('card-flip-in'), 400);
+            }
+            this.lastDiscardKey = cardKey;
+
             this.discard.classList.add('has-card', 'card-front');
             this.discard.classList.remove('card-back', 'red', 'black', 'joker');
 
@@ -839,6 +909,7 @@ class GolfGame {
         } else {
             this.discard.classList.remove('has-card', 'card-front', 'red', 'black', 'joker');
             this.discardContent.innerHTML = '';
+            this.lastDiscardKey = null;
         }
 
         // Update deck/discard clickability and visual state
@@ -864,9 +935,10 @@ class GolfGame {
             }
 
             const displayName = player.name.length > 12 ? player.name.substring(0, 11) + '…' : player.name;
+            const showingScore = this.calculateShowingScore(player.cards);
 
             div.innerHTML = `
-                <h4>${displayName}${player.all_face_up ? ' ✓' : ''}</h4>
+                <h4>${displayName}${player.all_face_up ? ' ✓' : ''}<span class="opponent-showing">${showingScore}</span></h4>
                 <div class="card-grid">
                     ${player.cards.map(card => this.renderCard(card, false, false)).join('')}
                 </div>
@@ -960,34 +1032,48 @@ class GolfGame {
     updateStandings() {
         if (!this.gameState || !this.standingsList) return;
 
-        // Sort players by total score (lowest is best in golf)
-        const sorted = [...this.gameState.players].sort((a, b) => a.total_score - b.total_score);
+        // Sort by total points (lowest wins) - top 4
+        const byPoints = [...this.gameState.players].sort((a, b) => a.total_score - b.total_score).slice(0, 4);
+        // Sort by holes won (most wins) - top 4
+        const byHoles = [...this.gameState.players].sort((a, b) => b.rounds_won - a.rounds_won).slice(0, 4);
 
-        this.standingsList.innerHTML = '';
-
-        sorted.forEach((player, index) => {
-            const div = document.createElement('div');
-            div.className = 'standing-row';
-
-            if (index === 0 && player.total_score < sorted[sorted.length - 1]?.total_score) {
-                div.classList.add('leader');
+        // Build points ranking
+        let pointsRank = 0;
+        let prevPoints = null;
+        const pointsHtml = byPoints.map((p, i) => {
+            if (p.total_score !== prevPoints) {
+                pointsRank = i;
+                prevPoints = p.total_score;
             }
-            if (player.id === this.playerId) {
-                div.classList.add('you');
+            const medal = pointsRank === 0 ? '🥇' : pointsRank === 1 ? '🥈' : pointsRank === 2 ? '🥉' : '4.';
+            const name = p.name.length > 8 ? p.name.substring(0, 7) + '…' : p.name;
+            return `<div class="rank-row ${pointsRank === 0 ? 'leader' : ''}"><span class="rank-pos">${medal}</span><span class="rank-name">${name}</span><span class="rank-val">${p.total_score}pt</span></div>`;
+        }).join('');
+
+        // Build holes won ranking
+        let holesRank = 0;
+        let prevHoles = null;
+        const holesHtml = byHoles.map((p, i) => {
+            if (p.rounds_won !== prevHoles) {
+                holesRank = i;
+                prevHoles = p.rounds_won;
             }
+            const medal = p.rounds_won === 0 ? '-' :
+                          holesRank === 0 ? '🥇' : holesRank === 1 ? '🥈' : holesRank === 2 ? '🥉' : '4.';
+            const name = p.name.length > 8 ? p.name.substring(0, 7) + '…' : p.name;
+            return `<div class="rank-row ${holesRank === 0 && p.rounds_won > 0 ? 'leader' : ''}"><span class="rank-pos">${medal}</span><span class="rank-name">${name}</span><span class="rank-val">${p.rounds_won}W</span></div>`;
+        }).join('');
 
-            const displayName = player.name.length > 12
-                ? player.name.substring(0, 11) + '…'
-                : player.name;
-
-            div.innerHTML = `
-                <span class="standing-pos">${index + 1}.</span>
-                <span class="standing-name">${displayName}</span>
-                <span class="standing-score">${player.total_score} pts</span>
-            `;
-
-            this.standingsList.appendChild(div);
-        });
+        this.standingsList.innerHTML = `
+            <div class="standings-section">
+                <div class="standings-title">By Score</div>
+                ${pointsHtml}
+            </div>
+            <div class="standings-section">
+                <div class="standings-title">By Holes</div>
+                ${holesHtml}
+            </div>
+        `;
     }
 
     renderCard(card, clickable, selected) {
@@ -1043,16 +1129,20 @@ class GolfGame {
             this.scoreTable.appendChild(tr);
         });
 
-        // Show rankings announcement
-        this.showRankingsAnnouncement(rankings, isFinal);
+        // Show rankings announcement only for final results
+        const existingAnnouncement = document.getElementById('rankings-announcement');
+        if (existingAnnouncement) existingAnnouncement.remove();
+
+        if (isFinal) {
+            // Show big final results modal instead of side panel stuff
+            this.showFinalResultsModal(rankings, scores);
+            return;
+        }
 
         // Show game buttons
         this.gameButtons.classList.remove('hidden');
 
-        if (isFinal) {
-            this.nextRoundBtn.classList.add('hidden');
-            this.newGameBtn.classList.remove('hidden');
-        } else if (this.isHost) {
+        if (this.isHost) {
             this.nextRoundBtn.classList.remove('hidden');
             this.newGameBtn.classList.add('hidden');
         } else {
@@ -1065,6 +1155,8 @@ class GolfGame {
         // Remove existing announcement if any
         const existing = document.getElementById('rankings-announcement');
         if (existing) existing.remove();
+        const existingVictory = document.getElementById('double-victory-banner');
+        if (existingVictory) existingVictory.remove();
 
         if (!rankings) return;
 
@@ -1109,13 +1201,20 @@ class GolfGame {
             return `<div class="rank-row ${holesRank === 0 && p.rounds_won > 0 ? 'leader' : ''}"><span class="rank-pos">${medal}</span><span class="rank-name">${name}</span><span class="rank-val">${p.rounds_won}W</span></div>`;
         }).join('');
 
-        const doubleVictoryHtml = isDoubleVictory
-            ? `<div class="double-victory">DOUBLE VICTORY! ${pointsLeader.name}</div>`
-            : '';
+        // If double victory, show banner above the left panel (standings)
+        if (isDoubleVictory) {
+            const victoryBanner = document.createElement('div');
+            victoryBanner.id = 'double-victory-banner';
+            victoryBanner.className = 'double-victory';
+            victoryBanner.textContent = `DOUBLE VICTORY! ${pointsLeader.name}`;
+            const standingsPanel = document.getElementById('standings-panel');
+            if (standingsPanel) {
+                standingsPanel.insertBefore(victoryBanner, standingsPanel.firstChild);
+            }
+        }
 
         announcement.innerHTML = `
             <h3>${title}</h3>
-            ${doubleVictoryHtml}
             <div class="rankings-columns">
                 <div class="ranking-section">
                     <h4>Points (Low Wins)</h4>
@@ -1130,6 +1229,118 @@ class GolfGame {
 
         // Insert before the scoreboard
         this.scoreboard.insertBefore(announcement, this.scoreboard.firstChild);
+    }
+
+    showFinalResultsModal(rankings, scores) {
+        // Hide side panels
+        const standingsPanel = document.getElementById('standings-panel');
+        const scoreboard = document.getElementById('scoreboard');
+        if (standingsPanel) standingsPanel.classList.add('hidden');
+        if (scoreboard) scoreboard.classList.add('hidden');
+
+        // Remove existing modal if any
+        const existing = document.getElementById('final-results-modal');
+        if (existing) existing.remove();
+
+        // Determine winners
+        const pointsLeader = rankings.by_points[0];
+        const holesLeader = rankings.by_holes_won[0];
+        const isDoubleVictory = pointsLeader && holesLeader &&
+            pointsLeader.name === holesLeader.name &&
+            holesLeader.rounds_won > 0;
+
+        // Build points ranking
+        let pointsRank = 0;
+        let prevPoints = null;
+        const pointsHtml = rankings.by_points.map((p, i) => {
+            if (p.total !== prevPoints) {
+                pointsRank = i;
+                prevPoints = p.total;
+            }
+            const medal = pointsRank === 0 ? '🥇' : pointsRank === 1 ? '🥈' : pointsRank === 2 ? '🥉' : `${pointsRank + 1}.`;
+            return `<div class="final-rank-row ${pointsRank === 0 ? 'winner' : ''}"><span class="rank-pos">${medal}</span><span class="rank-name">${p.name}</span><span class="rank-val">${p.total} pts</span></div>`;
+        }).join('');
+
+        // Build holes ranking
+        let holesRank = 0;
+        let prevHoles = null;
+        const holesHtml = rankings.by_holes_won.map((p, i) => {
+            if (p.rounds_won !== prevHoles) {
+                holesRank = i;
+                prevHoles = p.rounds_won;
+            }
+            const medal = p.rounds_won === 0 ? '-' :
+                          holesRank === 0 ? '🥇' : holesRank === 1 ? '🥈' : holesRank === 2 ? '🥉' : `${holesRank + 1}.`;
+            return `<div class="final-rank-row ${holesRank === 0 && p.rounds_won > 0 ? 'winner' : ''}"><span class="rank-pos">${medal}</span><span class="rank-name">${p.name}</span><span class="rank-val">${p.rounds_won} wins</span></div>`;
+        }).join('');
+
+        // Build share text
+        const shareText = this.buildShareText(rankings, isDoubleVictory);
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'final-results-modal';
+        modal.className = 'final-results-modal';
+        modal.innerHTML = `
+            <div class="final-results-content">
+                <h2>🏌️ Final Results</h2>
+                ${isDoubleVictory ? `<div class="double-victory-banner">🏆 DOUBLE VICTORY: ${pointsLeader.name} 🏆</div>` : ''}
+                <div class="final-rankings">
+                    <div class="final-ranking-section">
+                        <h3>By Points (Low Wins)</h3>
+                        ${pointsHtml}
+                    </div>
+                    <div class="final-ranking-section">
+                        <h3>By Holes Won</h3>
+                        ${holesHtml}
+                    </div>
+                </div>
+                <div class="final-actions">
+                    <button class="btn btn-primary" id="share-results-btn">📋 Copy Results</button>
+                    <button class="btn btn-secondary" id="close-results-btn">New Game</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Bind button events
+        document.getElementById('share-results-btn').addEventListener('click', () => {
+            navigator.clipboard.writeText(shareText).then(() => {
+                const btn = document.getElementById('share-results-btn');
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => btn.textContent = '📋 Copy Results', 2000);
+            });
+        });
+
+        document.getElementById('close-results-btn').addEventListener('click', () => {
+            modal.remove();
+            this.leaveRoom();
+        });
+    }
+
+    buildShareText(rankings, isDoubleVictory) {
+        let text = '🏌️ Golf Card Game Results\n';
+        text += '═══════════════════════\n\n';
+
+        if (isDoubleVictory) {
+            text += `🏆 DOUBLE VICTORY: ${rankings.by_points[0].name}!\n\n`;
+        }
+
+        text += '📊 By Points (Low Wins):\n';
+        rankings.by_points.forEach((p, i) => {
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+            text += `${medal} ${p.name}: ${p.total} pts\n`;
+        });
+
+        text += '\n⛳ By Holes Won:\n';
+        rankings.by_holes_won.forEach((p, i) => {
+            const medal = p.rounds_won === 0 ? '-' : i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+            text += `${medal} ${p.name}: ${p.rounds_won} wins\n`;
+        });
+
+        text += '\nPlayed at golf.game';
+        return text;
     }
 }
 
