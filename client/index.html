@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golf Card Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Lobby Screen -->
+        <div id="lobby-screen" class="screen active">
+            <h1>🏌️ Golf</h1>
+            <p class="subtitle">6-Card Golf Card Game</p>
+
+            <div class="form-group">
+                <label for="player-name">Your Name</label>
+                <input type="text" id="player-name" placeholder="Enter your name" maxlength="20">
+            </div>
+
+            <div class="button-group">
+                <button id="create-room-btn" class="btn btn-primary">Create Room</button>
+            </div>
+
+            <div class="divider">or</div>
+
+            <div class="form-group">
+                <label for="room-code">Room Code</label>
+                <input type="text" id="room-code" placeholder="ABCD" maxlength="4">
+            </div>
+
+            <div class="button-group">
+                <button id="join-room-btn" class="btn btn-secondary">Join Room</button>
+            </div>
+
+            <p id="lobby-error" class="error"></p>
+        </div>
+
+        <!-- Waiting Room Screen -->
+        <div id="waiting-screen" class="screen">
+            <h2>Room: <span id="display-room-code"></span></h2>
+
+            <div class="players-list">
+                <h3>Players</h3>
+                <ul id="players-list"></ul>
+            </div>
+
+            <div id="host-settings" class="settings hidden">
+                <h3>Game Settings</h3>
+                <div class="form-group">
+                    <label>CPU Players</label>
+                    <div class="cpu-controls">
+                        <button id="remove-cpu-btn" class="btn btn-small btn-secondary">- CPU</button>
+                        <button id="add-cpu-btn" class="btn btn-small btn-primary">+ CPU</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="num-decks">Number of Decks</label>
+                    <select id="num-decks">
+                        <option value="1">1 Deck (2-4 players)</option>
+                        <option value="2">2 Decks (4-6 players)</option>
+                        <option value="3">3 Decks (5-6 players)</option>
+                    </select>
+                    <p id="deck-recommendation" class="recommendation hidden">Strongly recommended: 2+ decks for 4+ players to avoid running out of cards</p>
+                </div>
+                <div class="form-group">
+                    <label for="num-rounds">Number of Holes</label>
+                    <select id="num-rounds">
+                        <option value="9" selected>9 Holes (Front Nine)</option>
+                        <option value="18">18 Holes (Full Round)</option>
+                        <option value="3">3 Holes (Quick Game)</option>
+                        <option value="1">1 Hole</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="initial-flips">Starting Cards Revealed</label>
+                    <select id="initial-flips">
+                        <option value="2" selected>2 cards (Standard)</option>
+                        <option value="1">1 card</option>
+                        <option value="0">None (Blind start)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Variants</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="flip-on-discard">
+                            <span>Flip card when discarding from deck</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="knock-penalty">
+                            <span>+10 penalty if you go out but don't have lowest</span>
+                        </label>
+                    </div>
+                </div>
+
+                <details class="house-rules-section">
+                    <summary>House Rules</summary>
+
+                    <div class="house-rules-category">
+                        <h4>Jokers</h4>
+                        <div class="form-group compact">
+                            <select id="joker-mode">
+                                <option value="none">No Jokers</option>
+                                <option value="standard">Standard (2 per deck, -2 each)</option>
+                                <option value="lucky-swing">Lucky Swing (1 joker in all decks, -5 pts)</option>
+                            </select>
+                            <label class="checkbox-label eagle-eye-option hidden" id="eagle-eye-label">
+                                <input type="checkbox" id="eagle-eye">
+                                <span>Eagle Eye</span>
+                                <span class="rule-desc">Paired jokers score -8</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="house-rules-category">
+                        <h4>Point Modifiers</h4>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="super-kings">
+                                <span>Super Kings</span>
+                                <span class="rule-desc">Kings worth -2 instead of 0</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="lucky-sevens">
+                                <span>Lucky Sevens</span>
+                                <span class="rule-desc">7s worth 0 instead of 7</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="ten-penny">
+                                <span>Ten Penny</span>
+                                <span class="rule-desc">10s worth 1 (like Ace)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="house-rules-category">
+                        <h4>Bonuses & Penalties</h4>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="knock-bonus">
+                                <span>Knock Out Bonus</span>
+                                <span class="rule-desc">-5 for going out first</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="underdog-bonus">
+                                <span>Underdog Bonus</span>
+                                <span class="rule-desc">-3 for lowest score each hole</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="tied-shame">
+                                <span>Tied Shame</span>
+                                <span class="rule-desc">+5 if you tie with someone</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="blackjack">
+                                <span>Blackjack</span>
+                                <span class="rule-desc">Exact 21 becomes 0</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="house-rules-category">
+                        <h4>Gameplay Twists</h4>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="queens-wild">
+                                <span>Queens Wild</span>
+                                <span class="rule-desc">Queens pair with any rank</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="four-of-a-kind">
+                                <span>Four of a Kind</span>
+                                <span class="rule-desc">4 matching cards all score 0</span>
+                            </label>
+                        </div>
+                    </div>
+                </details>
+
+                <button id="start-game-btn" class="btn btn-primary">Start Game</button>
+            </div>
+
+            <p id="waiting-message" class="info">Waiting for host to start the game...</p>
+
+            <button id="leave-room-btn" class="btn btn-danger">Leave Room</button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div class="game-layout">
+                <div class="game-main">
+                    <div class="game-header">
+                        <div class="round-info">Hole <span id="current-round">1</span>/<span id="total-rounds">9</span></div>
+                        <div class="deck-info">Deck: <span id="deck-count">52</span></div>
+                        <button id="mute-btn" class="mute-btn" title="Toggle sound">🔊</button>
+                    </div>
+
+                    <div class="game-table">
+                        <div id="opponents-row" class="opponents-row"></div>
+
+                        <div class="player-row">
+                            <div class="table-center">
+                                <div class="deck-area">
+                                    <div id="deck" class="card card-back">
+                                        <span>DECK</span>
+                                    </div>
+                                    <div id="discard" class="card">
+                                        <span id="discard-content"></span>
+                                    </div>
+                                </div>
+                                <div id="drawn-card-area" class="hidden">
+                                    <div id="drawn-card" class="card"></div>
+                                    <button id="discard-btn" class="btn btn-small">Discard</button>
+                                </div>
+                            </div>
+
+                            <div class="player-section">
+                                <div id="flip-prompt" class="flip-prompt hidden"></div>
+                                <div class="player-area">
+                                    <div id="player-cards" class="card-grid"></div>
+                                </div>
+                                <div id="toast" class="toast hidden"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="scoreboard" class="scoreboard-panel">
+                    <h4>Scores</h4>
+                    <table id="score-table">
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Hole</th>
+                                <th>Tot</th>
+                                <th>W</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                    <div id="game-buttons" class="game-buttons hidden">
+                        <button id="next-round-btn" class="btn btn-small btn-primary hidden">Next Hole</button>
+                        <button id="new-game-btn" class="btn btn-small btn-secondary hidden">New Game</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CPU Select Modal -->
+    <div id="cpu-select-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Select CPU Opponents</h3>
+            <div id="cpu-profiles-grid" class="profiles-grid"></div>
+            <div class="modal-buttons">
+                <button id="cancel-cpu-btn" class="btn btn-secondary">Cancel</button>
+                <button id="add-selected-cpus-btn" class="btn btn-primary" disabled>Add</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
