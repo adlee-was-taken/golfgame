@@ -205,17 +205,17 @@
             <div class="game-layout">
                 <div class="game-main">
                     <div class="game-header">
-                        <div class="round-info">Hole <span id="current-round">1</span>/<span id="total-rounds">9</span></div>
-                        <div class="game-header-center">
+                        <div class="header-col header-col-left">
+                            <div class="round-info">Hole <span id="current-round">1</span>/<span id="total-rounds">9</span></div>
                             <div id="active-rules-bar" class="active-rules-bar hidden">
                                 <span class="rules-label">Rules:</span>
                                 <span id="active-rules-list" class="rules-list"></span>
                             </div>
-                            <div class="header-status">
-                                <div id="status-message" class="status-message"></div>
-                            </div>
                         </div>
-                        <div class="header-buttons">
+                        <div class="header-col header-col-center">
+                            <div id="status-message" class="status-message"></div>
+                        </div>
+                        <div class="header-col header-col-right">
                             <button id="mute-btn" class="mute-btn" title="Toggle sound">🔊</button>
                             <button id="leave-game-btn" class="btn btn-small btn-danger">Leave</button>
                         </div>
