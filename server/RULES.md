@@ -272,13 +272,13 @@ The `flip_mode` setting controls what happens when you draw from the deck and ch
 |-------|------|----------|
 | `never` | **Standard** | No flip when discarding - your turn ends immediately. This is the classic rule. |
 | `always` | **Speed Golf** | Must flip one face-down card when discarding. Accelerates the game by revealing more information each turn. |
-| `endgame` | **Suspense** | May *optionally* flip if any player has ≤1 face-down card. Creates tension near the end of rounds. |
+| `endgame` | **Endgame** | Flip after discard if any player has 1 hidden card remaining. |
 
 **Standard (never):** When you draw from the deck and choose not to use the card, simply discard it and your turn ends.
 
 **Speed Golf (always):** When you discard from the deck, you must also flip one of your face-down cards. This accelerates the game by revealing more information each turn, leading to faster rounds.
 
-**Suspense (endgame):** When any player has only 1 (or 0) face-down cards remaining, discarding from the deck gives you the *option* to flip a card. This creates tension near the end of rounds - do you reveal more to improve your position, or keep your cards hidden?
+**Endgame:** When any player has only 1 (or 0) face-down cards remaining, discarding from the deck triggers a flip. This accelerates the endgame by revealing more information as rounds approach their conclusion.
 
 | Implementation | File |
 |----------------|------|

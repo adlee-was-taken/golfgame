@@ -10,9 +10,8 @@
     <div id="app">
         <!-- Lobby Screen -->
         <div id="lobby-screen" class="screen active">
-            <h1>🏌️ Golf</h1>
-            <p class="subtitle">6-Card Golf Card Game</p>
-            <button id="rules-btn" class="btn btn-link">View Rules</button>
+            <h1><span class="golfer-swing">🏌️</span><span class="kicked-ball">⚪</span> <span class="golf-title">Golf</span></h1>
+            <p class="subtitle">6-Card Golf Card Game <button id="rules-btn" class="btn btn-link">Rules</button></p>
 
             <div class="form-group">
                 <label for="player-name">Your Name</label>
@@ -105,7 +104,7 @@
                                         <select id="flip-mode">
                                             <option value="never">Standard - No flip after discarding</option>
                                             <option value="always">Speed Golf - MUST flip a card after discarding</option>
-                                            <option value="endgame">Suspense - MAY flip if anyone has 1 or fewer hidden cards</option>
+                                            <option value="endgame">Endgame - Flip after discard if a player has 1 hidden card left</option>
                                         </select>
                                         <span class="rule-desc">What happens when you draw from deck and discard</span>
                                     </div>
@@ -219,6 +218,7 @@
                         </div>
                         <div class="header-col header-col-center">
                             <div id="status-message" class="status-message"></div>
+                            <div id="final-turn-badge" class="final-turn-badge hidden">⚡ FINAL TURN</div>
                         </div>
                         <div class="header-col header-col-right">
                             <button id="mute-btn" class="mute-btn" title="Toggle sound">🔊</button>
@@ -292,7 +292,6 @@
                 </div>
             </div>
         </div>
-    </div>
 
         <!-- Rules Screen -->
         <div id="rules-screen" class="screen">
@@ -399,8 +398,8 @@ TOTAL: 0 + 8 + 16 = 24 points</pre>
                     </div>
 
                     <div class="rules-mode">
-                        <h3>Suspense Mode (Optional Flip Near Endgame)</h3>
-                        <p class="mode-summary">Optional flip activates when any player is close to finishing.</p>
+                        <h3>Endgame Mode (Flip When Close to Finishing)</h3>
+                        <p class="mode-summary">Flip activates when any player has only 1 hidden card remaining.</p>
                         <p><strong>How it works:</strong></p>
                         <ul>
                             <li>Early in the round: Discarding ends your turn (like Standard mode)</li>
@@ -477,12 +476,12 @@ TOTAL: 0 + 8 + 16 = 24 points</pre>
                     </div>
 
                     <div class="faq-item">
-                        <h4>Q: In Suspense mode, when exactly can I flip?</h4>
+                        <h4>Q: In Endgame mode, when exactly can I flip?</h4>
                         <p>A: The optional flip activates the moment ANY player (including you) has 1 or fewer face-down cards remaining. From that point until the round ends, whenever you discard from the deck, you'll get the option to flip or skip.</p>
                     </div>
 
                     <div class="faq-item">
-                        <h4>Q: Why would I NOT flip in Suspense mode?</h4>
+                        <h4>Q: Why would I NOT flip in Endgame mode?</h4>
                         <p>A: Maybe you have a hidden card you hope is good, and you don't want to reveal a potential disaster. Or maybe you want to keep your opponents guessing about your score. It's a strategic choice!</p>
                     </div>
                 </section>

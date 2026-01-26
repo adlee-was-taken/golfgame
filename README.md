@@ -30,32 +30,17 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 Open `http://localhost:8000` in your browser.
 
-## Game Rules
+## How to Play
 
-See [server/RULES.md](server/RULES.md) for complete rules documentation.
+**6-Card Golf** is a card game where you try to get the **lowest score** across multiple rounds (holes).
 
-### Basic Scoring
+- Each player has 6 cards in a 2×3 grid (most start face-down)
+- On your turn: **draw** a card, then **swap** it with one of yours or **discard** it
+- **Column pairs** (same rank top & bottom) score **0 points** — very powerful!
+- When any player reveals all 6 cards, everyone else gets one final turn
+- Lowest total score after all rounds wins
 
-| Card | Points |
-|------|--------|
-| Ace | 1 |
-| 2 | **-2** |
-| 3-10 | Face value |
-| Jack, Queen | 10 |
-| King | **0** |
-| Joker | -2 *(optional)* |
-
-**Column pairs** (same rank in a column) score **0 points**.
-
-### Turn Structure
-
-1. Draw from deck OR take from discard pile
-2. **If from deck:** Swap with a card OR discard and flip a face-down card
-3. **If from discard:** Must swap (cannot re-discard)
-
-### Ending
-
-When a player reveals all 6 cards, others get one final turn. Lowest score wins.
+**For detailed rules, card values, and house rule explanations, see the in-game Rules page or [server/RULES.md](server/RULES.md).**
 
 ## AI Personalities
 
@@ -72,26 +57,14 @@ When a player reveals all 6 cards, others get one final turn. Lowest score wins.
 
 ## House Rules
 
-### Point Modifiers
-- `super_kings` - Kings worth -2 (instead of 0)
-- `ten_penny` - 10s worth 1 (instead of 10)
-- `lucky_swing` - Single Joker worth -5
-- `eagle_eye` - Paired Jokers score -8
+The game supports 15+ optional house rules including:
 
-### Bonuses & Penalties
-- `knock_bonus` - First to go out gets -5
-- `underdog_bonus` - Lowest scorer gets -3
-- `knock_penalty` - +10 if you go out but aren't lowest
-- `tied_shame` - +5 penalty for tied scores
-- `blackjack` - Score of exactly 21 becomes 0
+- **Flip Modes** - Standard, Speed Golf (must flip after discard), Suspense (optional flip near endgame)
+- **Point Modifiers** - Super Kings (-2), Ten Penny (10=1), Lucky Swing Joker (-5)
+- **Bonuses & Penalties** - Knock bonus/penalty, Underdog bonus, Tied Shame, Blackjack (21→0)
+- **Joker Variants** - Standard, Eagle Eye (paired Jokers = -8)
 
-### Gameplay Options
-- `flip_mode` - What happens when discarding from deck:
-  - `never` - Standard (no flip)
-  - `always` - Speed Golf (must flip after discard)
-  - `endgame` - Suspense (optional flip when any player has ≤1 face-down card)
-- `use_jokers` - Add Jokers to deck
-- `eagle_eye` - Paired Jokers score -8 instead of canceling
+See the in-game Rules page or [server/RULES.md](server/RULES.md) for complete explanations.
 
 ## Development
 

@@ -1066,7 +1066,7 @@ class Game:
             if self.options.flip_mode == FlipMode.ALWAYS.value:
                 active_rules.append("Speed Golf")
             elif self.options.flip_mode == FlipMode.ENDGAME.value:
-                active_rules.append("Suspense")
+                active_rules.append("Endgame Flip")
             if self.options.knock_penalty:
                 active_rules.append("Knock Penalty")
             if self.options.use_jokers and not self.options.lucky_swing and not self.options.eagle_eye:

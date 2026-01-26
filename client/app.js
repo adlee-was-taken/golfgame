@@ -189,6 +189,7 @@ class GolfGame {
         this.leaveGameBtn = document.getElementById('leave-game-btn');
         this.activeRulesBar = document.getElementById('active-rules-bar');
         this.activeRulesList = document.getElementById('active-rules-list');
+        this.finalTurnBadge = document.getElementById('final-turn-badge');
     }
 
     bindEvents() {
@@ -1261,10 +1262,22 @@ class GolfGame {
         if (rules.length === 0) {
             // Show "Standard Rules" when no variants selected
             this.activeRulesList.innerHTML = '<span class="rule-tag standard">Standard</span>';
-        } else {
+        } else if (rules.length <= 2) {
+            // Show all rules if 2 or fewer
             this.activeRulesList.innerHTML = rules
                 .map(rule => `<span class="rule-tag">${rule}</span>`)
                 .join('');
+        } else {
+            // Show first 2 rules + "+N more" with tooltip
+            const displayed = rules.slice(0, 2);
+            const hidden = rules.slice(2);
+            const moreCount = hidden.length;
+            const tooltip = hidden.join(', ');
+
+            this.activeRulesList.innerHTML = displayed
+                .map(rule => `<span class="rule-tag">${rule}</span>`)
+                .join('') +
+                `<span class="rule-tag rule-more" title="${tooltip}">+${moreCount} more</span>`;
         }
         this.activeRulesBar.classList.remove('hidden');
     }
@@ -1351,20 +1364,24 @@ class GolfGame {
     updateStatusFromGameState() {
         if (!this.gameState) {
             this.setStatus('');
+            this.finalTurnBadge.classList.add('hidden');
             return;
         }
 
         const isFinalTurn = this.gameState.phase === 'final_turn';
         const currentPlayer = this.gameState.players.find(p => p.id === this.gameState.current_player_id);
 
+        // Show/hide final turn badge separately
+        if (isFinalTurn) {
+            this.finalTurnBadge.classList.remove('hidden');
+        } else {
+            this.finalTurnBadge.classList.add('hidden');
+        }
+
         if (currentPlayer && currentPlayer.id !== this.playerId) {
-            const prefix = isFinalTurn ? '⚡ Final turn: ' : '';
-            this.setStatus(`${prefix}${currentPlayer.name}'s turn`);
+            this.setStatus(`${currentPlayer.name}'s turn`);
         } else if (this.isMyTurn()) {
-            const message = isFinalTurn
-                ? '⚡ Final turn! Draw a card'
-                : 'Your turn - draw a card';
-            this.setStatus(message, 'your-turn');
+            this.setStatus('Your turn - draw a card', 'your-turn');
         } else {
             this.setStatus('');
         }
@@ -1467,6 +1484,14 @@ class GolfGame {
         this.currentRoundSpan.textContent = this.gameState.current_round;
         this.totalRoundsSpan.textContent = this.gameState.total_rounds;
 
+        // Show/hide final turn badge
+        const isFinalTurn = this.gameState.phase === 'final_turn';
+        if (isFinalTurn) {
+            this.finalTurnBadge.classList.remove('hidden');
+        } else {
+            this.finalTurnBadge.classList.add('hidden');
+        }
+
         // Update status message (handled by specific actions, but set default here)
         const currentPlayer = this.gameState.players.find(p => p.id === this.gameState.current_player_id);
         if (currentPlayer && currentPlayer.id !== this.playerId) {
@@ -1487,9 +1512,14 @@ class GolfGame {
             // Update player name in header (truncate if needed)
             const displayName = me.name.length > 12 ? me.name.substring(0, 11) + '…' : me.name;
             const checkmark = me.all_face_up ? ' ✓' : '';
-            const crownEmoji = isRoundWinner ? ' 👑' : '';
-            // Set text content before the score span
-            this.playerHeader.childNodes[0].textContent = displayName + checkmark + crownEmoji;
+            // Remove old crown if exists
+            const existingCrown = this.playerHeader.querySelector('.winner-crown');
+            if (existingCrown) existingCrown.remove();
+            // Set content - crown goes at the start
+            this.playerHeader.firstChild.textContent = displayName + checkmark;
+            if (isRoundWinner) {
+                this.playerHeader.insertAdjacentHTML('afterbegin', '<span class="winner-crown">👑</span>');
+            }
         }
 
         // Update discard pile (skip if holding a drawn card)
@@ -1554,10 +1584,10 @@ class GolfGame {
 
             const displayName = player.name.length > 12 ? player.name.substring(0, 11) + '…' : player.name;
             const showingScore = this.calculateShowingScore(player.cards);
-            const crownEmoji = isRoundWinner ? ' 👑' : '';
+            const crownHtml = isRoundWinner ? '<span class="winner-crown">👑</span>' : '';
 
             div.innerHTML = `
-                <h4>${displayName}${player.all_face_up ? ' ✓' : ''}${crownEmoji}<span class="opponent-showing">${showingScore}</span></h4>
+                <h4>${crownHtml}${displayName}${player.all_face_up ? ' ✓' : ''}<span class="opponent-showing">${showingScore}</span></h4>
                 <div class="card-grid">
                     ${player.cards.map(card => this.renderCard(card, false, false)).join('')}
                 </div>
@@ -1733,6 +1763,14 @@ class GolfGame {
 
     showScoreboard(scores, isFinal, rankings) {
         this.scoreTable.innerHTML = '';
+
+        // Clear the final turn badge and status message
+        this.finalTurnBadge.classList.add('hidden');
+        if (isFinal) {
+            this.setStatus('Game Over!');
+        } else {
+            this.setStatus('Hole complete');
+        }
 
         // Find round winner(s) - lowest round score (not total)
         const roundScores = scores.map(s => s.score);
