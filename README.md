@@ -43,7 +43,7 @@ See [server/RULES.md](server/RULES.md) for complete rules documentation.
 | 3-10 | Face value |
 | Jack, Queen | 10 |
 | King | **0** |
-| Joker | -2 |
+| Joker | -2 *(optional)* |
 
 **Column pairs** (same rank in a column) score **0 points**.
 
