@@ -102,6 +102,15 @@ class GolfGame {
                 osc.stop(time + 0.05);
             }
             return; // Early return since we don't use the main oscillator
+        } else if (type === 'reject') {
+            // Low buzz for rejected action
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(150, ctx.currentTime);
+            oscillator.frequency.setValueAtTime(100, ctx.currentTime + 0.08);
+            gainNode.gain.setValueAtTime(0.08, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.12);
         }
     }
 
@@ -1491,6 +1500,10 @@ class GolfGame {
         } else {
             this.finalTurnBadge.classList.add('hidden');
         }
+
+        // Toggle not-my-turn class to disable hover effects when it's not player's turn
+        const isMyTurn = this.isMyTurn();
+        this.playerArea.classList.toggle('not-my-turn', !isMyTurn);
 
         // Update status message (handled by specific actions, but set default here)
         const currentPlayer = this.gameState.players.find(p => p.id === this.gameState.current_player_id);
