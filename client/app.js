@@ -206,8 +206,8 @@ class GolfGame {
         this.joinRoomBtn.addEventListener('click', () => { this.playSound('click'); this.joinRoom(); });
         this.startGameBtn.addEventListener('click', () => { this.playSound('success'); this.startGame(); });
         this.leaveRoomBtn.addEventListener('click', () => { this.playSound('click'); this.leaveRoom(); });
-        this.deck.addEventListener('click', () => { this.playSound('card'); this.drawFromDeck(); });
-        this.discard.addEventListener('click', () => { this.playSound('card'); this.drawFromDiscard(); });
+        this.deck.addEventListener('click', () => { this.drawFromDeck(); });
+        this.discard.addEventListener('click', () => { this.drawFromDiscard(); });
         this.discardBtn.addEventListener('click', () => { this.playSound('card'); this.discardDrawn(); });
         this.skipFlipBtn.addEventListener('click', () => { this.playSound('click'); this.skipFlip(); });
         this.nextRoundBtn.addEventListener('click', () => { this.playSound('click'); this.nextRound(); });
@@ -633,15 +633,27 @@ class GolfGame {
 
     // Game Actions
     drawFromDeck() {
-        if (!this.isMyTurn() || this.drawnCard || this.gameState.has_drawn_card) return;
+        if (!this.isMyTurn() || this.drawnCard || this.gameState.has_drawn_card) {
+            if (this.gameState && !this.gameState.waiting_for_initial_flip) {
+                this.playSound('reject');
+            }
+            return;
+        }
         if (this.gameState.waiting_for_initial_flip) return;
+        this.playSound('card');
         this.send({ type: 'draw', source: 'deck' });
     }
 
     drawFromDiscard() {
-        if (!this.isMyTurn() || this.drawnCard || this.gameState.has_drawn_card) return;
+        if (!this.isMyTurn() || this.drawnCard || this.gameState.has_drawn_card) {
+            if (this.gameState && !this.gameState.waiting_for_initial_flip) {
+                this.playSound('reject');
+            }
+            return;
+        }
         if (this.gameState.waiting_for_initial_flip) return;
         if (!this.gameState.discard_top) return;
+        this.playSound('card');
         this.send({ type: 'draw', source: 'discard' });
     }
 
@@ -1142,6 +1154,15 @@ class GolfGame {
 
         const card = myData.cards[position];
 
+        // Check if action is allowed - if not, play reject sound
+        const canAct = this.gameState.waiting_for_initial_flip ||
+                       this.drawnCard ||
+                       this.waitingForFlip;
+        if (!canAct) {
+            this.playSound('reject');
+            return;
+        }
+
         // Initial flip phase
         if (this.gameState.waiting_for_initial_flip) {
             if (card.face_up) return;
@@ -1503,7 +1524,7 @@ class GolfGame {
 
         // Toggle not-my-turn class to disable hover effects when it's not player's turn
         const isMyTurn = this.isMyTurn();
-        this.playerArea.classList.toggle('not-my-turn', !isMyTurn);
+        this.gameScreen.classList.toggle('not-my-turn', !isMyTurn);
 
         // Update status message (handled by specific actions, but set default here)
         const currentPlayer = this.gameState.players.find(p => p.id === this.gameState.current_player_id);

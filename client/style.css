@@ -786,11 +786,22 @@ input::placeholder {
 }
 
 /* Disable hover effects when not player's turn */
-.not-my-turn .card {
+#game-screen.not-my-turn .card {
     cursor: default;
 }
 
-.not-my-turn .card:hover {
+#game-screen.not-my-turn .card:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+#game-screen.not-my-turn #deck,
+#game-screen.not-my-turn #discard {
+    cursor: default;
+}
+
+#game-screen.not-my-turn #deck:hover,
+#game-screen.not-my-turn #discard:hover {
     transform: none;
     box-shadow: none;
 }
@@ -1834,11 +1845,11 @@ input::placeholder {
 }
 
 /* Disable hover effects when not player's turn */
-.not-my-turn .real-card {
+#game-screen.not-my-turn .real-card {
     cursor: default;
 }
 
-.not-my-turn .real-card:hover {
+#game-screen.not-my-turn .real-card:hover {
     transform: none;
 }
 }
