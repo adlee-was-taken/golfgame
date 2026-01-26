@@ -32,6 +32,20 @@ from constants import (
 )
 
 
+class FlipMode(str, Enum):
+    """
+    Mode for flip-on-discard rule.
+
+    NEVER: No flip when discarding from deck (standard rules)
+    ALWAYS: Must flip when discarding from deck (Speed Golf - faster games)
+    ENDGAME: Optional flip when any player has ≤1 face-down card (Suspense mode)
+    """
+
+    NEVER = "never"
+    ALWAYS = "always"
+    ENDGAME = "endgame"
+
+
 class Suit(Enum):
     """Card suits for a standard deck."""
 
@@ -359,8 +373,8 @@ class GameOptions:
     """
 
     # --- Standard Options ---
-    flip_on_discard: bool = False
-    """If True, player must flip a face-down card after discarding from deck."""
+    flip_mode: str = "never"
+    """Flip mode when discarding from deck: 'never', 'always', or 'endgame'."""
 
     initial_flips: int = 2
     """Number of cards each player reveals at round start (0, 1, or 2)."""
@@ -448,8 +462,32 @@ class Game:
 
     @property
     def flip_on_discard(self) -> bool:
-        """Convenience property for flip_on_discard option."""
-        return self.options.flip_on_discard
+        """
+        Whether current turn requires/allows a flip after discard.
+
+        Returns True if:
+        - flip_mode is 'always' (Speed Golf)
+        - flip_mode is 'endgame' AND any player has ≤1 face-down card (Suspense)
+        """
+        if self.options.flip_mode == FlipMode.ALWAYS.value:
+            return True
+        if self.options.flip_mode == FlipMode.ENDGAME.value:
+            # Check if any player has ≤1 face-down card
+            for player in self.players:
+                face_down_count = sum(1 for c in player.cards if not c.face_up)
+                if face_down_count <= 1:
+                    return True
+            return False
+        return False  # "never"
+
+    @property
+    def flip_is_optional(self) -> bool:
+        """
+        Whether the flip is optional (endgame mode) vs mandatory (always mode).
+
+        In endgame mode, player can choose to skip the flip.
+        """
+        return self.options.flip_mode == FlipMode.ENDGAME.value and self.flip_on_discard
 
     def get_card_values(self) -> dict[str, int]:
         """
@@ -817,6 +855,29 @@ class Game:
         self._check_end_turn(player)
         return True
 
+    def skip_flip_and_end_turn(self, player_id: str) -> bool:
+        """
+        Skip optional flip and end turn (endgame mode only).
+
+        In endgame mode (flip_mode='endgame'), the flip is optional,
+        so players can choose to skip it and end their turn immediately.
+
+        Args:
+            player_id: ID of the player skipping the flip.
+
+        Returns:
+            True if skip was valid and turn ended, False otherwise.
+        """
+        if not self.flip_is_optional:
+            return False
+
+        player = self.current_player()
+        if not player or player.id != player_id:
+            return False
+
+        self._check_end_turn(player)
+        return True
+
     # -------------------------------------------------------------------------
     # Turn & Round Flow (Internal)
     # -------------------------------------------------------------------------
@@ -1002,8 +1063,10 @@ class Game:
         # Build active rules list for display
         active_rules = []
         if self.options:
-            if self.options.flip_on_discard:
-                active_rules.append("Flip on Discard")
+            if self.options.flip_mode == FlipMode.ALWAYS.value:
+                active_rules.append("Speed Golf")
+            elif self.options.flip_mode == FlipMode.ENDGAME.value:
+                active_rules.append("Suspense")
             if self.options.knock_penalty:
                 active_rules.append("Knock Penalty")
             if self.options.use_jokers and not self.options.lucky_swing and not self.options.eagle_eye:
@@ -1043,6 +1106,8 @@ class Game:
             ),
             "initial_flips": self.options.initial_flips,
             "flip_on_discard": self.flip_on_discard,
+            "flip_mode": self.options.flip_mode,
+            "flip_is_optional": self.flip_is_optional,
             "card_values": self.get_card_values(),
             "active_rules": active_rules,
         }

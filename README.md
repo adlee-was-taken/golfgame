@@ -86,7 +86,10 @@ When a player reveals all 6 cards, others get one final turn. Lowest score wins.
 - `blackjack` - Score of exactly 21 becomes 0
 
 ### Gameplay Options
-- `flip_on_discard` - Must flip a card when discarding from deck
+- `flip_mode` - What happens when discarding from deck:
+  - `never` - Standard (no flip)
+  - `always` - Speed Golf (must flip after discard)
+  - `endgame` - Suspense (optional flip when any player has ≤1 face-down card)
 - `use_jokers` - Add Jokers to deck
 - `eagle_eye` - Paired Jokers score -8 instead of canceling
 

@@ -412,7 +412,7 @@ def run_simulation(
     # Default options
     options = GameOptions(
         initial_flips=2,
-        flip_on_discard=False,
+        flip_mode="never",
         use_jokers=False,
     )
 
@@ -450,7 +450,7 @@ def run_detailed_game(num_players: int = 4):
 
     options = GameOptions(
         initial_flips=2,
-        flip_on_discard=False,
+        flip_mode="never",
         use_jokers=False,
     )
 

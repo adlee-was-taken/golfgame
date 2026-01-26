@@ -70,7 +70,7 @@ if _use_config:
     DEFAULT_ROUNDS = config.game_defaults.rounds
     DEFAULT_INITIAL_FLIPS = config.game_defaults.initial_flips
     DEFAULT_USE_JOKERS = config.game_defaults.use_jokers
-    DEFAULT_FLIP_ON_DISCARD = config.game_defaults.flip_on_discard
+    DEFAULT_FLIP_MODE = config.game_defaults.flip_mode
 else:
     MAX_PLAYERS = 6
     ROOM_CODE_LENGTH = 4
@@ -78,7 +78,7 @@ else:
     DEFAULT_ROUNDS = 9
     DEFAULT_INITIAL_FLIPS = 2
     DEFAULT_USE_JOKERS = False
-    DEFAULT_FLIP_ON_DISCARD = False
+    DEFAULT_FLIP_MODE = "never"
 
 
 # =============================================================================

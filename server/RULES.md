@@ -260,13 +260,33 @@ Our implementation supports these optional rule variations. All are **disabled b
 | Option | Description | Default |
 |--------|-------------|---------|
 | `initial_flips` | Cards revealed at start (0, 1, or 2) | 2 |
-| `flip_on_discard` | Must flip a card after discarding from deck | Off |
+| `flip_mode` | What happens when discarding from deck (see below) | `never` |
 | `knock_penalty` | +10 if you go out but don't have lowest score | Off |
 | `use_jokers` | Add Jokers to deck (-2 points each) | Off |
+
+### Flip Mode Options
+
+The `flip_mode` setting controls what happens when you draw from the deck and choose to discard (not swap):
+
+| Value | Name | Behavior |
+|-------|------|----------|
+| `never` | **Standard** | No flip when discarding - your turn ends immediately. This is the classic rule. |
+| `always` | **Speed Golf** | Must flip one face-down card when discarding. Accelerates the game by revealing more information each turn. |
+| `endgame` | **Suspense** | May *optionally* flip if any player has ≤1 face-down card. Creates tension near the end of rounds. |
+
+**Standard (never):** When you draw from the deck and choose not to use the card, simply discard it and your turn ends.
+
+**Speed Golf (always):** When you discard from the deck, you must also flip one of your face-down cards. This accelerates the game by revealing more information each turn, leading to faster rounds.
+
+**Suspense (endgame):** When any player has only 1 (or 0) face-down cards remaining, discarding from the deck gives you the *option* to flip a card. This creates tension near the end of rounds - do you reveal more to improve your position, or keep your cards hidden?
 
 | Implementation | File |
 |----------------|------|
 | GameOptions dataclass | `game.py:200-222` |
+| FlipMode enum | `game.py:12-24` |
+| flip_on_discard property | `game.py:449-470` |
+| flip_is_optional property | `game.py:472-479` |
+| skip_flip_and_end_turn() | `game.py:520-540` |
 
 ## Point Modifiers
 
@@ -530,7 +550,11 @@ Draw Phase:
           │   └── Swap at position
           └── choose_swap_or_discard() returns None
               └── Discard drawn card
-                  └── flip_on_discard? -> choose_flip_after_discard()
+                  └── flip_on_discard?
+                      ├── flip_mode="always" -> MUST flip (choose_flip_after_discard)
+                      └── flip_mode="endgame" -> should_skip_optional_flip()?
+                          ├── True -> skip flip, end turn
+                          └── False -> flip (choose_flip_after_discard)
 ```
 
 | Decision Point | Tests |
@@ -737,7 +761,7 @@ Configuration precedence (highest to lowest):
 | `DEFAULT_ROUNDS` | `9` | Rounds per game |
 | `DEFAULT_INITIAL_FLIPS` | `2` | Cards to flip at start |
 | `DEFAULT_USE_JOKERS` | `false` | Enable jokers |
-| `DEFAULT_FLIP_ON_DISCARD` | `false` | Flip after discard |
+| `DEFAULT_FLIP_MODE` | `never` | Flip mode: `never`, `always`, or `endgame` |
 
 ### Security
 

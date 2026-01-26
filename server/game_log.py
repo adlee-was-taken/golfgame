@@ -70,7 +70,7 @@ class GameLogger:
         """Log start of a new game. Returns game_id."""
         game_id = str(uuid.uuid4())
         options_dict = {
-            "flip_on_discard": options.flip_on_discard,
+            "flip_mode": options.flip_mode,
             "initial_flips": options.initial_flips,
             "knock_penalty": options.knock_penalty,
             "use_jokers": options.use_jokers,

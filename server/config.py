@@ -99,7 +99,7 @@ class GameDefaults:
     rounds: int = 9
     initial_flips: int = 2
     use_jokers: bool = False
-    flip_on_discard: bool = False
+    flip_mode: str = "never"  # "never", "always", or "endgame"
 
 
 @dataclass
@@ -160,7 +160,7 @@ class ServerConfig:
                 rounds=get_env_int("DEFAULT_ROUNDS", 9),
                 initial_flips=get_env_int("DEFAULT_INITIAL_FLIPS", 2),
                 use_jokers=get_env_bool("DEFAULT_USE_JOKERS", False),
-                flip_on_discard=get_env_bool("DEFAULT_FLIP_ON_DISCARD", False),
+                flip_mode=get_env("DEFAULT_FLIP_MODE", "never"),
             ),
         )
 

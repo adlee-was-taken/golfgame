@@ -2151,3 +2151,279 @@ input::placeholder {
         padding: 12px 20px;
     }
 }
+
+/* ===========================================
+   RULES SCREEN
+   =========================================== */
+
+#rules-screen {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.rules-container {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 25px 35px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rules-container h1 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #f4a460;
+    font-size: 2rem;
+}
+
+.rules-container .back-btn {
+    margin-bottom: 20px;
+}
+
+.rules-section {
+    margin-bottom: 35px;
+    padding-bottom: 25px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.rules-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.rules-section h2 {
+    color: #f4a460;
+    font-size: 1.4rem;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid rgba(244, 164, 96, 0.3);
+}
+
+.rules-section h3 {
+    color: #e8d8c8;
+    font-size: 1.1rem;
+    margin: 20px 0 10px 0;
+}
+
+.rules-section h4 {
+    color: #d4c4b4;
+    font-size: 1rem;
+    margin: 15px 0 8px 0;
+}
+
+.rules-section p {
+    line-height: 1.7;
+    margin-bottom: 12px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.rules-section ul {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+
+.rules-section li {
+    line-height: 1.7;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* Rules table */
+.rules-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.rules-table th,
+.rules-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rules-table th {
+    background: rgba(244, 164, 96, 0.2);
+    color: #f4a460;
+    font-weight: 600;
+}
+
+.rules-table tr:last-child td {
+    border-bottom: none;
+}
+
+.value-negative {
+    color: #4ade80;
+    font-weight: 700;
+}
+
+.value-low {
+    color: #86efac;
+}
+
+.value-zero {
+    color: #fbbf24;
+}
+
+.value-high {
+    color: #f87171;
+    font-weight: 600;
+}
+
+/* Rules example box */
+.rules-example {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin: 15px 0;
+}
+
+.rules-example h4 {
+    margin-top: 0;
+    color: #f4a460;
+}
+
+.rules-example pre {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.9);
+    white-space: pre-wrap;
+    margin: 0;
+}
+
+.rules-warning {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 6px;
+    padding: 12px 15px;
+    color: #fca5a5;
+}
+
+/* Rules case boxes */
+.rules-case {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+    border-left: 3px solid rgba(244, 164, 96, 0.5);
+}
+
+.rules-case h4 {
+    margin-top: 0;
+}
+
+/* Flip mode boxes */
+.rules-mode {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rules-mode h3 {
+    margin-top: 0;
+    color: #f4a460;
+}
+
+.mode-summary {
+    background: rgba(244, 164, 96, 0.15);
+    border-radius: 6px;
+    padding: 10px 15px;
+    font-weight: 600;
+    color: #f4a460;
+    margin-bottom: 15px;
+}
+
+/* FAQ items */
+.faq-item {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin: 15px 0;
+    border-left: 3px solid #3b82f6;
+}
+
+.faq-item h4 {
+    margin: 0 0 10px 0;
+    color: #93c5fd;
+}
+
+.faq-item p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* Rules link button in lobby */
+.btn-link {
+    background: transparent;
+    border: none;
+    color: #f4a460;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 0.95rem;
+    margin-bottom: 15px;
+}
+
+.btn-link:hover {
+    color: #fbbf24;
+}
+
+/* Select option styling in advanced options */
+.select-option {
+    margin-bottom: 12px;
+}
+
+.select-option label {
+    display: block;
+    margin-bottom: 5px;
+    color: #f4a460;
+    font-size: 0.9rem;
+}
+
+.select-option select {
+    width: 100%;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: white;
+    font-size: 0.85rem;
+}
+
+.select-option .rule-desc {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Mobile adjustments for rules */
+@media (max-width: 600px) {
+    .rules-container {
+        padding: 20px;
+    }
+
+    .rules-container h1 {
+        font-size: 1.6rem;
+    }
+
+    .rules-section h2 {
+        font-size: 1.2rem;
+    }
+
+    .rules-table th,
+    .rules-table td {
+        padding: 8px 10px;
+        font-size: 0.9rem;
+    }
+
+    .rules-example pre {
+        font-size: 0.8rem;
+    }
+}

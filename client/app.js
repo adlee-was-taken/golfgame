@@ -138,8 +138,13 @@ class GolfGame {
         this.deckRecommendation = document.getElementById('deck-recommendation');
         this.numRoundsSelect = document.getElementById('num-rounds');
         this.initialFlipsSelect = document.getElementById('initial-flips');
-        this.flipOnDiscardCheckbox = document.getElementById('flip-on-discard');
+        this.flipModeSelect = document.getElementById('flip-mode');
         this.knockPenaltyCheckbox = document.getElementById('knock-penalty');
+
+        // Rules screen elements
+        this.rulesScreen = document.getElementById('rules-screen');
+        this.rulesBtn = document.getElementById('rules-btn');
+        this.rulesBackBtn = document.getElementById('rules-back-btn');
         // House Rules - Point Modifiers
         this.superKingsCheckbox = document.getElementById('super-kings');
         this.tenPennyCheckbox = document.getElementById('ten-penny');
@@ -170,6 +175,7 @@ class GolfGame {
         this.discard = document.getElementById('discard');
         this.discardContent = document.getElementById('discard-content');
         this.discardBtn = document.getElementById('discard-btn');
+        this.skipFlipBtn = document.getElementById('skip-flip-btn');
         this.playerCards = document.getElementById('player-cards');
         this.playerArea = this.playerCards.closest('.player-area');
         this.swapAnimation = document.getElementById('swap-animation');
@@ -193,6 +199,7 @@ class GolfGame {
         this.deck.addEventListener('click', () => { this.playSound('card'); this.drawFromDeck(); });
         this.discard.addEventListener('click', () => { this.playSound('card'); this.drawFromDiscard(); });
         this.discardBtn.addEventListener('click', () => { this.playSound('card'); this.discardDrawn(); });
+        this.skipFlipBtn.addEventListener('click', () => { this.playSound('click'); this.skipFlip(); });
         this.nextRoundBtn.addEventListener('click', () => { this.playSound('click'); this.nextRound(); });
         this.newGameBtn.addEventListener('click', () => { this.playSound('click'); this.newGame(); });
         this.addCpuBtn.addEventListener('click', () => { this.playSound('click'); this.showCpuSelect(); });
@@ -235,6 +242,30 @@ class GolfGame {
                     this.scoreboard.classList.toggle('collapsed');
                 }
             });
+        }
+
+        // Rules screen navigation
+        if (this.rulesBtn) {
+            this.rulesBtn.addEventListener('click', () => {
+                this.playSound('click');
+                this.showRulesScreen();
+            });
+        }
+        if (this.rulesBackBtn) {
+            this.rulesBackBtn.addEventListener('click', () => {
+                this.playSound('click');
+                this.showLobby();
+            });
+        }
+    }
+
+    showRulesScreen(scrollToSection = null) {
+        this.showScreen(this.rulesScreen);
+        if (scrollToSection) {
+            const section = document.getElementById(scrollToSection);
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth' });
+            }
         }
     }
 
@@ -367,7 +398,12 @@ class GolfGame {
 
             case 'can_flip':
                 this.waitingForFlip = true;
-                this.showToast('Flip a face-down card', '', 3000);
+                this.flipIsOptional = data.optional || false;
+                if (this.flipIsOptional) {
+                    this.showToast('Flip a card or skip', '', 3000);
+                } else {
+                    this.showToast('Flip a face-down card', '', 3000);
+                }
                 this.renderGame();
                 break;
 
@@ -450,7 +486,7 @@ class GolfGame {
         const initial_flips = parseInt(this.initialFlipsSelect.value);
 
         // Standard options
-        const flip_on_discard = this.flipOnDiscardCheckbox.checked;
+        const flip_mode = this.flipModeSelect.value;  // "never", "always", or "endgame"
         const knock_penalty = this.knockPenaltyCheckbox.checked;
 
         // Joker mode (radio buttons)
@@ -475,7 +511,7 @@ class GolfGame {
             decks,
             rounds,
             initial_flips,
-            flip_on_discard,
+            flip_mode,
             knock_penalty,
             use_jokers,
             lucky_swing,
@@ -757,6 +793,15 @@ class GolfGame {
     flipCard(position) {
         this.send({ type: 'flip_card', position });
         this.waitingForFlip = false;
+        this.flipIsOptional = false;
+    }
+
+    skipFlip() {
+        if (!this.flipIsOptional) return;
+        this.send({ type: 'skip_flip' });
+        this.waitingForFlip = false;
+        this.flipIsOptional = false;
+        this.hideToast();
     }
 
     // Fire-and-forget animation triggers based on state changes
@@ -1164,6 +1209,9 @@ class GolfGame {
         this.lobbyScreen.classList.remove('active');
         this.waitingScreen.classList.remove('active');
         this.gameScreen.classList.remove('active');
+        if (this.rulesScreen) {
+            this.rulesScreen.classList.remove('active');
+        }
         screen.classList.add('active');
     }
 
@@ -1564,6 +1612,13 @@ class GolfGame {
         } else {
             this.discardBtn.disabled = false;
             this.discardBtn.classList.remove('disabled');
+        }
+
+        // Show/hide skip flip button (only when flip is optional in endgame mode)
+        if (this.waitingForFlip && this.flipIsOptional) {
+            this.skipFlipBtn.classList.remove('hidden');
+        } else {
+            this.skipFlipBtn.classList.add('hidden');
         }
 
         // Update scoreboard panel

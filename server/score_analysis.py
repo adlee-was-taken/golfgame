@@ -26,7 +26,7 @@ def run_game_for_scores(num_players: int = 4) -> dict[str, int]:
         game.add_player(player)
         player_profiles[player.id] = profile
 
-    options = GameOptions(initial_flips=2, flip_on_discard=False, use_jokers=False)
+    options = GameOptions(initial_flips=2, flip_mode="never", use_jokers=False)
     game.start_game(num_decks=1, num_rounds=1, options=options)
 
     # Initial flips

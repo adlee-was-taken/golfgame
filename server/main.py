@@ -560,7 +560,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Build game options
                 options = GameOptions(
                     # Standard options
-                    flip_on_discard=data.get("flip_on_discard", False),
+                    flip_mode=data.get("flip_mode", "never"),
                     initial_flips=max(0, min(2, data.get("initial_flips", 2))),
                     knock_penalty=data.get("knock_penalty", False),
                     use_jokers=data.get("use_jokers", False),
@@ -656,18 +656,19 @@ async def websocket_endpoint(websocket: WebSocket):
                     await broadcast_game_state(current_room)
 
                     if current_room.game.flip_on_discard:
-                        # Version 1: Check if player has face-down cards to flip
+                        # Check if player has face-down cards to flip
                         player = current_room.game.get_player(player_id)
                         has_face_down = player and any(not c.face_up for c in player.cards)
 
                         if has_face_down:
                             await websocket.send_json({
                                 "type": "can_flip",
+                                "optional": current_room.game.flip_is_optional,
                             })
                         else:
                             await check_and_run_cpu_turn(current_room)
                     else:
-                        # Version 2 (default): Turn ended, check for CPU
+                        # Turn ended, check for CPU
                         await check_and_run_cpu_turn(current_room)
 
             elif msg_type == "flip_card":
@@ -678,6 +679,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 current_room.game.flip_and_end_turn(player_id, position)
                 await broadcast_game_state(current_room)
                 await check_and_run_cpu_turn(current_room)
+
+            elif msg_type == "skip_flip":
+                if not current_room:
+                    continue
+
+                if current_room.game.skip_flip_and_end_turn(player_id):
+                    await broadcast_game_state(current_room)
+                    await check_and_run_cpu_turn(current_room)
 
             elif msg_type == "next_round":
                 if not current_room:

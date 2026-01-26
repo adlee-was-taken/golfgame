@@ -821,6 +821,48 @@ class GolfAI:
         return random.choice(face_down)
 
     @staticmethod
+    def should_skip_optional_flip(player: Player, profile: CPUProfile, game: Game) -> bool:
+        """
+        Decide whether to skip the optional flip in endgame mode.
+
+        In endgame (Suspense) mode, the flip is optional. AI should generally
+        flip for information, but may skip if:
+        - Already has good information about their hand
+        - Wants to keep cards hidden for suspense
+        - Random unpredictability factor
+
+        Returns True if AI should skip the flip, False if it should flip.
+        """
+        face_down = [i for i, c in enumerate(player.cards) if not c.face_up]
+
+        if not face_down:
+            return True  # No cards to flip
+
+        # Very conservative players (low aggression) might skip to keep hidden
+        # But information is usually valuable, so mostly flip
+        skip_chance = 0.1  # Base 10% chance to skip
+
+        # More hidden cards = more value in flipping for information
+        if len(face_down) >= 3:
+            skip_chance = 0.05  # Less likely to skip with many hidden cards
+
+        # If only 1 hidden card, we might skip to keep opponents guessing
+        if len(face_down) == 1:
+            skip_chance = 0.2 + (1.0 - profile.aggression) * 0.2
+
+        # Unpredictable players are more random about this
+        skip_chance += profile.unpredictability * 0.15
+
+        ai_log(f"  Optional flip decision: {len(face_down)} face-down cards, skip_chance={skip_chance:.2f}")
+
+        if random.random() < skip_chance:
+            ai_log(f"  >> SKIP: choosing not to flip (endgame mode)")
+            return True
+
+        ai_log(f"  >> FLIP: choosing to reveal for information")
+        return False
+
+    @staticmethod
     def should_go_out_early(player: Player, game: Game, profile: CPUProfile) -> bool:
         """
         Decide if CPU should try to go out (reveal all cards) to screw neighbors.
@@ -988,21 +1030,57 @@ async def process_cpu_turn(
             )
 
         if game.flip_on_discard:
-            flip_pos = GolfAI.choose_flip_after_discard(cpu_player, profile)
-            game.flip_and_end_turn(cpu_player.id, flip_pos)
+            # Check if flip is optional (endgame mode) and decide whether to skip
+            if game.flip_is_optional:
+                if GolfAI.should_skip_optional_flip(cpu_player, profile, game):
+                    game.skip_flip_and_end_turn(cpu_player.id)
 
-            # Log flip decision
-            if logger and game_id:
-                flipped_card = cpu_player.cards[flip_pos]
-                logger.log_move(
-                    game_id=game_id,
-                    player=cpu_player,
-                    is_cpu=True,
-                    action="flip",
-                    card=flipped_card,
-                    position=flip_pos,
-                    game=game,
-                    decision_reason=f"flipped card at position {flip_pos}",
-                )
+                    # Log skip decision
+                    if logger and game_id:
+                        logger.log_move(
+                            game_id=game_id,
+                            player=cpu_player,
+                            is_cpu=True,
+                            action="skip_flip",
+                            card=None,
+                            game=game,
+                            decision_reason="skipped optional flip (endgame mode)",
+                        )
+                else:
+                    # Choose to flip
+                    flip_pos = GolfAI.choose_flip_after_discard(cpu_player, profile)
+                    game.flip_and_end_turn(cpu_player.id, flip_pos)
+
+                    # Log flip decision
+                    if logger and game_id:
+                        flipped_card = cpu_player.cards[flip_pos]
+                        logger.log_move(
+                            game_id=game_id,
+                            player=cpu_player,
+                            is_cpu=True,
+                            action="flip",
+                            card=flipped_card,
+                            position=flip_pos,
+                            game=game,
+                            decision_reason=f"flipped card at position {flip_pos} (chose to flip in endgame mode)",
+                        )
+            else:
+                # Mandatory flip (always mode)
+                flip_pos = GolfAI.choose_flip_after_discard(cpu_player, profile)
+                game.flip_and_end_turn(cpu_player.id, flip_pos)
+
+                # Log flip decision
+                if logger and game_id:
+                    flipped_card = cpu_player.cards[flip_pos]
+                    logger.log_move(
+                        game_id=game_id,
+                        player=cpu_player,
+                        is_cpu=True,
+                        action="flip",
+                        card=flipped_card,
+                        position=flip_pos,
+                        game=game,
+                        decision_reason=f"flipped card at position {flip_pos}",
+                    )
 
     await broadcast_callback()

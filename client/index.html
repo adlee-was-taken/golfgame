@@ -12,6 +12,7 @@
         <div id="lobby-screen" class="screen active">
             <h1>🏌️ Golf</h1>
             <p class="subtitle">6-Card Golf Card Game</p>
+            <button id="rules-btn" class="btn btn-link">View Rules</button>
 
             <div class="form-group">
                 <label for="player-name">Your Name</label>
@@ -99,11 +100,15 @@
                             <div class="options-category">
                                 <h4>Variants</h4>
                                 <div class="checkbox-group">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="flip-on-discard">
-                                        <span>Flip on Discard</span>
-                                        <span class="rule-desc">Flip card when discarding from deck</span>
-                                    </label>
+                                    <div class="select-option">
+                                        <label for="flip-mode">Flip on Discard</label>
+                                        <select id="flip-mode">
+                                            <option value="never">Standard - No flip after discarding</option>
+                                            <option value="always">Speed Golf - MUST flip a card after discarding</option>
+                                            <option value="endgame">Suspense - MAY flip if anyone has 1 or fewer hidden cards</option>
+                                        </select>
+                                        <span class="rule-desc">What happens when you draw from deck and discard</span>
+                                    </div>
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="knock-penalty">
                                         <span>Knock Penalty</span>
@@ -235,6 +240,7 @@
                                             <span id="discard-content"></span>
                                         </div>
                                         <button id="discard-btn" class="btn btn-small hidden">Discard</button>
+                                        <button id="skip-flip-btn" class="btn btn-small btn-secondary hidden">Skip Flip</button>
                                     </div>
                                 </div>
                             </div>
@@ -284,6 +290,202 @@
                         <button id="new-game-btn" class="btn btn-small btn-secondary hidden">New Game</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+        <!-- Rules Screen -->
+        <div id="rules-screen" class="screen">
+            <div class="rules-container">
+                <button id="rules-back-btn" class="btn btn-secondary back-btn">← Back</button>
+                <h1>Game Rules</h1>
+
+                <section id="rules-basic" class="rules-section">
+                    <h2>Basic Rules</h2>
+                    <p><strong>6-Card Golf</strong> is a card game where players try to achieve the <strong>lowest score</strong> over multiple rounds ("holes"). Like golf, lower is better!</p>
+                    <ul>
+                        <li>Each player has <strong>6 cards</strong> arranged in a 2-row by 3-column grid</li>
+                        <li>Most cards start <strong>face-down</strong> (hidden from everyone)</li>
+                        <li>On your turn: <strong>draw one card</strong>, then either <strong>swap it</strong> with one of yours or <strong>discard it</strong></li>
+                        <li>When any player reveals <strong>all 6 of their cards</strong>, everyone else gets <strong>one final turn</strong></li>
+                        <li>After all rounds ("holes") are played, the player with the <strong>lowest total score wins</strong></li>
+                    </ul>
+                </section>
+
+                <section id="rules-card-values" class="rules-section">
+                    <h2>Card Values</h2>
+                    <table class="rules-table">
+                        <thead>
+                            <tr><th>Card</th><th>Points</th><th>Notes</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Joker</td><td class="value-negative">-2</td><td>Best card! (requires Jokers to be enabled)</td></tr>
+                            <tr><td>2</td><td class="value-negative">-2</td><td>Excellent - gives you negative points!</td></tr>
+                            <tr><td>Ace (A)</td><td class="value-low">1</td><td>Very low and safe</td></tr>
+                            <tr><td>King (K)</td><td class="value-zero">0</td><td>Zero points - great for making pairs!</td></tr>
+                            <tr><td>3 through 10</td><td>Face value</td><td>3=3 pts, 4=4 pts, ..., 10=10 pts</td></tr>
+                            <tr><td>Jack (J), Queen (Q)</td><td class="value-high">10</td><td>High cards - replace these quickly!</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section id="rules-pairing" class="rules-section">
+                    <h2>Column Pairing (IMPORTANT!)</h2>
+                    <p><strong>This is the most important rule to understand:</strong></p>
+                    <p>If both cards in a <strong>vertical column</strong> have the <strong>same rank</strong> (like two Kings, or two 7s), that entire column scores <strong>0 points</strong> - regardless of what the cards are worth individually!</p>
+
+                    <div class="rules-example">
+                        <h4>Example:</h4>
+                        <pre>
+Your 6-card grid:
+  Col1  Col2  Col3
+ [K]   [5]   [7]   ← Top row
+ [K]   [3]   [9]   ← Bottom row
+
+Column 1: K + K = PAIR! = 0 points (not 0+0)
+Column 2: 5 + 3 = 8 points
+Column 3: 7 + 9 = 16 points
+
+TOTAL: 0 + 8 + 16 = 24 points</pre>
+                    </div>
+
+                    <p class="rules-warning"><strong>IMPORTANT:</strong> When you pair cards, you get 0 points for that column - even if the cards have negative values! Two 2s paired = 0 points (not -4). Two Jokers paired = 0 points (not -4).</p>
+                </section>
+
+                <section id="rules-turn" class="rules-section">
+                    <h2>Turn Structure (Step by Step)</h2>
+
+                    <h3>Step 1: Draw a Card</h3>
+                    <p>You MUST draw exactly one card. Choose from:</p>
+                    <ul>
+                        <li><strong>The Deck</strong> (face-down pile) - You don't know what you'll get!</li>
+                        <li><strong>The Discard Pile</strong> (face-up pile) - You can see exactly what card you're taking</li>
+                    </ul>
+
+                    <h3>Step 2: Use or Discard the Card</h3>
+
+                    <div class="rules-case">
+                        <h4>If you drew from the DECK:</h4>
+                        <p>You have two options:</p>
+                        <ul>
+                            <li><strong>SWAP:</strong> Replace any one of your 6 cards with the drawn card. The old card goes to the discard pile.</li>
+                            <li><strong>DISCARD:</strong> Put the drawn card directly on the discard pile without using it.</li>
+                        </ul>
+                    </div>
+
+                    <div class="rules-case">
+                        <h4>If you drew from the DISCARD PILE:</h4>
+                        <p>You MUST swap - you cannot put the same card back on the discard pile.</p>
+                    </div>
+                </section>
+
+                <section id="rules-flip-mode" class="rules-section">
+                    <h2>Flip on Discard Rules (3 Modes)</h2>
+                    <p>This setting affects what happens when you draw from the deck and choose to <strong>discard</strong> (not swap):</p>
+
+                    <div class="rules-mode">
+                        <h3>Standard Mode (No Flip)</h3>
+                        <p class="mode-summary">Default setting. Discarding ends your turn immediately.</p>
+                        <p><strong>How it works:</strong> When you draw from the deck and decide not to use it, you simply discard it and your turn is over. Nothing else happens.</p>
+                        <p><strong>Best for:</strong> Traditional gameplay, longer games, maximum hidden information.</p>
+                    </div>
+
+                    <div class="rules-mode">
+                        <h3>Speed Golf Mode (Must Flip)</h3>
+                        <p class="mode-summary">Every discard reveals one of your hidden cards.</p>
+                        <p><strong>How it works:</strong> When you draw from the deck and discard, you MUST also flip over one of your face-down cards. This is mandatory - you cannot skip it.</p>
+                        <p><strong>Why use it:</strong> Games go much faster because more cards get revealed every turn. More information for everyone = more strategic decisions.</p>
+                        <p><strong>Best for:</strong> Quick games, players who like faster-paced action.</p>
+                    </div>
+
+                    <div class="rules-mode">
+                        <h3>Suspense Mode (Optional Flip Near Endgame)</h3>
+                        <p class="mode-summary">Optional flip activates when any player is close to finishing.</p>
+                        <p><strong>How it works:</strong></p>
+                        <ul>
+                            <li>Early in the round: Discarding ends your turn (like Standard mode)</li>
+                            <li><strong>When ANY player has 1 or fewer face-down cards:</strong> After discarding, you MAY choose to flip one of your hidden cards OR skip the flip</li>
+                        </ul>
+                        <p><strong>Why use it:</strong> Creates dramatic tension near the end of rounds. Do you reveal more to try to improve your score, or keep cards hidden to maintain mystery?</p>
+                        <p><strong>Best for:</strong> Players who enjoy dramatic finishes and tough end-game decisions.</p>
+                    </div>
+                </section>
+
+                <section id="rules-house-rules" class="rules-section">
+                    <h2>House Rules (Optional Variants)</h2>
+
+                    <h3>Point Modifiers</h3>
+                    <ul>
+                        <li><strong>Super Kings:</strong> Kings are worth -2 points instead of 0 (makes them even better!)</li>
+                        <li><strong>Ten Penny:</strong> 10s are worth only 1 point instead of 10 (makes 10s less scary)</li>
+                    </ul>
+
+                    <h3>Joker Variants</h3>
+                    <ul>
+                        <li><strong>Standard Jokers:</strong> 2 Jokers per deck, each worth -2 points (paired Jokers = 0 points)</li>
+                        <li><strong>Lucky Swing:</strong> Only 1 Joker in the entire deck, but it's worth -5 points! (Rare and powerful)</li>
+                        <li><strong>Eagle Eye:</strong> Jokers are worth +2 points unpaired, but -4 points when paired (rewards finding both Jokers)</li>
+                    </ul>
+
+                    <h3>Bonuses & Penalties</h3>
+                    <ul>
+                        <li><strong>Knock Penalty:</strong> If you "go out" (reveal all cards first) but DON'T have the lowest score, you get +10 penalty points. Risk vs reward!</li>
+                        <li><strong>Knock Bonus:</strong> Get -5 points (subtracted from your score) for going out first.</li>
+                        <li><strong>Underdog Bonus:</strong> The player with the lowest score each hole gets -3 points.</li>
+                        <li><strong>Tied Shame:</strong> If you tie with another player's score, both of you get +5 penalty points.</li>
+                        <li><strong>Blackjack:</strong> If your exact score is 21, it becomes 0 instead!</li>
+                        <li><strong>Wolfpack:</strong> If you have exactly 2 pairs of Jacks (all 4 Jacks), you get -5 bonus points.</li>
+                    </ul>
+                </section>
+
+                <section id="rules-faq" class="rules-section">
+                    <h2>Frequently Asked Questions</h2>
+
+                    <div class="faq-item">
+                        <h4>Q: Can I look at my face-down cards?</h4>
+                        <p>A: No! Once the game starts, you cannot peek at your own face-down cards. You only see them when they get flipped face-up (either by swapping or by the flip-on-discard rule).</p>
+                    </div>
+
+                    <div class="faq-item">
+                        <h4>Q: Can I swap a face-down card without looking at it first?</h4>
+                        <p>A: Yes! In fact, that's often the best strategy - if you have a card that seems high based on probability, swap it out before you even see it.</p>
+                    </div>
+
+                    <div class="faq-item">
+                        <h4>Q: What happens when someone reveals all their cards?</h4>
+                        <p>A: Once ANY player has all 6 cards face-up, every other player gets exactly ONE more turn. Then the round ends and scores are calculated.</p>
+                    </div>
+
+                    <div class="faq-item">
+                        <h4>Q: Do I have to go out (reveal all cards) to win?</h4>
+                        <p>A: No! You can win the round even with face-down cards. The player with the lowest score wins, regardless of how many cards are revealed.</p>
+                    </div>
+
+                    <div class="faq-item">
+                        <h4>Q: When do pairs count?</h4>
+                        <p>A: Pairs only count in VERTICAL columns (top card + bottom card in the same column). Horizontal or diagonal matches don't create pairs.</p>
+                    </div>
+
+                    <div class="faq-item">
+                        <h4>Q: Can I make a pair with face-down cards?</h4>
+                        <p>A: Face-down cards are still counted for scoring, but since you can't see them, you're gambling that they might form a pair. At the end of the round, all cards are revealed and pairs are calculated.</p>
+                    </div>
+
+                    <div class="faq-item">
+                        <h4>Q: What if the deck runs out of cards?</h4>
+                        <p>A: The discard pile (except the top card) is shuffled to create a new deck.</p>
+                    </div>
+
+                    <div class="faq-item">
+                        <h4>Q: In Suspense mode, when exactly can I flip?</h4>
+                        <p>A: The optional flip activates the moment ANY player (including you) has 1 or fewer face-down cards remaining. From that point until the round ends, whenever you discard from the deck, you'll get the option to flip or skip.</p>
+                    </div>
+
+                    <div class="faq-item">
+                        <h4>Q: Why would I NOT flip in Suspense mode?</h4>
+                        <p>A: Maybe you have a hidden card you hope is good, and you don't want to reveal a potential disaster. Or maybe you want to keep your opponents guessing about your score. It's a strategic choice!</p>
+                    </div>
+                </section>
             </div>
         </div>
     </div>

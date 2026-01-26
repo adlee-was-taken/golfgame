@@ -191,25 +191,30 @@ def get_test_configs() -> list[tuple[str, GameOptions]]:
     # Baseline (no house rules)
     configs.append(("BASELINE", GameOptions(
         initial_flips=2,
-        flip_on_discard=False,
+        flip_mode="never",
         use_jokers=False,
     )))
 
     # === Standard Options ===
 
-    configs.append(("flip_on_discard", GameOptions(
+    configs.append(("flip_mode_always", GameOptions(
         initial_flips=2,
-        flip_on_discard=True,
+        flip_mode="always",
+    )))
+
+    configs.append(("flip_mode_endgame", GameOptions(
+        initial_flips=2,
+        flip_mode="endgame",
     )))
 
     configs.append(("initial_flips=0", GameOptions(
         initial_flips=0,
-        flip_on_discard=False,
+        flip_mode="never",
     )))
 
     configs.append(("initial_flips=1", GameOptions(
         initial_flips=1,
-        flip_on_discard=False,
+        flip_mode="never",
     )))
 
     configs.append(("knock_penalty", GameOptions(
@@ -300,13 +305,13 @@ def get_test_configs() -> list[tuple[str, GameOptions]]:
 
     configs.append(("CLASSIC+ (jokers + flip)", GameOptions(
         initial_flips=2,
-        flip_on_discard=True,
+        flip_mode="always",
         use_jokers=True,
     )))
 
     configs.append(("EVERYTHING", GameOptions(
         initial_flips=2,
-        flip_on_discard=True,
+        flip_mode="always",
         knock_penalty=True,
         use_jokers=True,
         lucky_swing=True,
@@ -472,8 +477,8 @@ def print_expected_effects(results: list[RuleTestResult]):
         status = "✓" if diff > 0 else "?"
         checks.append((r.name, expected, f"{actual} ({diff:+.1f})", status))
 
-    # flip_on_discard might slightly lower scores (more info)
-    r = find("flip_on_discard")
+    # flip_mode_always might slightly lower scores (more info)
+    r = find("flip_mode_always")
     if r and r.scores:
         diff = r.mean_score - baseline.mean_score
         expected = "SIMILAR or lower"
