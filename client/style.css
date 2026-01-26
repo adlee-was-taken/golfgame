@@ -985,6 +985,24 @@ input::placeholder {
     box-shadow: none;
 }
 
+/* Pulse animation when opponent draws from a pile */
+#deck.draw-pulse,
+#discard.draw-pulse {
+    animation: draw-pulse 0.6s ease-out;
+}
+
+@keyframes draw-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(244, 164, 96, 0.8);
+    }
+    50% {
+        box-shadow: 0 0 0 12px rgba(244, 164, 96, 0.4);
+    }
+    100% {
+        box-shadow: 0 0 0 20px rgba(244, 164, 96, 0);
+    }
+}
+
 /* Card flip animation for discard pile */
 .card-flip-in {
     animation: cardFlipIn 0.5s ease-out;
@@ -2555,19 +2573,25 @@ input::placeholder {
     color: rgba(255, 255, 255, 0.85);
 }
 
-/* Rules link button in lobby */
-.btn-link {
-    background: transparent;
-    border: none;
-    color: #f4a460;
-    text-decoration: underline;
+/* Rules button in lobby */
+.btn-rules {
+    background: rgba(244, 164, 96, 0.2);
+    border: 1px solid #f4a460;
+    color: #ffb366;
     cursor: pointer;
-    font-size: 0.95rem;
-    margin-bottom: 15px;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    margin-left: 8px;
+    vertical-align: middle;
+    border-radius: 3px;
+    font-weight: 600;
+    transition: background 0.2s, border-color 0.2s;
 }
 
-.btn-link:hover {
-    color: #fbbf24;
+.btn-rules:hover {
+    background: rgba(244, 164, 96, 0.35);
+    border-color: #ffb366;
+    color: #ffc880;
 }
 
 /* Select option styling in advanced options */

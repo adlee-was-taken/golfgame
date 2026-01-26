@@ -840,6 +840,33 @@ class GolfGame {
         const previousPlayerId = oldState.current_player_id;
         const wasOtherPlayer = previousPlayerId && previousPlayerId !== this.playerId;
 
+        // Detect which pile opponent drew from and pulse it
+        if (wasOtherPlayer && discardChanged) {
+            const oldPlayer = oldState.players.find(p => p.id === previousPlayerId);
+            const newPlayer = newState.players.find(p => p.id === previousPlayerId);
+
+            if (oldPlayer && newPlayer && oldDiscard) {
+                // Check if any of their cards now matches the old discard top
+                // This means they took from discard pile
+                let tookFromDiscard = false;
+                for (let i = 0; i < 6; i++) {
+                    const newCard = newPlayer.cards[i];
+                    if (newCard?.face_up &&
+                        newCard.rank === oldDiscard.rank &&
+                        newCard.suit === oldDiscard.suit) {
+                        tookFromDiscard = true;
+                        break;
+                    }
+                }
+
+                // Pulse the appropriate pile
+                this.pulseDrawPile(tookFromDiscard ? 'discard' : 'deck');
+            } else {
+                // No old discard or couldn't detect - assume deck
+                this.pulseDrawPile('deck');
+            }
+        }
+
         if (discardChanged && wasOtherPlayer) {
             // Check if the previous player actually SWAPPED (has a new face-up card)
             // vs just discarding the drawn card (no hand change)
@@ -884,6 +911,17 @@ class GolfGame {
 
         // Note: We don't separately animate card flips for swaps anymore
         // The swap animation handles showing the card at the correct position
+    }
+
+    // Pulse animation on deck or discard pile to show where opponent drew from
+    pulseDrawPile(source) {
+        const pile = source === 'discard' ? this.discard : this.deck;
+        pile.classList.remove('draw-pulse');
+        // Trigger reflow to restart animation
+        void pile.offsetWidth;
+        pile.classList.add('draw-pulse');
+        // Remove class after animation completes
+        setTimeout(() => pile.classList.remove('draw-pulse'), 600);
     }
 
     // Fire animation for discard without swap (card goes deck -> discard)
@@ -1546,14 +1584,10 @@ class GolfGame {
             // Update player name in header (truncate if needed)
             const displayName = me.name.length > 12 ? me.name.substring(0, 11) + '…' : me.name;
             const checkmark = me.all_face_up ? ' ✓' : '';
-            // Remove old crown if exists
-            const existingCrown = this.playerHeader.querySelector('.winner-crown');
-            if (existingCrown) existingCrown.remove();
-            // Set content - crown goes at the start
-            this.playerHeader.firstChild.textContent = displayName + checkmark;
-            if (isRoundWinner) {
-                this.playerHeader.insertAdjacentHTML('afterbegin', '<span class="winner-crown">👑</span>');
-            }
+            // Update player name span with crown if winner
+            const playerNameSpan = this.playerHeader.querySelector('.player-name');
+            const crownHtml = isRoundWinner ? '<span class="winner-crown">👑</span>' : '';
+            playerNameSpan.innerHTML = crownHtml + displayName + checkmark;
         }
 
         // Update discard pile (skip if holding a drawn card)
