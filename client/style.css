@@ -1060,8 +1060,8 @@ input::placeholder {
 /* Round winner highlight */
 .opponent-area.round-winner h4,
 .player-area.round-winner h4 {
-    background: rgba(200, 255, 50, 0.7);
-    box-shadow: 0 0 15px rgba(200, 255, 50, 0.9), 0 0 30px rgba(200, 255, 50, 0.5);
+    background: rgba(200, 255, 50, 0.6);
+    box-shadow: 0 0 8px rgba(200, 255, 50, 0.5);
     color: #0a2a10;
 }
 

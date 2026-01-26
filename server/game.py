@@ -828,6 +828,8 @@ class Game:
         If the player has revealed all cards and is the first to do so,
         triggers FINAL_TURN phase where other players get one more turn.
 
+        In FINAL_TURN phase, reveal all of the player's cards after their turn.
+
         Args:
             player: The player whose turn just ended.
         """
@@ -835,6 +837,10 @@ class Game:
             self.finisher_id = player.id
             self.phase = GamePhase.FINAL_TURN
             self.players_with_final_turn.add(player.id)
+        elif self.phase == GamePhase.FINAL_TURN:
+            # Reveal this player's cards immediately after their final turn
+            for card in player.cards:
+                card.face_up = True
 
         self._next_turn()
 
