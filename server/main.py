@@ -575,6 +575,11 @@ async def websocket_endpoint(websocket: WebSocket):
                     blackjack=data.get("blackjack", False),
                     eagle_eye=data.get("eagle_eye", False),
                     wolfpack=data.get("wolfpack", False),
+                    # House Rules - New Variants
+                    flip_as_action=data.get("flip_as_action", False),
+                    four_of_a_kind=data.get("four_of_a_kind", False),
+                    negative_pairs_keep_value=data.get("negative_pairs_keep_value", False),
+                    one_eyed_jacks=data.get("one_eyed_jacks", False),
                 )
 
                 # Validate settings
@@ -685,6 +690,15 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
 
                 if current_room.game.skip_flip_and_end_turn(player_id):
+                    await broadcast_game_state(current_room)
+                    await check_and_run_cpu_turn(current_room)
+
+            elif msg_type == "flip_as_action":
+                if not current_room:
+                    continue
+
+                position = data.get("position", 0)
+                if current_room.game.flip_card_as_action(player_id, position):
                     await broadcast_game_state(current_room)
                     await check_and_run_cpu_turn(current_room)
 

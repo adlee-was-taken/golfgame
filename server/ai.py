@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Optional
 from enum import Enum
 
-from game import Card, Player, Game, GamePhase, GameOptions, RANK_VALUES, Rank, get_card_value
+from game import Card, Player, Game, GamePhase, GameOptions, RANK_VALUES, Rank, Suit, get_card_value
 
 
 # Debug logging configuration
@@ -224,6 +224,10 @@ def filter_bad_pair_positions(
 
     # Exception: Eagle Eye makes pairing Jokers GOOD (-4 instead of 0)
     if options.eagle_eye and drawn_card.rank == Rank.JOKER:
+        return positions
+
+    # Exception: Negative Pairs Keep Value makes pairing negative cards GOOD
+    if options.negative_pairs_keep_value:
         return positions
 
     filtered = []
@@ -475,6 +479,12 @@ class GolfAI:
             ai_log(f"  >> TAKE: King (always take)")
             return True
 
+        # One-eyed Jacks: J♥ and J♠ are worth 0, always take them
+        if options.one_eyed_jacks:
+            if discard_card.rank == Rank.JACK and discard_card.suit in (Suit.HEARTS, Suit.SPADES):
+                ai_log(f"  >> TAKE: One-eyed Jack (worth 0)")
+                return True
+
         # Auto-take 10s when ten_penny enabled (they're worth 1)
         if discard_card.rank == Rank.TEN and options.ten_penny:
             ai_log(f"  >> TAKE: 10 (ten_penny rule)")
@@ -578,11 +588,17 @@ class GolfAI:
                 pair_bonus = drawn_value + partner_value
                 score += pair_bonus * pair_weight  # Pair hunters value this more
             else:
-                # Pairing negative cards - usually bad
+                # Pairing negative cards
                 if options.eagle_eye and drawn_card.rank == Rank.JOKER:
-                    score += 8 * pair_weight  # Eagle Eye Joker pairs
+                    score += 8 * pair_weight  # Eagle Eye Joker pairs = -4
+                elif options.negative_pairs_keep_value:
+                    # Negative Pairs Keep Value: pairing 2s/Jokers is NOW good!
+                    # Pair of 2s = -4, pair of Jokers = -4 (instead of 0)
+                    pair_benefit = abs(drawn_value + partner_value)
+                    score += pair_benefit * pair_weight
+                    ai_log(f"    Negative pair keep value bonus: +{pair_benefit * pair_weight:.1f}")
                 else:
-                    # Penalty, but pair hunters might still do it
+                    # Standard rules: penalty for wasting negative cards
                     penalty = abs(drawn_value) * 2 * (2.0 - profile.pair_hope)
                     score -= penalty
 
@@ -631,6 +647,20 @@ class GolfAI:
         if not current_card.face_up and not partner_card.face_up:
             pair_viability = get_pair_viability(drawn_card.rank, game)
             score += pair_viability * pair_weight * 0.5
+
+        # 4b. FOUR OF A KIND PURSUIT
+        #     When four_of_a_kind rule is enabled, boost score for collecting 3rd/4th card
+        if options.four_of_a_kind:
+            # Count how many of this rank player already has visible (excluding current position)
+            rank_count = sum(
+                1 for i, c in enumerate(player.cards)
+                if c.face_up and c.rank == drawn_card.rank and i != pos
+            )
+            if rank_count >= 2:
+                # Already have 2+ of this rank, getting more is great for 4-of-a-kind
+                four_kind_bonus = rank_count * 4  # 8 for 2 cards, 12 for 3 cards
+                score += four_kind_bonus
+                ai_log(f"    Four-of-a-kind pursuit bonus: +{four_kind_bonus}")
 
         # 5. GO-OUT SAFETY - Penalty for going out with bad score
         face_down_positions = [i for i, c in enumerate(player.cards) if not c.face_up]
@@ -863,6 +893,62 @@ class GolfAI:
         return False
 
     @staticmethod
+    def should_use_flip_action(game: Game, player: Player, profile: CPUProfile) -> Optional[int]:
+        """
+        Decide whether to use flip-as-action instead of drawing.
+
+        Returns card index to flip, or None to draw normally.
+
+        Only available when flip_as_action house rule is enabled.
+        Conservative players may prefer this to avoid risky deck draws.
+        """
+        if not game.options.flip_as_action:
+            return None
+
+        # Find face-down cards
+        face_down = [(i, c) for i, c in enumerate(player.cards) if not c.face_up]
+        if not face_down:
+            return None  # No cards to flip
+
+        # Check if discard has a good card we want - if so, don't use flip action
+        discard_top = game.discard_top()
+        if discard_top:
+            discard_value = get_ai_card_value(discard_top, game.options)
+            if discard_value <= 2:  # Good card available
+                ai_log(f"  Flip-as-action: skipping, good discard available ({discard_value})")
+                return None
+
+        # Aggressive players prefer drawing (more action, chance to improve)
+        if profile.aggression > 0.6:
+            ai_log(f"  Flip-as-action: skipping, too aggressive ({profile.aggression:.2f})")
+            return None
+
+        # Consider flip action with probability based on personality
+        # Conservative players (low aggression) are more likely to use it
+        flip_chance = (1.0 - profile.aggression) * 0.25  # Max 25% for most conservative
+
+        # Increase chance if we have many hidden cards (info is valuable)
+        if len(face_down) >= 4:
+            flip_chance *= 1.5
+
+        if random.random() > flip_chance:
+            return None
+
+        ai_log(f"  Flip-as-action: choosing to flip instead of draw")
+
+        # Prioritize positions where column partner is visible (pair info)
+        for idx, card in face_down:
+            partner_idx = idx + 3 if idx < 3 else idx - 3
+            if player.cards[partner_idx].face_up:
+                ai_log(f"    Flipping position {idx} (partner visible)")
+                return idx
+
+        # Random face-down card
+        choice = random.choice(face_down)[0]
+        ai_log(f"    Flipping position {choice} (random)")
+        return choice
+
+    @staticmethod
     def should_go_out_early(player: Player, game: Game, profile: CPUProfile) -> bool:
         """
         Decide if CPU should try to go out (reveal all cards) to screw neighbors.
@@ -942,6 +1028,26 @@ async def process_cpu_turn(
 
     # Check if we should try to go out early
     GolfAI.should_go_out_early(cpu_player, game, profile)
+
+    # Check if we should use flip-as-action instead of drawing
+    flip_action_pos = GolfAI.should_use_flip_action(game, cpu_player, profile)
+    if flip_action_pos is not None:
+        if game.flip_card_as_action(cpu_player.id, flip_action_pos):
+            # Log flip-as-action
+            if logger and game_id:
+                flipped_card = cpu_player.cards[flip_action_pos]
+                logger.log_move(
+                    game_id=game_id,
+                    player=cpu_player,
+                    is_cpu=True,
+                    action="flip_as_action",
+                    card=flipped_card,
+                    position=flip_action_pos,
+                    game=game,
+                    decision_reason=f"used flip-as-action to reveal position {flip_action_pos}",
+                )
+            await broadcast_callback()
+            return  # Turn is over
 
     # Decide whether to draw from discard or deck
     discard_top = game.discard_top()

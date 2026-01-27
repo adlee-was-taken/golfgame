@@ -104,7 +104,7 @@
                                         <select id="flip-mode">
                                             <option value="never">Standard - No flip after discarding</option>
                                             <option value="always">Speed Golf - MUST flip a card after discarding</option>
-                                            <option value="endgame">Endgame - Flip after discard if a player has 1 hidden card left</option>
+                                            <option value="endgame">Endgame - Optional flip to help trailing players catch up</option>
                                         </select>
                                         <span class="rule-desc">What happens when you draw from deck and discard</span>
                                     </div>
@@ -186,7 +186,33 @@
                                     <label class="checkbox-label inline">
                                         <input type="checkbox" id="wolfpack">
                                         <span>Wolfpack</span>
-                                        <span class="rule-desc">2 pairs of Jacks = -5 pts</span>
+                                        <span class="rule-desc">All 4 Jacks = -20 pts</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="options-category">
+                                <h4>New Variants</h4>
+                                <div class="checkbox-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="flip-as-action">
+                                        <span>Flip as Action</span>
+                                        <span class="rule-desc">Use turn to flip a card without drawing</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="four-of-a-kind">
+                                        <span>Four of a Kind</span>
+                                        <span class="rule-desc">4 matching cards in 2 columns = -20 pts</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="negative-pairs-keep-value">
+                                        <span>Negative Pairs Keep Value</span>
+                                        <span class="rule-desc">Paired 2s/Jokers stay at -4 (not 0)</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="one-eyed-jacks">
+                                        <span>One-Eyed Jacks</span>
+                                        <span class="rule-desc">J♥ and J♠ worth 0 pts</span>
                                     </label>
                                 </div>
                             </div>
@@ -296,8 +322,47 @@
         <!-- Rules Screen -->
         <div id="rules-screen" class="screen">
             <div class="rules-container">
-                <button id="rules-back-btn" class="btn btn-secondary back-btn">← Back</button>
-                <h1>Game Rules</h1>
+                <button id="rules-back-btn" class="btn rules-back-btn">« Back</button>
+
+                <div class="rules-header">
+                    <h1><span class="golfer-logo">🏌️</span> <span class="golf-title">Golf Rules</span></h1>
+                    <p class="rules-subtitle">6-Card Golf Card Game - Complete Guide</p>
+                </div>
+
+                <!-- Table of Contents -->
+                <nav class="rules-toc">
+                    <div class="toc-title">Quick Navigation</div>
+                    <div class="toc-links">
+                        <a href="#rules-basic" class="toc-link">
+                            <span class="toc-icon">🎯</span>
+                            <span class="toc-text">Basic Rules</span>
+                        </a>
+                        <a href="#rules-card-values" class="toc-link">
+                            <span class="toc-icon">🃏</span>
+                            <span class="toc-text">Card Values</span>
+                        </a>
+                        <a href="#rules-pairing" class="toc-link">
+                            <span class="toc-icon">👯</span>
+                            <span class="toc-text">Column Pairing</span>
+                        </a>
+                        <a href="#rules-turn" class="toc-link">
+                            <span class="toc-icon">🔄</span>
+                            <span class="toc-text">Turn Structure</span>
+                        </a>
+                        <a href="#rules-flip-mode" class="toc-link">
+                            <span class="toc-icon">🔃</span>
+                            <span class="toc-text">Flip Modes</span>
+                        </a>
+                        <a href="#rules-house-rules" class="toc-link">
+                            <span class="toc-icon">🏠</span>
+                            <span class="toc-text">House Rules</span>
+                        </a>
+                        <a href="#rules-faq" class="toc-link">
+                            <span class="toc-icon">❓</span>
+                            <span class="toc-text">FAQ</span>
+                        </a>
+                    </div>
+                </nav>
 
                 <section id="rules-basic" class="rules-section">
                     <h2>Basic Rules</h2>
@@ -331,24 +396,24 @@
                 <section id="rules-pairing" class="rules-section">
                     <h2>Column Pairing (IMPORTANT!)</h2>
                     <p><strong>This is the most important rule to understand:</strong></p>
-                    <p>If both cards in a <strong>vertical column</strong> have the <strong>same rank</strong> (like two Kings, or two 7s), that entire column scores <strong>0 points</strong> - regardless of what the cards are worth individually!</p>
+                    <p>If both cards in a <strong>vertical column</strong> have the <strong>same rank</strong> (like two 8s or two Jacks), that entire column scores <strong>0 points</strong> - regardless of what the cards are worth individually!</p>
 
                     <div class="rules-example">
                         <h4>Example:</h4>
                         <pre>
 Your 6-card grid:
   Col1  Col2  Col3
- [K]   [5]   [7]   ← Top row
- [K]   [3]   [9]   ← Bottom row
+ [8]   [5]   [7]   ← Top row
+ [8]   [3]   [9]   ← Bottom row
 
-Column 1: K + K = PAIR! = 0 points (not 0+0)
+Column 1: 8 + 8 = PAIR! = 0 points (not 16!)
 Column 2: 5 + 3 = 8 points
 Column 3: 7 + 9 = 16 points
 
 TOTAL: 0 + 8 + 16 = 24 points</pre>
                     </div>
 
-                    <p class="rules-warning"><strong>IMPORTANT:</strong> When you pair cards, you get 0 points for that column - even if the cards have negative values! Two 2s paired = 0 points (not -4). Two Jokers paired = 0 points (not -4).</p>
+                    <p class="rules-warning"><strong>IMPORTANT:</strong> When you pair cards, you get 0 points for that column - even if the cards have negative values! Two 2s paired = 0 points (not -4). Two Jokers paired = 0 points (not -4). <em>Exception: The "Negative Pairs Keep Value" house rule changes this - paired negative cards keep their -4 value!</em></p>
                 </section>
 
                 <section id="rules-turn" class="rules-section">
@@ -386,55 +451,129 @@ TOTAL: 0 + 8 + 16 = 24 points</pre>
                         <h3>Standard Mode (No Flip)</h3>
                         <p class="mode-summary">Default setting. Discarding ends your turn immediately.</p>
                         <p><strong>How it works:</strong> When you draw from the deck and decide not to use it, you simply discard it and your turn is over. Nothing else happens.</p>
-                        <p><strong>Best for:</strong> Traditional gameplay, longer games, maximum hidden information.</p>
+                        <p><strong>Strategic impact:</strong> Information is precious. You only learn what's in your hand by actively swapping cards, so there's more gambling on face-down cards. Rewards good memory and tracking what opponents discard.</p>
+                        <p><strong>Best for:</strong> Traditional gameplay, longer games, players who enjoy mystery and risk.</p>
                     </div>
 
                     <div class="rules-mode">
                         <h3>Speed Golf Mode (Must Flip)</h3>
                         <p class="mode-summary">Every discard reveals one of your hidden cards.</p>
                         <p><strong>How it works:</strong> When you draw from the deck and discard, you MUST also flip over one of your face-down cards. This is mandatory - you cannot skip it.</p>
-                        <p><strong>Why use it:</strong> Games go much faster because more cards get revealed every turn. More information for everyone = more strategic decisions.</p>
-                        <p><strong>Best for:</strong> Quick games, players who like faster-paced action.</p>
+                        <p><strong>Strategic impact:</strong> Even "bad" draws give you information. Reduces the luck factor since everyone makes more informed decisions. Games naturally end faster with less hidden information.</p>
+                        <p><strong>Best for:</strong> Quick games, players who prefer skill over luck.</p>
                     </div>
 
                     <div class="rules-mode">
-                        <h3>Endgame Mode (Flip When Close to Finishing)</h3>
-                        <p class="mode-summary">Flip activates when any player has only 1 hidden card remaining.</p>
+                        <h3>Endgame Mode (Catch-Up Flip)</h3>
+                        <p class="mode-summary">Optional flip activates when any player has only 1 hidden card left.</p>
                         <p><strong>How it works:</strong></p>
                         <ul>
                             <li>Early in the round: Discarding ends your turn (like Standard mode)</li>
-                            <li><strong>When ANY player has 1 or fewer face-down cards:</strong> After discarding, you MAY choose to flip one of your hidden cards OR skip the flip</li>
+                            <li><strong>When ANY player has 1 or fewer face-down cards:</strong> After discarding, you MAY choose to flip one of your hidden cards OR skip</li>
                         </ul>
-                        <p><strong>Why use it:</strong> Creates dramatic tension near the end of rounds. Do you reveal more to try to improve your score, or keep cards hidden to maintain mystery?</p>
-                        <p><strong>Best for:</strong> Players who enjoy dramatic finishes and tough end-game decisions.</p>
+                        <p><strong>Strategic impact:</strong> This is a <strong>catch-up mechanic</strong>. When someone is about to go out, trailing players can accelerate their information gathering to find pairs or swap out bad cards. The leader (who triggered this) doesn't benefit since they have no hidden cards left. Reduces the "runaway leader" problem and keeps games competitive.</p>
+                        <p><strong>Best for:</strong> Competitive play where you want trailing players to have a fighting chance.</p>
                     </div>
                 </section>
 
                 <section id="rules-house-rules" class="rules-section">
                     <h2>House Rules (Optional Variants)</h2>
 
-                    <h3>Point Modifiers</h3>
-                    <ul>
-                        <li><strong>Super Kings:</strong> Kings are worth -2 points instead of 0 (makes them even better!)</li>
-                        <li><strong>Ten Penny:</strong> 10s are worth only 1 point instead of 10 (makes 10s less scary)</li>
-                    </ul>
+                    <div class="rules-mode">
+                        <h3>Point Modifiers</h3>
+                        <div class="house-rule">
+                            <h4>Super Kings</h4>
+                            <p>Kings are worth <strong>-2 points</strong> instead of 0.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Kings become valuable to keep unpaired, not just pairing fodder. Creates interesting decisions - do you pair Kings for 0, or keep them separate for -4 total?</p>
+                        </div>
+                        <div class="house-rule">
+                            <h4>Ten Penny</h4>
+                            <p>10s are worth <strong>1 point</strong> instead of 10.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Removes the "10 disaster" - drawing a 10 is no longer a crisis. Queens and Jacks become the only truly bad cards. Makes the game more forgiving.</p>
+                        </div>
+                    </div>
 
-                    <h3>Joker Variants</h3>
-                    <ul>
-                        <li><strong>Standard Jokers:</strong> 2 Jokers per deck, each worth -2 points (paired Jokers = 0 points)</li>
-                        <li><strong>Lucky Swing:</strong> Only 1 Joker in the entire deck, but it's worth -5 points! (Rare and powerful)</li>
-                        <li><strong>Eagle Eye:</strong> Jokers are worth +2 points unpaired, but -4 points when paired (rewards finding both Jokers)</li>
-                    </ul>
+                    <div class="rules-mode">
+                        <h3>Joker Variants</h3>
+                        <div class="house-rule">
+                            <h4>Standard Jokers</h4>
+                            <p>2 Jokers per deck, each worth <strong>-2 points</strong>.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Jokers are great to find but pairing them is wasteful (0 points instead of -4). Best kept in different columns. Adds 2 premium cards to hunt for.</p>
+                        </div>
+                        <div class="house-rule">
+                            <h4>Lucky Swing</h4>
+                            <p>Only <strong>1 Joker</strong> in the entire deck, worth <strong>-5 points</strong>.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> High variance. Whoever finds this rare card gets a significant advantage. Increases the luck factor - sometimes you get it, sometimes your opponent does.</p>
+                        </div>
+                        <div class="house-rule">
+                            <h4>Eagle Eye</h4>
+                            <p>Jokers are worth <strong>+2 unpaired</strong>, but <strong>-4 when paired</strong>.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Risk/reward Jokers. Finding one actually hurts you (+2) until you commit to finding the second. Rewards aggressive searching and creates tense decisions about whether to keep hunting or cut your losses.</p>
+                        </div>
+                    </div>
 
-                    <h3>Bonuses & Penalties</h3>
-                    <ul>
-                        <li><strong>Knock Penalty:</strong> If you "go out" (reveal all cards first) but DON'T have the lowest score, you get +10 penalty points. Risk vs reward!</li>
-                        <li><strong>Knock Bonus:</strong> Get -5 points (subtracted from your score) for going out first.</li>
-                        <li><strong>Underdog Bonus:</strong> The player with the lowest score each hole gets -3 points.</li>
-                        <li><strong>Tied Shame:</strong> If you tie with another player's score, both of you get +5 penalty points.</li>
-                        <li><strong>Blackjack:</strong> If your exact score is 21, it becomes 0 instead!</li>
-                        <li><strong>Wolfpack:</strong> If you have exactly 2 pairs of Jacks (all 4 Jacks), you get -5 bonus points.</li>
-                    </ul>
+                    <div class="rules-mode">
+                        <h3>Going Out Rules</h3>
+                        <div class="house-rule">
+                            <h4>Knock Penalty</h4>
+                            <p><strong>+10 points</strong> if you go out but don't have the lowest score.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Discourages reckless rushing. You need to be confident you're winning before going out. Rewards patience and reading your opponents' likely scores. Can backfire spectacularly if you misjudge.</p>
+                        </div>
+                        <div class="house-rule">
+                            <h4>Knock Bonus</h4>
+                            <p><strong>-5 points</strong> for going out first (regardless of who wins).</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Encourages racing to finish, even with a mediocre hand. The 5-point bonus might make up for a slightly worse score. Speeds up gameplay.</p>
+                        </div>
+                        <p class="combo-note"><em>Combining Knock Penalty + Knock Bonus creates high-stakes "going out" decisions: -5 if you win, +10 if you lose!</em></p>
+                    </div>
+
+                    <div class="rules-mode">
+                        <h3>Scoring Bonuses</h3>
+                        <div class="house-rule">
+                            <h4>Underdog Bonus</h4>
+                            <p>Round winner gets <strong>-3 points</strong> extra.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Amplifies winning - the best player each round pulls further ahead. Can lead to snowballing leads over multiple holes. Rewards consistency.</p>
+                        </div>
+                        <div class="house-rule">
+                            <h4>Tied Shame</h4>
+                            <p>If you tie another player's score, <strong>both get +5 penalty</strong>.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Punishes playing it safe. If you suspect a tie, you need to take risks to differentiate your score. Creates interesting late-round decisions.</p>
+                        </div>
+                        <div class="house-rule">
+                            <h4>Blackjack</h4>
+                            <p>Score of exactly <strong>21 becomes 0</strong>.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> A "hail mary" comeback. If you're stuck at 21, you're suddenly in great shape. Mostly luck, but adds exciting moments when it happens.</p>
+                        </div>
+                        <div class="house-rule">
+                            <h4>Wolfpack</h4>
+                            <p>Having <strong>all 4 Jacks</strong> (2 pairs) gives <strong>-20 bonus</strong>.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Extremely rare but now a significant reward! Turns a potential disaster (40 points of Jacks) into a triumph. The huge bonus makes it worth celebrating when achieved, though still not worth actively pursuing.</p>
+                        </div>
+                    </div>
+
+                    <div class="rules-mode">
+                        <h3>New Variants</h3>
+                        <div class="house-rule">
+                            <h4>Flip as Action</h4>
+                            <p>Use your turn to flip one of your face-down cards without drawing. Ends your turn immediately.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Lets you gather information without risking a bad deck draw. Conservative players can learn their hand safely. However, you miss the chance to actively improve your hand - you're just learning what you have.</p>
+                        </div>
+                        <div class="house-rule">
+                            <h4>Four of a Kind</h4>
+                            <p>Having 4 cards of the same rank across two columns scores <strong>-20 bonus</strong>.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Rewards collecting matching cards beyond just column pairs. Changes whether you should take a third or fourth copy of a rank. If you already have two pairs of 8s, that's -20 extra! Stacks with Wolfpack: four Jacks = -40 total.</p>
+                        </div>
+                        <div class="house-rule">
+                            <h4>Negative Pairs Keep Value</h4>
+                            <p>When you pair 2s or Jokers in a column, they keep their combined <strong>-4 points</strong> instead of becoming 0.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Major change! Pairing your best cards is now beneficial. Two 2s paired = -4 points, not 0. This encourages hunting for duplicate negative cards and fundamentally changes how you value 2s and Jokers.</p>
+                        </div>
+                        <div class="house-rule">
+                            <h4>One-Eyed Jacks</h4>
+                            <p>The Jack of Hearts (J♥) and Jack of Spades (J♠) - the "one-eyed" Jacks - are worth <strong>0 points</strong> instead of 10.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> Two of the four Jacks become safe cards, comparable to Kings. J♥ and J♠ are now good cards to keep! Only J♣ and J♦ remain dangerous. Reduces the "Jack disaster" probability by half.</p>
+                        </div>
+                    </div>
                 </section>
 
                 <section id="rules-faq" class="rules-section">
@@ -481,8 +620,13 @@ TOTAL: 0 + 8 + 16 = 24 points</pre>
                     </div>
 
                     <div class="faq-item">
-                        <h4>Q: Why would I NOT flip in Endgame mode?</h4>
-                        <p>A: Maybe you have a hidden card you hope is good, and you don't want to reveal a potential disaster. Or maybe you want to keep your opponents guessing about your score. It's a strategic choice!</p>
+                        <h4>Q: How does Endgame mode help trailing players?</h4>
+                        <p>A: When someone is close to going out, they've likely optimized their hand already. The optional flip lets everyone else accelerate their information gathering - flipping cards to find pairs or identify which cards to swap out. The leader doesn't benefit (they have no hidden cards left), so it's purely a catch-up mechanic.</p>
+                    </div>
+
+                    <div class="faq-item">
+                        <h4>Q: Why would I skip the flip in Endgame mode?</h4>
+                        <p>A: If you're already winning or your remaining hidden cards are statistically likely to be good, you might prefer not to risk revealing a disaster. It's a calculated gamble!</p>
                     </div>
                 </section>
             </div>

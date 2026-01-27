@@ -163,6 +163,11 @@ class GolfGame {
         this.tiedShameCheckbox = document.getElementById('tied-shame');
         this.blackjackCheckbox = document.getElementById('blackjack');
         this.wolfpackCheckbox = document.getElementById('wolfpack');
+        // House Rules - New Variants
+        this.flipAsActionCheckbox = document.getElementById('flip-as-action');
+        this.fourOfAKindCheckbox = document.getElementById('four-of-a-kind');
+        this.negativePairsCheckbox = document.getElementById('negative-pairs-keep-value');
+        this.oneEyedJacksCheckbox = document.getElementById('one-eyed-jacks');
         this.startGameBtn = document.getElementById('start-game-btn');
         this.leaveRoomBtn = document.getElementById('leave-room-btn');
         this.addCpuBtn = document.getElementById('add-cpu-btn');
@@ -397,7 +402,11 @@ class GolfGame {
                 break;
 
             case 'your_turn':
-                this.showToast('Your turn! Draw a card', 'your-turn');
+                if (this.gameState && this.gameState.flip_as_action) {
+                    this.showToast('Your turn! Draw or flip a card', 'your-turn');
+                } else {
+                    this.showToast('Your turn! Draw a card', 'your-turn');
+                }
                 break;
 
             case 'card_drawn':
@@ -516,6 +525,12 @@ class GolfGame {
         const blackjack = this.blackjackCheckbox.checked;
         const wolfpack = this.wolfpackCheckbox.checked;
 
+        // House Rules - New Variants
+        const flip_as_action = this.flipAsActionCheckbox.checked;
+        const four_of_a_kind = this.fourOfAKindCheckbox.checked;
+        const negative_pairs_keep_value = this.negativePairsCheckbox.checked;
+        const one_eyed_jacks = this.oneEyedJacksCheckbox.checked;
+
         this.send({
             type: 'start_game',
             decks,
@@ -532,7 +547,11 @@ class GolfGame {
             tied_shame,
             blackjack,
             eagle_eye,
-            wolfpack
+            wolfpack,
+            flip_as_action,
+            four_of_a_kind,
+            negative_pairs_keep_value,
+            one_eyed_jacks
         });
     }
 
@@ -1192,6 +1211,21 @@ class GolfGame {
 
         const card = myData.cards[position];
 
+        // Check for flip-as-action: can flip face-down card instead of drawing
+        const canFlipAsAction = this.gameState.flip_as_action &&
+                                this.isMyTurn() &&
+                                !this.drawnCard &&
+                                !this.gameState.has_drawn_card &&
+                                !card.face_up &&
+                                !this.gameState.waiting_for_initial_flip;
+        if (canFlipAsAction) {
+            this.playSound('flip');
+            this.fireLocalFlipAnimation(position, card);
+            this.send({ type: 'flip_as_action', position });
+            this.hideToast();
+            return;
+        }
+
         // Check if action is allowed - if not, play reject sound
         const canAct = this.gameState.waiting_for_initial_flip ||
                        this.drawnCard ||
@@ -1449,7 +1483,11 @@ class GolfGame {
         if (currentPlayer && currentPlayer.id !== this.playerId) {
             this.setStatus(`${currentPlayer.name}'s turn`);
         } else if (this.isMyTurn()) {
-            this.setStatus('Your turn - draw a card', 'your-turn');
+            if (this.gameState.flip_as_action && !this.drawnCard && !this.gameState.has_drawn_card) {
+                this.setStatus('Your turn - draw a card or flip one', 'your-turn');
+            } else {
+                this.setStatus('Your turn - draw a card', 'your-turn');
+            }
         } else {
             this.setStatus('');
         }

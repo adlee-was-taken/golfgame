@@ -29,6 +29,8 @@ from constants import (
     SUPER_KINGS_VALUE,
     TEN_PENNY_VALUE,
     LUCKY_SWING_JOKER_VALUE,
+    WOLFPACK_BONUS,
+    FOUR_OF_A_KIND_BONUS,
 )
 
 
@@ -110,6 +112,10 @@ def get_card_value(card: "Card", options: Optional["GameOptions"] = None) -> int
             return SUPER_KINGS_VALUE
         if card.rank == Rank.TEN and options.ten_penny:
             return TEN_PENNY_VALUE
+        # One-eyed Jacks: J♥ and J♠ are worth 0 instead of 10
+        if options.one_eyed_jacks:
+            if card.rank == Rank.JACK and card.suit in (Suit.HEARTS, Suit.SPADES):
+                return 0
     return RANK_VALUES[card.rank]
 
 
@@ -301,6 +307,7 @@ class Player:
 
         total = 0
         jack_pairs = 0  # Track paired Jacks for Wolfpack bonus
+        paired_ranks: list[Rank] = []  # Track all paired ranks for four-of-a-kind
 
         for col in range(3):
             top_idx = col
@@ -310,6 +317,8 @@ class Player:
 
             # Check if column pair matches (same rank cancels out)
             if top_card.rank == bottom_card.rank:
+                paired_ranks.append(top_card.rank)
+
                 # Track Jack pairs for Wolfpack bonus
                 if top_card.rank == Rank.JACK:
                     jack_pairs += 1
@@ -320,6 +329,15 @@ class Player:
                     total -= 4
                     continue
 
+                # Negative Pairs Keep Value: paired 2s/Jokers keep their negative value
+                if options and options.negative_pairs_keep_value:
+                    top_val = get_card_value(top_card, options)
+                    bottom_val = get_card_value(bottom_card, options)
+                    if top_val < 0 or bottom_val < 0:
+                        # Keep negative value instead of 0
+                        total += top_val + bottom_val
+                        continue
+
                 # Normal matching pair: scores 0 (skip adding values)
                 continue
 
@@ -327,9 +345,18 @@ class Player:
             total += get_card_value(top_card, options)
             total += get_card_value(bottom_card, options)
 
-        # Wolfpack bonus: 2+ pairs of Jacks = -5 pts
+        # Wolfpack bonus: 2+ pairs of Jacks
         if options and options.wolfpack and jack_pairs >= 2:
-            total -= 5
+            total += WOLFPACK_BONUS  # -20
+
+        # Four of a Kind bonus: same rank appears twice in paired_ranks
+        # (meaning 4 cards of that rank across 2 columns)
+        if options and options.four_of_a_kind:
+            rank_counts = Counter(paired_ranks)
+            for rank, count in rank_counts.items():
+                if count >= 2:
+                    # Four of a kind! Apply bonus
+                    total += FOUR_OF_A_KIND_BONUS  # -20
 
         self.score = total
         return total
@@ -414,6 +441,19 @@ class GameOptions:
     # --- House Rules: Special ---
     eagle_eye: bool = False
     """Jokers worth +2 unpaired, -4 when paired (instead of -2/0)."""
+
+    # --- House Rules: New Variants (all OFF by default for classic gameplay) ---
+    flip_as_action: bool = False
+    """Allow using turn to flip a face-down card without drawing."""
+
+    four_of_a_kind: bool = False
+    """Four equal cards in two columns scores -20 points bonus."""
+
+    negative_pairs_keep_value: bool = False
+    """Paired 2s and Jokers keep their negative value (-4) instead of becoming 0."""
+
+    one_eyed_jacks: bool = False
+    """One-eyed Jacks (J♥ and J♠) are worth 0 points instead of 10."""
 
 
 @dataclass
@@ -878,6 +918,45 @@ class Game:
         self._check_end_turn(player)
         return True
 
+    def flip_card_as_action(self, player_id: str, card_index: int) -> bool:
+        """
+        Use turn to flip a face-down card without drawing.
+
+        Only valid if flip_as_action house rule is enabled.
+        This is an alternative to drawing - player flips one of their
+        face-down cards to see what it is, then their turn ends.
+
+        Args:
+            player_id: ID of the player using this action.
+            card_index: Index 0-5 of the card to flip.
+
+        Returns:
+            True if action was valid and turn ended, False otherwise.
+        """
+        if not self.options.flip_as_action:
+            return False
+
+        player = self.current_player()
+        if not player or player.id != player_id:
+            return False
+
+        if self.phase not in (GamePhase.PLAYING, GamePhase.FINAL_TURN):
+            return False
+
+        # Can't use this action if already drawn a card
+        if self.drawn_card is not None:
+            return False
+
+        if not (0 <= card_index < len(player.cards)):
+            return False
+
+        if player.cards[card_index].face_up:
+            return False  # Already face-up, can't flip
+
+        player.cards[card_index].face_up = True
+        self._check_end_turn(player)
+        return True
+
     # -------------------------------------------------------------------------
     # Turn & Round Flow (Internal)
     # -------------------------------------------------------------------------
@@ -1089,6 +1168,15 @@ class Game:
                 active_rules.append("Blackjack")
             if self.options.wolfpack:
                 active_rules.append("Wolfpack")
+            # New house rules
+            if self.options.flip_as_action:
+                active_rules.append("Flip as Action")
+            if self.options.four_of_a_kind:
+                active_rules.append("Four of a Kind")
+            if self.options.negative_pairs_keep_value:
+                active_rules.append("Negative Pairs Keep Value")
+            if self.options.one_eyed_jacks:
+                active_rules.append("One-Eyed Jacks")
 
         return {
             "phase": self.phase.value,
@@ -1108,6 +1196,7 @@ class Game:
             "flip_on_discard": self.flip_on_discard,
             "flip_mode": self.options.flip_mode,
             "flip_is_optional": self.flip_is_optional,
+            "flip_as_action": self.options.flip_as_action,
             "card_values": self.get_card_values(),
             "active_rules": active_rules,
         }
