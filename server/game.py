@@ -140,17 +140,36 @@ class Card:
         """
         Convert card to dictionary for JSON serialization.
 
+        Always includes full card data (rank/suit/face_up) for server-side
+        caching and event sourcing. Use to_client_dict() for client views
+        that should hide face-down cards.
+
         Args:
-            reveal: If True, show card details even if face-down.
+            reveal: Ignored for backwards compatibility. Use to_client_dict() instead.
+
+        Returns:
+            Dict with full card info (suit, rank, face_up).
+        """
+        return {
+            "suit": self.suit.value,
+            "rank": self.rank.value,
+            "face_up": self.face_up,
+        }
+
+    def to_client_dict(self) -> dict:
+        """
+        Convert card to dictionary for client display.
+
+        Hides card details if face-down to prevent cheating.
 
         Returns:
             Dict with card info, or just {face_up: False} if hidden.
         """
-        if self.face_up or reveal:
+        if self.face_up:
             return {
                 "suit": self.suit.value,
                 "rank": self.rank.value,
-                "face_up": self.face_up,
+                "face_up": True,
             }
         return {"face_up": False}
 
@@ -390,7 +409,9 @@ class Player:
         Returns:
             List of card dictionaries.
         """
-        return [card.to_dict(reveal) for card in self.cards]
+        if reveal:
+            return [card.to_dict() for card in self.cards]
+        return [card.to_client_dict() for card in self.cards]
 
 
 class GamePhase(Enum):

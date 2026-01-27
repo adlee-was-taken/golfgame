@@ -11,6 +11,7 @@ A Room contains:
     - Settings for number of decks, rounds, etc.
 """
 
+import asyncio
 import random
 import string
 from dataclasses import dataclass, field
@@ -57,6 +58,7 @@ class Room:
         game: The Game instance containing actual game state.
         settings: Room settings (decks, rounds, etc.).
         game_log_id: SQLite log ID for analytics (if logging enabled).
+        game_lock: asyncio.Lock for serializing game mutations to prevent race conditions.
     """
 
     code: str
@@ -64,6 +66,7 @@ class Room:
     game: Game = field(default_factory=Game)
     settings: dict = field(default_factory=lambda: {"decks": 1, "rounds": 1})
     game_log_id: Optional[str] = None
+    game_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     def add_player(
         self,

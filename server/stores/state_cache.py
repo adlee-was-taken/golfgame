@@ -39,9 +39,9 @@ class StateCache:
     ACTIVE_ROOMS_KEY = "golf:rooms:active"
     PLAYER_ROOM_KEY = "golf:player:{player_id}:room"
 
-    # TTLs
-    ROOM_TTL = timedelta(hours=4)  # Inactive rooms expire
-    GAME_TTL = timedelta(hours=4)
+    # TTLs - extended to 24 hours to prevent active games from expiring
+    ROOM_TTL = timedelta(hours=24)  # Inactive rooms expire
+    GAME_TTL = timedelta(hours=24)
 
     def __init__(self, redis_client: redis.Redis):
         """
@@ -359,6 +359,18 @@ class StateCache:
             )
 
         await pipe.execute()
+
+    async def touch_game(self, game_id: str) -> None:
+        """
+        Refresh game TTL on any activity.
+
+        Call this on game actions to prevent active games from expiring.
+
+        Args:
+            game_id: Game UUID to refresh.
+        """
+        key = self.GAME_KEY.format(game_id=game_id)
+        await self.redis.expire(key, int(self.GAME_TTL.total_seconds()))
 
 
 # Global state cache instance (initialized on first use)

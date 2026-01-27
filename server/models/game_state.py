@@ -52,12 +52,38 @@ class CardState:
 
     @classmethod
     def from_dict(cls, d: dict) -> "CardState":
-        """Create from dictionary."""
-        return cls(
-            rank=d["rank"],
-            suit=d["suit"],
-            face_up=d.get("face_up", False),
-        )
+        """
+        Create from dictionary.
+
+        Handles both full card data and minimal face-down data gracefully.
+
+        Args:
+            d: Dictionary with card data. May contain:
+               - Full data: {rank, suit, face_up}
+               - Minimal face-down: {face_up: False}
+
+        Returns:
+            CardState instance.
+
+        Raises:
+            ValueError: If face_up is True but rank/suit are missing.
+        """
+        face_up = d.get("face_up", False)
+        rank = d.get("rank")
+        suit = d.get("suit")
+
+        # If card is face-up, we must have rank and suit
+        if face_up and (rank is None or suit is None):
+            raise ValueError("Face-up card must have rank and suit")
+
+        # For face-down cards with missing data, use placeholder values
+        # This handles improperly serialized data from older versions
+        if rank is None:
+            rank = "?"  # Placeholder for unknown
+        if suit is None:
+            suit = "?"  # Placeholder for unknown
+
+        return cls(rank=rank, suit=suit, face_up=face_up)
 
 
 @dataclass

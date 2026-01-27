@@ -309,6 +309,7 @@ class RecoveryService:
             Reconstructed game state.
         """
         from models.game_state import GamePhase, PlayerState
+        from game import GameOptions
 
         state = RebuiltGameState(game_id=d["game_id"])
         state.room_code = d.get("room_code", "")
@@ -318,7 +319,12 @@ class RecoveryService:
         state.current_player_idx = d.get("current_player_idx", 0)
         state.player_order = d.get("player_order", [])
         state.deck_remaining = d.get("deck_remaining", 0)
-        state.options = d.get("options", {})
+        # Reconstruct GameOptions as proper object for attribute access
+        options_dict = d.get("options", {})
+        if isinstance(options_dict, dict):
+            state.options = GameOptions(**options_dict)
+        else:
+            state.options = options_dict
         state.sequence_num = d.get("sequence_num", 0)
         state.finisher_id = d.get("finisher_id")
         state.host_id = d.get("host_id")

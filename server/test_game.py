@@ -251,9 +251,13 @@ class TestDrawDiscardMechanics:
         player = self.game.get_player("p1")
         # Card is face down
         assert player.cards[0].face_up is False
-        # to_dict doesn't reveal it
-        card_dict = player.cards[0].to_dict(reveal=False)
+        # to_client_dict hides face-down card details from clients
+        card_dict = player.cards[0].to_client_dict()
         assert "rank" not in card_dict
+        # But to_dict always includes full data for server-side caching
+        full_dict = player.cards[0].to_dict()
+        assert "rank" in full_dict
+        assert "suit" in full_dict
 
 
 # =============================================================================

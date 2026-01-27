@@ -420,8 +420,18 @@ async def spectate_game(websocket: WebSocket, room_code: str):
     WebSocket endpoint for spectating live games.
 
     Spectators receive real-time game state updates but cannot interact.
+    Supports optional authentication via token query parameter.
     """
     await websocket.accept()
+
+    # Optional authentication for spectators
+    token = websocket.query_params.get("token")
+    spectator_user = None
+    if token and _auth_service:
+        try:
+            spectator_user = await _auth_service.get_user_from_token(token)
+        except Exception:
+            pass  # Anonymous spectator
 
     if not _spectator_manager or not _room_manager:
         await websocket.close(code=4003, reason="Spectator service unavailable")
@@ -449,6 +459,7 @@ async def spectate_game(websocket: WebSocket, room_code: str):
             "game_state": game_state,
             "spectator_count": _spectator_manager.get_spectator_count(game_id),
             "players": room.player_list(),
+            "authenticated": spectator_user is not None,
         })
 
         # Keep connection alive
