@@ -60,6 +60,12 @@ async def _periodic_leaderboard_refresh():
             logger.error(f"Leaderboard refresh failed: {e}")
 
 
+async def _initiate_shutdown():
+    """Initiate graceful shutdown."""
+    logger.info("Received shutdown signal")
+    _shutdown_event.set()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for async service initialization."""
@@ -210,12 +216,6 @@ async def lifespan(app: FastAPI):
         logger.info("Redis connection closed")
 
     logger.info("Shutdown complete")
-
-
-async def _initiate_shutdown():
-    """Initiate graceful shutdown."""
-    logger.info("Received shutdown signal")
-    _shutdown_event.set()
 
 
 async def _close_all_websockets():
