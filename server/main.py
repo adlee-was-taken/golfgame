@@ -964,6 +964,10 @@ if os.path.exists(client_path):
     async def serve_leaderboard_js():
         return FileResponse(os.path.join(client_path, "leaderboard.js"), media_type="application/javascript")
 
+    @app.get("/golfball-logo.svg")
+    async def serve_golfball_logo():
+        return FileResponse(os.path.join(client_path, "golfball-logo.svg"), media_type="image/svg+xml")
+
     # Admin dashboard
     @app.get("/admin")
     async def serve_admin():
