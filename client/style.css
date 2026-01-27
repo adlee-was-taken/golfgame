@@ -2830,3 +2830,925 @@ input::placeholder {
         font-size: 0.8rem;
     }
 }
+
+/* ===========================================
+   AUTH COMPONENTS
+   =========================================== */
+
+/* Auth bar (top right when logged in) */
+.auth-bar {
+    position: fixed;
+    top: 10px;
+    right: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    z-index: 100;
+}
+
+.auth-bar.hidden {
+    display: none;
+}
+
+#auth-username {
+    color: #f4a460;
+    font-weight: 500;
+}
+
+/* Auth buttons in lobby */
+.auth-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.auth-buttons.hidden {
+    display: none;
+}
+
+/* Auth modal */
+.modal-auth {
+    max-width: 320px;
+    padding: 25px;
+}
+
+.modal-auth h3 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #f4a460;
+    font-size: 1.3rem;
+}
+
+.modal-auth .form-group {
+    margin-bottom: 15px;
+}
+
+.modal-auth input {
+    width: 100%;
+    padding: 12px 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: white;
+    font-size: 1rem;
+}
+
+.modal-auth input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.modal-auth input:focus {
+    outline: none;
+    border-color: #f4a460;
+}
+
+.btn-full {
+    width: 100%;
+}
+
+.auth-switch {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.auth-switch a {
+    color: #f4a460;
+    text-decoration: none;
+}
+
+.auth-switch a:hover {
+    text-decoration: underline;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+}
+
+.modal-close-btn:hover {
+    color: white;
+}
+
+.modal-auth .error {
+    color: #f87171;
+    font-size: 0.85rem;
+    margin: 10px 0;
+    text-align: center;
+}
+
+/* ===========================================
+   LEADERBOARD COMPONENTS
+   =========================================== */
+
+/* Leaderboard button in lobby */
+.leaderboard-btn {
+    background: rgba(244, 164, 96, 0.2);
+    border: 1px solid #f4a460;
+    color: #ffb366;
+    cursor: pointer;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    margin-left: 8px;
+    vertical-align: middle;
+    border-radius: 3px;
+    font-weight: 600;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.leaderboard-btn:hover {
+    background: rgba(244, 164, 96, 0.35);
+    border-color: #ffb366;
+    color: #ffc880;
+}
+
+/* Leaderboard Screen */
+#leaderboard-screen {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 10px 20px;
+}
+
+.leaderboard-container {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 20px 25px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.leaderboard-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.leaderboard-header h1 {
+    color: #f4a460;
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+}
+
+.leaderboard-subtitle {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* Leaderboard back button */
+.leaderboard-back-btn {
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 15px;
+}
+
+.leaderboard-back-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Metric tabs */
+.leaderboard-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.leaderboard-tab {
+    padding: 10px 18px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.leaderboard-tab:hover {
+    background: rgba(244, 164, 96, 0.15);
+    border-color: rgba(244, 164, 96, 0.3);
+    color: #fff;
+}
+
+.leaderboard-tab.active {
+    background: rgba(244, 164, 96, 0.25);
+    border-color: #f4a460;
+    color: #f4a460;
+    font-weight: 600;
+}
+
+/* Leaderboard table */
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.leaderboard-table th {
+    background: rgba(244, 164, 96, 0.15);
+    color: #f4a460;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.leaderboard-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.leaderboard-table .rank-col {
+    width: 50px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.leaderboard-table .rank-col .medal {
+    font-size: 1.2rem;
+}
+
+.leaderboard-table .username-col {
+    font-weight: 500;
+}
+
+.leaderboard-table .value-col {
+    text-align: right;
+    font-weight: 600;
+    color: #f4a460;
+}
+
+.leaderboard-table .games-col {
+    text-align: right;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+}
+
+/* Player profile link */
+.player-link {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.player-link:hover {
+    color: #f4a460;
+    text-decoration: underline;
+}
+
+/* Empty state */
+.leaderboard-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.leaderboard-empty p {
+    margin-bottom: 10px;
+}
+
+/* Loading state */
+.leaderboard-loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.leaderboard-loading::after {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(244, 164, 96, 0.3);
+    border-top-color: #f4a460;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Player Stats Modal */
+.player-stats-modal .modal-content {
+    max-width: 450px;
+}
+
+.player-stats-header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.player-stats-header h3 {
+    color: #f4a460;
+    margin: 0 0 5px 0;
+}
+
+.player-stats-header .rank-badge {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.stat-item {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #f4a460;
+    margin-bottom: 4px;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Achievements section in player stats */
+.achievements-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.achievements-section h4 {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.achievements-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.achievement-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(244, 164, 96, 0.15);
+    border: 1px solid rgba(244, 164, 96, 0.3);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+}
+
+.achievement-badge .icon {
+    font-size: 1rem;
+}
+
+.achievement-badge .name {
+    color: #f4a460;
+    font-weight: 500;
+}
+
+.achievement-badge.locked {
+    background: rgba(0, 0, 0, 0.2);
+    border-color: rgba(255, 255, 255, 0.1);
+    opacity: 0.5;
+}
+
+.achievement-badge.locked .icon {
+    filter: grayscale(1);
+}
+
+.achievement-badge.locked .name {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* My stats badge in leaderboard */
+.my-row {
+    background: rgba(244, 164, 96, 0.1) !important;
+    border-left: 3px solid #f4a460;
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+    #leaderboard-screen {
+        padding: 10px;
+    }
+
+    .leaderboard-container {
+        padding: 15px;
+    }
+
+    .leaderboard-tabs {
+        gap: 6px;
+    }
+
+    .leaderboard-tab {
+        padding: 8px 14px;
+        font-size: 0.85rem;
+    }
+
+    .leaderboard-table th,
+    .leaderboard-table td {
+        padding: 10px 8px;
+        font-size: 0.9rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .stat-item {
+        padding: 10px 8px;
+    }
+
+    .stat-value {
+        font-size: 1.2rem;
+    }
+}
+
+/* ===========================================
+   REPLAY VIEWER
+   =========================================== */
+
+#replay-screen {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 15px 20px;
+}
+
+.replay-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#replay-title {
+    color: #f4a460;
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+}
+
+.replay-meta {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+.replay-meta span {
+    display: inline-block;
+}
+
+/* Replay Board */
+.replay-board-container {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 15px;
+    min-height: 300px;
+}
+
+.replay-players {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.replay-player {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 12px;
+    min-width: 180px;
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+}
+
+.replay-player.is-current {
+    border-color: #f4a460;
+    box-shadow: 0 0 15px rgba(244, 164, 96, 0.3);
+}
+
+.replay-player-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.replay-player-name {
+    font-weight: 600;
+    color: #fff;
+}
+
+.replay-player-score {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.replay-cards-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.replay-cards-row {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+}
+
+/* Replay cards - smaller version */
+.replay-board-container .card {
+    width: 45px;
+    height: 63px;
+    font-size: 0.9rem;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.replay-board-container .card-back {
+    background-color: #c41e3a;
+    background-image:
+        linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,0.15) 25%, transparent 25%);
+    background-size: 6px 6px;
+    border: 2px solid #8b1528;
+}
+
+.replay-board-container .card-red {
+    background: linear-gradient(145deg, #fff 0%, #f5f5f5 100%);
+    border: 1px solid #ddd;
+    color: #c0392b;
+}
+
+.replay-board-container .card-black {
+    background: linear-gradient(145deg, #fff 0%, #f5f5f5 100%);
+    border: 1px solid #ddd;
+    color: #2c3e50;
+}
+
+.replay-board-container .card-empty {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+/* Replay center area */
+.replay-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.replay-deck .card,
+.replay-discard .card {
+    width: 55px;
+    height: 77px;
+}
+
+.replay-deck .deck-count {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.replay-deck {
+    position: relative;
+}
+
+.replay-drawn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.drawn-label {
+    font-size: 0.8rem;
+    color: #f4a460;
+}
+
+/* Replay info */
+.replay-info {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Event description */
+.event-description {
+    text-align: center;
+    padding: 12px;
+    margin-bottom: 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+.event-time {
+    font-family: monospace;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+}
+
+.event-text {
+    font-size: 1rem;
+    color: #fff;
+}
+
+/* Replay Controls */
+.replay-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.replay-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(244, 164, 96, 0.2);
+    color: #f4a460;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.replay-btn:hover {
+    background: rgba(244, 164, 96, 0.4);
+    transform: scale(1.05);
+}
+
+.replay-btn-play {
+    width: 50px;
+    height: 50px;
+    font-size: 1.3rem;
+    background: #f4a460;
+    color: #1a472a;
+}
+
+.replay-btn-play:hover {
+    background: #ffb366;
+}
+
+/* Timeline */
+.timeline {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.timeline-slider {
+    flex: 1;
+    height: 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.timeline-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #f4a460;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.timeline-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.timeline-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: #f4a460;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+.frame-counter {
+    font-family: monospace;
+    min-width: 70px;
+    text-align: right;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+}
+
+/* Speed control */
+.speed-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.speed-select {
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    cursor: pointer;
+}
+
+/* Replay Actions */
+.replay-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* Replay Error */
+.replay-error {
+    text-align: center;
+    padding: 60px 20px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.replay-error p {
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+}
+
+/* Share link container */
+.share-link-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.share-link-container input {
+    flex: 1;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+/* Modal actions */
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+/* Spectator badge */
+.spectator-count {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    z-index: 100;
+}
+
+.spectator-count::before {
+    content: '👁';
+}
+
+/* Mobile adjustments for replay */
+@media (max-width: 600px) {
+    #replay-screen {
+        padding: 10px;
+    }
+
+    .replay-board-container {
+        padding: 12px;
+    }
+
+    .replay-players {
+        gap: 12px;
+    }
+
+    .replay-player {
+        min-width: 150px;
+        padding: 10px;
+    }
+
+    .replay-board-container .card {
+        width: 38px;
+        height: 53px;
+        font-size: 0.75rem;
+    }
+
+    .replay-center {
+        gap: 15px;
+        padding: 12px;
+    }
+
+    .replay-controls {
+        padding: 10px;
+        gap: 8px;
+    }
+
+    .replay-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+    }
+
+    .replay-btn-play {
+        width: 44px;
+        height: 44px;
+        font-size: 1.1rem;
+    }
+
+    .timeline {
+        min-width: 150px;
+    }
+
+    .replay-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .replay-actions .btn {
+        width: 100%;
+    }
+}

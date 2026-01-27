@@ -1,33 +1,260 @@
 """FastAPI WebSocket server for Golf card game."""
 
+import asyncio
 import logging
 import os
+import signal
 import uuid
+from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+import redis.asyncio as redis
 
 from config import config
 from room import RoomManager, Room
 from game import GamePhase, GameOptions
 from ai import GolfAI, process_cpu_turn, get_all_profiles
 from game_log import get_logger
-from auth import get_auth_manager, User, UserRole
 
-# Configure logging
-logging.basicConfig(
-    level=getattr(logging, config.LOG_LEVEL.upper(), logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+# Import production components
+from logging_config import setup_logging
+
+# Configure logging based on environment
+setup_logging(
+    level=config.LOG_LEVEL,
+    environment=config.ENVIRONMENT,
 )
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Auth & Admin & Stats Services (initialized in lifespan)
+# =============================================================================
+
+_user_store = None
+_auth_service = None
+_admin_service = None
+_stats_service = None
+_replay_service = None
+_spectator_manager = None
+_leaderboard_refresh_task = None
+_redis_client = None
+_rate_limiter = None
+_shutdown_event = asyncio.Event()
+
+
+async def _periodic_leaderboard_refresh():
+    """Periodic task to refresh the leaderboard materialized view."""
+    import asyncio
+    while True:
+        try:
+            await asyncio.sleep(300)  # 5 minutes
+            if _stats_service:
+                await _stats_service.refresh_leaderboard()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Leaderboard refresh failed: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler for async service initialization."""
+    global _user_store, _auth_service, _admin_service, _stats_service, _replay_service
+    global _spectator_manager, _leaderboard_refresh_task, _redis_client, _rate_limiter
+
+    # Register signal handlers for graceful shutdown
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, lambda: asyncio.create_task(_initiate_shutdown()))
+
+    # Initialize Redis client (for rate limiting, health checks, etc.)
+    if config.REDIS_URL:
+        try:
+            _redis_client = redis.from_url(config.REDIS_URL, decode_responses=False)
+            await _redis_client.ping()
+            logger.info("Redis client connected")
+
+            # Initialize rate limiter
+            if config.RATE_LIMIT_ENABLED:
+                from services.ratelimit import get_rate_limiter
+                _rate_limiter = await get_rate_limiter(_redis_client)
+                logger.info("Rate limiter initialized")
+        except Exception as e:
+            logger.warning(f"Redis connection failed: {e} - rate limiting disabled")
+            _redis_client = None
+            _rate_limiter = None
+
+    # Initialize auth, admin, and stats services (requires PostgreSQL)
+    if config.POSTGRES_URL:
+        try:
+            from stores.user_store import get_user_store
+            from stores.event_store import get_event_store
+            from services.auth_service import get_auth_service
+            from services.admin_service import get_admin_service
+            from services.stats_service import StatsService, set_stats_service
+            from routers.auth import set_auth_service
+            from routers.admin import set_admin_service
+            from routers.stats import set_stats_service as set_stats_router_service
+            from routers.stats import set_auth_service as set_stats_auth_service
+
+            logger.info("Initializing auth services...")
+            _user_store = await get_user_store(config.POSTGRES_URL)
+            _auth_service = await get_auth_service(_user_store)
+            set_auth_service(_auth_service)
+            logger.info("Auth services initialized successfully")
+
+            # Initialize admin service
+            logger.info("Initializing admin services...")
+            _admin_service = await get_admin_service(
+                pool=_user_store.pool,
+                user_store=_user_store,
+                state_cache=None,  # Will add Redis state cache when available
+            )
+            set_admin_service(_admin_service)
+            logger.info("Admin services initialized successfully")
+
+            # Initialize stats service
+            logger.info("Initializing stats services...")
+            _event_store = await get_event_store(config.POSTGRES_URL)
+            _stats_service = StatsService(_user_store.pool, _event_store)
+            set_stats_service(_stats_service)
+            set_stats_router_service(_stats_service)
+            set_stats_auth_service(_auth_service)
+            logger.info("Stats services initialized successfully")
+
+            # Initialize replay service
+            logger.info("Initializing replay services...")
+            from services.replay_service import get_replay_service, set_replay_service
+            from services.spectator import get_spectator_manager
+            from routers.replay import (
+                set_replay_service as set_replay_router_service,
+                set_auth_service as set_replay_auth_service,
+                set_spectator_manager as set_replay_spectator,
+                set_room_manager as set_replay_room_manager,
+            )
+            _replay_service = await get_replay_service(_user_store.pool, _event_store)
+            _spectator_manager = get_spectator_manager()
+            set_replay_service(_replay_service)
+            set_replay_router_service(_replay_service)
+            set_replay_auth_service(_auth_service)
+            set_replay_spectator(_spectator_manager)
+            set_replay_room_manager(room_manager)
+            logger.info("Replay services initialized successfully")
+
+            # Start periodic leaderboard refresh task
+            _leaderboard_refresh_task = asyncio.create_task(_periodic_leaderboard_refresh())
+            logger.info("Leaderboard refresh task started")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize services: {e}")
+            raise
+    else:
+        logger.warning("POSTGRES_URL not configured - auth/admin/stats endpoints will not work")
+
+    # Set up health check dependencies
+    from routers.health import set_health_dependencies
+    db_pool = _user_store.pool if _user_store else None
+    set_health_dependencies(
+        db_pool=db_pool,
+        redis_client=_redis_client,
+        room_manager=room_manager,
+    )
+
+    logger.info(f"Golf server started (environment={config.ENVIRONMENT})")
+
+    yield
+
+    # Graceful shutdown
+    logger.info("Shutdown initiated...")
+
+    # Signal shutdown to all components
+    _shutdown_event.set()
+
+    # Close all WebSocket connections gracefully
+    await _close_all_websockets()
+
+    # Cancel background tasks
+    if _leaderboard_refresh_task:
+        _leaderboard_refresh_task.cancel()
+        try:
+            await _leaderboard_refresh_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("Leaderboard refresh task stopped")
+
+    if _replay_service:
+        from services.replay_service import close_replay_service
+        close_replay_service()
+
+    if _spectator_manager:
+        from services.spectator import close_spectator_manager
+        close_spectator_manager()
+
+    if _stats_service:
+        from services.stats_service import close_stats_service
+        close_stats_service()
+
+    if _user_store:
+        from stores.user_store import close_user_store
+        from services.admin_service import close_admin_service
+        close_admin_service()
+        await close_user_store()
+
+    # Close Redis connection
+    if _redis_client:
+        await _redis_client.close()
+        logger.info("Redis connection closed")
+
+    logger.info("Shutdown complete")
+
+
+async def _initiate_shutdown():
+    """Initiate graceful shutdown."""
+    logger.info("Received shutdown signal")
+    _shutdown_event.set()
+
+
+async def _close_all_websockets():
+    """Close all active WebSocket connections gracefully."""
+    for room in list(room_manager.rooms.values()):
+        for player in room.players.values():
+            if player.websocket and not player.is_cpu:
+                try:
+                    await player.websocket.close(code=1001, reason="Server shutting down")
+                except Exception:
+                    pass
+    logger.info("All WebSocket connections closed")
+
 
 app = FastAPI(
     title="Golf Card Game",
     debug=config.DEBUG,
     version="0.1.0",
+    lifespan=lifespan,
 )
+
+
+# =============================================================================
+# Middleware Setup (order matters: first added = outermost)
+# =============================================================================
+
+# Request ID middleware (outermost - generates/propagates request IDs)
+from middleware.request_id import RequestIDMiddleware
+app.add_middleware(RequestIDMiddleware)
+
+# Security headers middleware
+from middleware.security import SecurityHeadersMiddleware
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    environment=config.ENVIRONMENT,
+)
+
+# Note: Rate limiting middleware is added after app startup when Redis is available
+# See _add_rate_limit_middleware() called from a startup event if needed
 
 room_manager = RoomManager()
 
@@ -36,65 +263,40 @@ _game_logger = get_logger()
 logger.info(f"Game analytics database initialized at: {_game_logger.db_path}")
 
 
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
+# =============================================================================
+# Routers
+# =============================================================================
+
+from routers.auth import router as auth_router
+from routers.admin import router as admin_router
+from routers.stats import router as stats_router
+from routers.replay import router as replay_router
+from routers.health import router as health_router
+app.include_router(auth_router)
+app.include_router(admin_router)
+app.include_router(stats_router)
+app.include_router(replay_router)
+app.include_router(health_router)
 
 
 # =============================================================================
-# Auth Models
+# Auth Dependencies (for use in other routes)
 # =============================================================================
 
-class RegisterRequest(BaseModel):
-    username: str
-    password: str
-    email: Optional[str] = None
-    invite_code: str  # Room code or explicit invite code
+from models.user import User
 
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-
-class SetupPasswordRequest(BaseModel):
-    username: str
-    new_password: str
-
-
-class UpdateUserRequest(BaseModel):
-    username: Optional[str] = None
-    email: Optional[str] = None
-    role: Optional[str] = None
-    is_active: Optional[bool] = None
-
-
-class ChangePasswordRequest(BaseModel):
-    new_password: str
-
-
-class CreateInviteRequest(BaseModel):
-    max_uses: int = 1
-    expires_in_days: Optional[int] = 7
-
-
-# =============================================================================
-# Auth Dependencies
-# =============================================================================
 
 async def get_current_user(authorization: Optional[str] = Header(None)) -> Optional[User]:
     """Get current user from Authorization header."""
-    if not authorization:
+    if not authorization or not _auth_service:
         return None
 
-    # Expect "Bearer <token>"
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
         return None
 
     token = parts[1]
-    auth = get_auth_manager()
-    return auth.get_user_from_session(token)
+    return await _auth_service.get_user_from_token(token)
 
 
 async def require_user(user: Optional[User] = Depends(get_current_user)) -> User:
@@ -111,302 +313,6 @@ async def require_admin(user: User = Depends(require_user)) -> User:
     if not user.is_admin():
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
-
-
-# =============================================================================
-# Auth Endpoints
-# =============================================================================
-
-@app.post("/api/auth/register")
-async def register(request: RegisterRequest):
-    """Register a new user with an invite code."""
-    auth = get_auth_manager()
-
-    # Validate invite code
-    invite_valid = False
-    inviter_username = None
-
-    # Check if it's an explicit invite code
-    invite = auth.get_invite_code(request.invite_code)
-    if invite and invite.is_valid():
-        invite_valid = True
-        inviter = auth.get_user_by_id(invite.created_by)
-        inviter_username = inviter.username if inviter else None
-
-    # Check if it's a valid room code
-    if not invite_valid:
-        room = room_manager.get_room(request.invite_code.upper())
-        if room:
-            invite_valid = True
-            # Room codes are like open invites
-
-    if not invite_valid:
-        raise HTTPException(status_code=400, detail="Invalid invite code")
-
-    # Create user
-    user = auth.create_user(
-        username=request.username,
-        password=request.password,
-        email=request.email,
-        invited_by=inviter_username,
-    )
-
-    if not user:
-        raise HTTPException(status_code=400, detail="Username or email already taken")
-
-    # Mark invite code as used (if it was an explicit invite)
-    if invite:
-        auth.use_invite_code(request.invite_code)
-
-    # Create session
-    session = auth.create_session(user)
-
-    return {
-        "user": user.to_dict(),
-        "token": session.token,
-        "expires_at": session.expires_at.isoformat(),
-    }
-
-
-@app.post("/api/auth/login")
-async def login(request: LoginRequest):
-    """Login with username and password."""
-    auth = get_auth_manager()
-
-    # Check if user needs password setup (first login)
-    if auth.needs_password_setup(request.username):
-        raise HTTPException(
-            status_code=428,  # Precondition Required
-            detail="Password setup required. Use /api/auth/setup-password endpoint."
-        )
-
-    user = auth.authenticate(request.username, request.password)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    session = auth.create_session(user)
-
-    return {
-        "user": user.to_dict(),
-        "token": session.token,
-        "expires_at": session.expires_at.isoformat(),
-    }
-
-
-@app.post("/api/auth/setup-password")
-async def setup_password(request: SetupPasswordRequest):
-    """Set password for first-time login (admin accounts created without password)."""
-    auth = get_auth_manager()
-
-    # Verify user exists and needs setup
-    if not auth.needs_password_setup(request.username):
-        raise HTTPException(
-            status_code=400,
-            detail="Password setup not available for this account"
-        )
-
-    # Set the password
-    user = auth.setup_password(request.username, request.new_password)
-    if not user:
-        raise HTTPException(status_code=400, detail="Setup failed")
-
-    # Create session
-    session = auth.create_session(user)
-
-    return {
-        "user": user.to_dict(),
-        "token": session.token,
-        "expires_at": session.expires_at.isoformat(),
-    }
-
-
-@app.get("/api/auth/check-setup/{username}")
-async def check_setup_needed(username: str):
-    """Check if a username needs password setup."""
-    auth = get_auth_manager()
-    needs_setup = auth.needs_password_setup(username)
-
-    return {
-        "username": username,
-        "needs_password_setup": needs_setup,
-    }
-
-
-@app.post("/api/auth/logout")
-async def logout(authorization: Optional[str] = Header(None)):
-    """Logout current session."""
-    if authorization:
-        parts = authorization.split()
-        if len(parts) == 2 and parts[0].lower() == "bearer":
-            auth = get_auth_manager()
-            auth.invalidate_session(parts[1])
-
-    return {"status": "ok"}
-
-
-@app.get("/api/auth/me")
-async def get_me(user: User = Depends(require_user)):
-    """Get current user info."""
-    return {"user": user.to_dict()}
-
-
-@app.put("/api/auth/password")
-async def change_own_password(
-    request: ChangePasswordRequest,
-    user: User = Depends(require_user)
-):
-    """Change own password."""
-    auth = get_auth_manager()
-    auth.change_password(user.id, request.new_password)
-    # Invalidate all other sessions
-    auth.invalidate_user_sessions(user.id)
-    # Create new session
-    session = auth.create_session(user)
-
-    return {
-        "status": "ok",
-        "token": session.token,
-        "expires_at": session.expires_at.isoformat(),
-    }
-
-
-# =============================================================================
-# Admin Endpoints
-# =============================================================================
-
-@app.get("/api/admin/users")
-async def list_users(
-    include_inactive: bool = False,
-    admin: User = Depends(require_admin)
-):
-    """List all users (admin only)."""
-    auth = get_auth_manager()
-    users = auth.list_users(include_inactive=include_inactive)
-    return {"users": [u.to_dict() for u in users]}
-
-
-@app.get("/api/admin/users/{user_id}")
-async def get_user(user_id: str, admin: User = Depends(require_admin)):
-    """Get user by ID (admin only)."""
-    auth = get_auth_manager()
-    user = auth.get_user_by_id(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {"user": user.to_dict()}
-
-
-@app.put("/api/admin/users/{user_id}")
-async def update_user(
-    user_id: str,
-    request: UpdateUserRequest,
-    admin: User = Depends(require_admin)
-):
-    """Update user (admin only)."""
-    auth = get_auth_manager()
-
-    # Convert role string to enum if provided
-    role = UserRole(request.role) if request.role else None
-
-    user = auth.update_user(
-        user_id=user_id,
-        username=request.username,
-        email=request.email,
-        role=role,
-        is_active=request.is_active,
-    )
-
-    if not user:
-        raise HTTPException(status_code=400, detail="Update failed (duplicate username/email?)")
-
-    return {"user": user.to_dict()}
-
-
-@app.put("/api/admin/users/{user_id}/password")
-async def admin_change_password(
-    user_id: str,
-    request: ChangePasswordRequest,
-    admin: User = Depends(require_admin)
-):
-    """Change user password (admin only)."""
-    auth = get_auth_manager()
-
-    if not auth.change_password(user_id, request.new_password):
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Invalidate all user sessions
-    auth.invalidate_user_sessions(user_id)
-
-    return {"status": "ok"}
-
-
-@app.delete("/api/admin/users/{user_id}")
-async def delete_user(user_id: str, admin: User = Depends(require_admin)):
-    """Deactivate user (admin only)."""
-    auth = get_auth_manager()
-
-    # Don't allow deleting yourself
-    if user_id == admin.id:
-        raise HTTPException(status_code=400, detail="Cannot delete yourself")
-
-    if not auth.delete_user(user_id):
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return {"status": "ok"}
-
-
-@app.post("/api/admin/invites")
-async def create_invite(
-    request: CreateInviteRequest,
-    admin: User = Depends(require_admin)
-):
-    """Create an invite code (admin only)."""
-    auth = get_auth_manager()
-
-    invite = auth.create_invite_code(
-        created_by=admin.id,
-        max_uses=request.max_uses,
-        expires_in_days=request.expires_in_days,
-    )
-
-    return {
-        "code": invite.code,
-        "max_uses": invite.max_uses,
-        "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
-    }
-
-
-@app.get("/api/admin/invites")
-async def list_invites(admin: User = Depends(require_admin)):
-    """List all invite codes (admin only)."""
-    auth = get_auth_manager()
-    invites = auth.list_invite_codes()
-
-    return {
-        "invites": [
-            {
-                "code": i.code,
-                "created_by": i.created_by,
-                "created_at": i.created_at.isoformat(),
-                "expires_at": i.expires_at.isoformat() if i.expires_at else None,
-                "max_uses": i.max_uses,
-                "use_count": i.use_count,
-                "is_active": i.is_active,
-                "is_valid": i.is_valid(),
-            }
-            for i in invites
-        ]
-    }
-
-
-@app.delete("/api/admin/invites/{code}")
-async def deactivate_invite(code: str, admin: User = Depends(require_admin)):
-    """Deactivate an invite code (admin only)."""
-    auth = get_auth_manager()
-
-    if not auth.deactivate_invite_code(code):
-        raise HTTPException(status_code=404, detail="Invite code not found")
-
-    return {"status": "ok"}
 
 
 @app.websocket("/ws")
@@ -902,6 +808,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
 async def broadcast_game_state(room: Room):
     """Broadcast game state to all human players in a room."""
+    # Notify spectators if spectator manager is available
+    if _spectator_manager:
+        spectator_state = room.game.get_state(None)  # No player perspective
+        await _spectator_manager.send_game_state(room.code, spectator_state)
+
     for pid, player in room.players.items():
         # Skip CPU players
         if player.is_cpu or not player.websocket:
@@ -937,9 +848,34 @@ async def broadcast_game_state(room: Room):
         elif room.game.phase == GamePhase.GAME_OVER:
             # Log game end
             if room.game_log_id:
-                logger = get_logger()
-                logger.log_game_end(room.game_log_id)
+                game_logger = get_logger()
+                game_logger.log_game_end(room.game_log_id)
                 room.game_log_id = None  # Clear to avoid duplicate logging
+
+            # Process stats for authenticated players
+            if _stats_service and room.game.players:
+                try:
+                    # Build mapping - for non-CPU players, the player_id is their user_id
+                    # (assigned during authentication or as a session UUID)
+                    player_user_ids = {}
+                    for player_id, room_player in room.players.items():
+                        if not room_player.is_cpu:
+                            player_user_ids[player_id] = player_id
+
+                    # Find winner
+                    winner_id = None
+                    if room.game.players:
+                        winner = min(room.game.players, key=lambda p: p.total_score)
+                        winner_id = winner.id
+
+                    await _stats_service.process_game_from_state(
+                        players=room.game.players,
+                        winner_id=winner_id,
+                        num_rounds=room.game.num_rounds,
+                        player_user_ids=player_user_ids,
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to process game stats: {e}")
 
             scores = [
                 {"name": p.name, "total": p.total_score, "rounds_won": p.rounds_won}
@@ -1033,6 +969,28 @@ if os.path.exists(client_path):
     @app.get("/animation-queue.js")
     async def serve_animation_queue():
         return FileResponse(os.path.join(client_path, "animation-queue.js"), media_type="application/javascript")
+
+    # Admin dashboard
+    @app.get("/admin")
+    async def serve_admin():
+        return FileResponse(os.path.join(client_path, "admin.html"))
+
+    @app.get("/admin.css")
+    async def serve_admin_css():
+        return FileResponse(os.path.join(client_path, "admin.css"), media_type="text/css")
+
+    @app.get("/admin.js")
+    async def serve_admin_js():
+        return FileResponse(os.path.join(client_path, "admin.js"), media_type="application/javascript")
+
+    @app.get("/replay.js")
+    async def serve_replay_js():
+        return FileResponse(os.path.join(client_path, "replay.js"), media_type="application/javascript")
+
+    # Serve replay page for share links
+    @app.get("/replay/{share_code}")
+    async def serve_replay_page(share_code: str):
+        return FileResponse(os.path.join(client_path, "index.html"))
 
 
 def run():

@@ -19,10 +19,12 @@ Card Layout:
 """
 
 import random
+import uuid
 from collections import Counter
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import Optional, Callable, Any
 
 from constants import (
     DEFAULT_CARD_VALUES,
@@ -163,6 +165,9 @@ class Deck:
 
     Supports multiple standard 52-card decks combined, with optional
     jokers in various configurations (standard 2-per-deck or lucky swing).
+
+    For event sourcing, the deck can be initialized with a seed for
+    deterministic shuffling, enabling exact game replay.
     """
 
     def __init__(
@@ -170,6 +175,7 @@ class Deck:
         num_decks: int = 1,
         use_jokers: bool = False,
         lucky_swing: bool = False,
+        seed: Optional[int] = None,
     ) -> None:
         """
         Initialize a new deck.
@@ -178,8 +184,11 @@ class Deck:
             num_decks: Number of standard 52-card decks to combine.
             use_jokers: Whether to include joker cards.
             lucky_swing: If True, use single -5 joker instead of two -2 jokers.
+            seed: Optional random seed for deterministic shuffle.
+                  If None, a random seed is generated and stored.
         """
         self.cards: list[Card] = []
+        self.seed: int = seed if seed is not None else random.randint(0, 2**31 - 1)
 
         # Build deck(s) with standard cards
         for _ in range(num_decks):
@@ -199,9 +208,19 @@ class Deck:
 
         self.shuffle()
 
-    def shuffle(self) -> None:
-        """Randomize the order of cards in the deck."""
+    def shuffle(self, seed: Optional[int] = None) -> None:
+        """
+        Randomize the order of cards in the deck.
+
+        Args:
+            seed: Optional seed to use. If None, uses the deck's stored seed.
+        """
+        if seed is not None:
+            self.seed = seed
+        random.seed(self.seed)
         random.shuffle(self.cards)
+        # Reset random state to not affect other random calls
+        random.seed()
 
     def draw(self) -> Optional[Card]:
         """
@@ -486,6 +505,7 @@ class Game:
         players_with_final_turn: Set of player IDs who've had final turn.
         initial_flips_done: Set of player IDs who've done initial flips.
         options: Game configuration and house rules.
+        game_id: Unique identifier for event sourcing.
     """
 
     players: list[Player] = field(default_factory=list)
@@ -502,6 +522,74 @@ class Game:
     players_with_final_turn: set = field(default_factory=set)
     initial_flips_done: set = field(default_factory=set)
     options: GameOptions = field(default_factory=GameOptions)
+
+    # Event sourcing support
+    game_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    _event_emitter: Optional[Callable[["GameEvent"], None]] = field(
+        default=None, repr=False, compare=False
+    )
+    _sequence_num: int = field(default=0, repr=False, compare=False)
+
+    def set_event_emitter(self, emitter: Callable[["GameEvent"], None]) -> None:
+        """
+        Set callback for event emission.
+
+        The emitter will be called with each GameEvent as it occurs.
+        This enables event sourcing without changing game logic.
+
+        Args:
+            emitter: Callback function that receives GameEvent objects.
+        """
+        self._event_emitter = emitter
+
+    def emit_game_created(self, room_code: str, host_id: str) -> None:
+        """
+        Emit the game_created event.
+
+        Should be called after setting up the event emitter and before
+        any players join. This establishes the game in the event store.
+
+        Args:
+            room_code: 4-letter room code.
+            host_id: ID of the player who created the room.
+        """
+        self._emit(
+            "game_created",
+            player_id=host_id,
+            room_code=room_code,
+            host_id=host_id,
+            options={},  # Options not set until game starts
+        )
+
+    def _emit(
+        self,
+        event_type: str,
+        player_id: Optional[str] = None,
+        **data: Any,
+    ) -> None:
+        """
+        Emit an event if emitter is configured.
+
+        Args:
+            event_type: Event type string (from EventType enum).
+            player_id: ID of player who triggered the event.
+            **data: Event-specific data fields.
+        """
+        if self._event_emitter is None:
+            return
+
+        # Import here to avoid circular dependency
+        from models.events import GameEvent, EventType
+
+        self._sequence_num += 1
+        event = GameEvent(
+            event_type=EventType(event_type),
+            game_id=self.game_id,
+            sequence_num=self._sequence_num,
+            player_id=player_id,
+            data=data,
+        )
+        self._event_emitter(event)
 
     @property
     def flip_on_discard(self) -> bool:
@@ -556,12 +644,19 @@ class Game:
     # Player Management
     # -------------------------------------------------------------------------
 
-    def add_player(self, player: Player) -> bool:
+    def add_player(
+        self,
+        player: Player,
+        is_cpu: bool = False,
+        cpu_profile: Optional[str] = None,
+    ) -> bool:
         """
         Add a player to the game.
 
         Args:
             player: The player to add.
+            is_cpu: Whether this is a CPU player.
+            cpu_profile: CPU profile name (for AI replay analysis).
 
         Returns:
             True if added, False if game is full (max 6 players).
@@ -569,21 +664,34 @@ class Game:
         if len(self.players) >= 6:
             return False
         self.players.append(player)
+
+        # Emit player_joined event
+        self._emit(
+            "player_joined",
+            player_id=player.id,
+            player_name=player.name,
+            is_cpu=is_cpu,
+            cpu_profile=cpu_profile,
+        )
+
         return True
 
-    def remove_player(self, player_id: str) -> Optional[Player]:
+    def remove_player(self, player_id: str, reason: str = "left") -> Optional[Player]:
         """
         Remove a player from the game by ID.
 
         Args:
             player_id: The unique ID of the player to remove.
+            reason: Why the player left (left, disconnected, kicked).
 
         Returns:
             The removed Player, or None if not found.
         """
         for i, player in enumerate(self.players):
             if player.id == player_id:
-                return self.players.pop(i)
+                removed = self.players.pop(i)
+                self._emit("player_left", player_id=player_id, reason=reason)
+                return removed
         return None
 
     def get_player(self, player_id: str) -> Optional[Player]:
@@ -629,7 +737,40 @@ class Game:
         self.num_rounds = num_rounds
         self.options = options or GameOptions()
         self.current_round = 1
+
+        # Emit game_started event
+        self._emit(
+            "game_started",
+            player_order=[p.id for p in self.players],
+            num_decks=num_decks,
+            num_rounds=num_rounds,
+            options=self._options_to_dict(),
+        )
+
         self.start_round()
+
+    def _options_to_dict(self) -> dict:
+        """Convert GameOptions to dictionary for event storage."""
+        return {
+            "flip_mode": self.options.flip_mode,
+            "initial_flips": self.options.initial_flips,
+            "knock_penalty": self.options.knock_penalty,
+            "use_jokers": self.options.use_jokers,
+            "lucky_swing": self.options.lucky_swing,
+            "super_kings": self.options.super_kings,
+            "ten_penny": self.options.ten_penny,
+            "knock_bonus": self.options.knock_bonus,
+            "underdog_bonus": self.options.underdog_bonus,
+            "tied_shame": self.options.tied_shame,
+            "blackjack": self.options.blackjack,
+            "eagle_eye": self.options.eagle_eye,
+            "wolfpack": self.options.wolfpack,
+            "flip_as_action": self.options.flip_as_action,
+            "four_of_a_kind": self.options.four_of_a_kind,
+            "negative_pairs_keep_value": self.options.negative_pairs_keep_value,
+            "one_eyed_jacks": self.options.one_eyed_jacks,
+            "knock_early": self.options.knock_early,
+        }
 
     def start_round(self) -> None:
         """
@@ -651,6 +792,7 @@ class Game:
         self.initial_flips_done = set()
 
         # Deal 6 cards to each player
+        dealt_cards: dict[str, list[dict]] = {}
         for player in self.players:
             player.cards = []
             player.score = 0
@@ -658,14 +800,33 @@ class Game:
                 card = self.deck.draw()
                 if card:
                     player.cards.append(card)
+            # Store dealt cards for event (include hidden card values server-side)
+            dealt_cards[player.id] = [
+                {"rank": c.rank.value, "suit": c.suit.value}
+                for c in player.cards
+            ]
 
         # Start discard pile with one face-up card
         first_discard = self.deck.draw()
+        first_discard_dict = None
         if first_discard:
             first_discard.face_up = True
             self.discard_pile.append(first_discard)
+            first_discard_dict = {
+                "rank": first_discard.rank.value,
+                "suit": first_discard.suit.value,
+            }
 
         self.current_player_index = 0
+
+        # Emit round_started event with deck seed and all dealt cards
+        self._emit(
+            "round_started",
+            round_num=self.current_round,
+            deck_seed=self.deck.seed,
+            dealt_cards=dealt_cards,
+            first_discard=first_discard_dict,
+        )
 
         # Skip initial flip phase if 0 flips required
         if self.options.initial_flips == 0:
@@ -707,6 +868,18 @@ class Game:
             player.flip_card(pos)
 
         self.initial_flips_done.add(player_id)
+
+        # Emit initial_flip event with revealed cards
+        flipped_cards = [
+            {"rank": player.cards[pos].rank.value, "suit": player.cards[pos].suit.value}
+            for pos in positions
+        ]
+        self._emit(
+            "initial_flip",
+            player_id=player_id,
+            positions=positions,
+            cards=flipped_cards,
+        )
 
         # Transition to PLAYING when all players have flipped
         if len(self.initial_flips_done) == len(self.players):
@@ -751,6 +924,13 @@ class Game:
             if card:
                 self.drawn_card = card
                 self.drawn_from_discard = False
+                # Emit card_drawn event (with actual card value, server-side only)
+                self._emit(
+                    "card_drawn",
+                    player_id=player_id,
+                    source=source,
+                    card={"rank": card.rank.value, "suit": card.suit.value},
+                )
                 return card
             # No cards available anywhere - end round gracefully
             self._end_round()
@@ -760,6 +940,13 @@ class Game:
             card = self.discard_pile.pop()
             self.drawn_card = card
             self.drawn_from_discard = True
+            # Emit card_drawn event
+            self._emit(
+                "card_drawn",
+                player_id=player_id,
+                source=source,
+                card={"rank": card.rank.value, "suit": card.suit.value},
+            )
             return card
 
         return None
@@ -812,10 +999,20 @@ class Game:
         if not (0 <= position < 6):
             return None
 
+        new_card = self.drawn_card
         old_card = player.swap_card(position, self.drawn_card)
         old_card.face_up = True
         self.discard_pile.append(old_card)
         self.drawn_card = None
+
+        # Emit card_swapped event
+        self._emit(
+            "card_swapped",
+            player_id=player_id,
+            position=position,
+            new_card={"rank": new_card.rank.value, "suit": new_card.suit.value},
+            old_card={"rank": old_card.rank.value, "suit": old_card.suit.value},
+        )
 
         self._check_end_turn(player)
         return old_card
@@ -856,9 +1053,17 @@ class Game:
         if not self.can_discard_drawn():
             return False
 
+        discarded_card = self.drawn_card
         self.drawn_card.face_up = True
         self.discard_pile.append(self.drawn_card)
         self.drawn_card = None
+
+        # Emit card_discarded event
+        self._emit(
+            "card_discarded",
+            player_id=player_id,
+            card={"rank": discarded_card.rank.value, "suit": discarded_card.suit.value},
+        )
 
         if self.flip_on_discard:
             # Player must flip a card before turn ends
@@ -895,6 +1100,16 @@ class Game:
             return False
 
         player.flip_card(position)
+        flipped_card = player.cards[position]
+
+        # Emit card_flipped event
+        self._emit(
+            "card_flipped",
+            player_id=player_id,
+            position=position,
+            card={"rank": flipped_card.rank.value, "suit": flipped_card.suit.value},
+        )
+
         self._check_end_turn(player)
         return True
 
@@ -917,6 +1132,9 @@ class Game:
         player = self.current_player()
         if not player or player.id != player_id:
             return False
+
+        # Emit flip_skipped event
+        self._emit("flip_skipped", player_id=player_id)
 
         self._check_end_turn(player)
         return True
@@ -957,6 +1175,16 @@ class Game:
             return False  # Already face-up, can't flip
 
         player.cards[card_index].face_up = True
+        flipped_card = player.cards[card_index]
+
+        # Emit flip_as_action event
+        self._emit(
+            "flip_as_action",
+            player_id=player_id,
+            position=card_index,
+            card={"rank": flipped_card.rank.value, "suit": flipped_card.suit.value},
+        )
+
         self._check_end_turn(player)
         return True
 
@@ -996,8 +1224,21 @@ class Game:
             return False
 
         # Flip all remaining face-down cards
+        revealed_cards = []
         for idx in face_down_indices:
             player.cards[idx].face_up = True
+            revealed_cards.append({
+                "rank": player.cards[idx].rank.value,
+                "suit": player.cards[idx].suit.value,
+            })
+
+        # Emit knock_early event
+        self._emit(
+            "knock_early",
+            player_id=player_id,
+            positions=face_down_indices,
+            cards=revealed_cards,
+        )
 
         self._check_end_turn(player)
         return True
@@ -1122,6 +1363,20 @@ class Game:
             if player.score == min_score:
                 player.rounds_won += 1
 
+        # Emit round_ended event
+        scores = {p.id: p.score for p in self.players}
+        final_hands = {
+            p.id: [{"rank": c.rank.value, "suit": c.suit.value} for c in p.cards]
+            for p in self.players
+        }
+        self._emit(
+            "round_ended",
+            round_num=self.current_round,
+            scores=scores,
+            final_hands=final_hands,
+            finisher_id=self.finisher_id,
+        )
+
     def start_next_round(self) -> bool:
         """
         Start the next round of the game.
@@ -1134,6 +1389,25 @@ class Game:
 
         if self.current_round >= self.num_rounds:
             self.phase = GamePhase.GAME_OVER
+
+            # Emit game_ended event
+            final_scores = {p.id: p.total_score for p in self.players}
+            rounds_won = {p.id: p.rounds_won for p in self.players}
+
+            # Determine winner (lowest total score)
+            winner_id = None
+            if self.players:
+                min_score = min(p.total_score for p in self.players)
+                winners = [p for p in self.players if p.total_score == min_score]
+                if len(winners) == 1:
+                    winner_id = winners[0].id
+
+            self._emit(
+                "game_ended",
+                final_scores=final_scores,
+                rounds_won=rounds_won,
+                winner_id=winner_id,
+            )
             return False
 
         self.current_round += 1

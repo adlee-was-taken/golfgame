@@ -1,0 +1,139 @@
+# Production Docker Compose for Golf Card Game
+#
+# Usage:
+#   # Set required environment variables first
+#   export DB_PASSWORD=your-secure-password
+#   export SECRET_KEY=your-secret-key
+#   export ACME_EMAIL=your-email@example.com
+#
+#   # Start services
+#   docker-compose -f docker-compose.prod.yml up -d
+#
+#   # View logs
+#   docker-compose -f docker-compose.prod.yml logs -f app
+#
+#   # Scale app instances
+#   docker-compose -f docker-compose.prod.yml up -d --scale app=2
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - POSTGRES_URL=postgresql://golf:${DB_PASSWORD}@postgres:5432/golf
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=${SECRET_KEY}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - BASE_URL=${BASE_URL:-https://golf.example.com}
+      - RATE_LIMIT_ENABLED=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    networks:
+      - internal
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.golf.rule=Host(`${DOMAIN:-golf.example.com}`)"
+      - "traefik.http.routers.golf.entrypoints=websecure"
+      - "traefik.http.routers.golf.tls=true"
+      - "traefik.http.routers.golf.tls.certresolver=letsencrypt"
+      - "traefik.http.services.golf.loadbalancer.server.port=8000"
+      # WebSocket sticky sessions
+      - "traefik.http.services.golf.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.golf.loadbalancer.sticky.cookie.name=golf_server"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: golf
+      POSTGRES_USER: golf
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U golf -d golf"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+        reservations:
+          memory: 64M
+
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - web
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+volumes:
+  postgres_data:
+  redis_data:
+  letsencrypt:
+
+networks:
+  internal:
+    driver: bridge
+  web:
+    driver: bridge

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golf Admin Dashboard</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen">
+        <div class="login-container">
+            <h1>Golf Admin</h1>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+                <p id="login-error" class="error"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard Screen -->
+    <div id="dashboard-screen" class="screen hidden">
+        <nav class="admin-nav">
+            <div class="nav-brand">
+                <h1>Golf Admin</h1>
+            </div>
+            <div class="nav-links">
+                <a href="#" data-panel="dashboard" class="nav-link active">Dashboard</a>
+                <a href="#" data-panel="users" class="nav-link">Users</a>
+                <a href="#" data-panel="games" class="nav-link">Games</a>
+                <a href="#" data-panel="invites" class="nav-link">Invites</a>
+                <a href="#" data-panel="audit" class="nav-link">Audit Log</a>
+            </div>
+            <div class="nav-user">
+                <span id="admin-username"></span>
+                <button id="logout-btn" class="btn btn-small">Logout</button>
+            </div>
+        </nav>
+
+        <main class="admin-content">
+            <!-- Dashboard Panel -->
+            <section id="dashboard-panel" class="panel">
+                <h2>System Overview</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-active-users">-</span>
+                        <span class="stat-label">Active Users (1h)</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-active-games">-</span>
+                        <span class="stat-label">Active Games</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-total-users">-</span>
+                        <span class="stat-label">Total Users</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-games-today">-</span>
+                        <span class="stat-label">Games Today</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-reg-today">-</span>
+                        <span class="stat-label">Registrations Today</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-reg-week">-</span>
+                        <span class="stat-label">Registrations (7d)</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-total-games">-</span>
+                        <span class="stat-label">Total Games</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-events-hour">-</span>
+                        <span class="stat-label">Events (1h)</span>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>Top Players</h3>
+                    <table id="top-players-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Username</th>
+                                <th>Wins</th>
+                                <th>Games</th>
+                                <th>Win Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Users Panel -->
+            <section id="users-panel" class="panel hidden">
+                <h2>User Management</h2>
+                <div class="panel-toolbar">
+                    <div class="search-bar">
+                        <input type="text" id="user-search" placeholder="Search by username or email...">
+                        <button id="user-search-btn" class="btn">Search</button>
+                    </div>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="include-banned" checked>
+                        Include banned
+                    </label>
+                </div>
+                <table id="users-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Games</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div class="pagination">
+                    <button id="users-prev" class="btn btn-small" disabled>Previous</button>
+                    <span id="users-page-info">Page 1</span>
+                    <button id="users-next" class="btn btn-small">Next</button>
+                </div>
+            </section>
+
+            <!-- Games Panel -->
+            <section id="games-panel" class="panel hidden">
+                <h2>Active Games</h2>
+                <button id="refresh-games-btn" class="btn">Refresh</button>
+                <table id="games-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Room Code</th>
+                            <th>Players</th>
+                            <th>Phase</th>
+                            <th>Round</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </section>
+
+            <!-- Invites Panel -->
+            <section id="invites-panel" class="panel hidden">
+                <h2>Invite Codes</h2>
+                <div class="panel-toolbar">
+                    <div class="create-invite-form">
+                        <label>
+                            Max Uses:
+                            <input type="number" id="invite-max-uses" value="1" min="1" max="100">
+                        </label>
+                        <label>
+                            Expires in (days):
+                            <input type="number" id="invite-expires-days" value="7" min="1" max="365">
+                        </label>
+                        <button id="create-invite-btn" class="btn btn-primary">Create Invite</button>
+                    </div>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="include-expired">
+                        Show expired
+                    </label>
+                </div>
+                <table id="invites-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Uses</th>
+                            <th>Remaining</th>
+                            <th>Created By</th>
+                            <th>Expires</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </section>
+
+            <!-- Audit Log Panel -->
+            <section id="audit-panel" class="panel hidden">
+                <h2>Audit Log</h2>
+                <div class="panel-toolbar">
+                    <div class="filter-bar">
+                        <select id="audit-action-filter">
+                            <option value="">All Actions</option>
+                            <option value="ban_user">Ban User</option>
+                            <option value="unban_user">Unban User</option>
+                            <option value="force_password_reset">Force Password Reset</option>
+                            <option value="change_role">Change Role</option>
+                            <option value="impersonate_user">Impersonate</option>
+                            <option value="view_game">View Game</option>
+                            <option value="end_game">End Game</option>
+                            <option value="create_invite">Create Invite</option>
+                            <option value="revoke_invite">Revoke Invite</option>
+                        </select>
+                        <select id="audit-target-filter">
+                            <option value="">All Targets</option>
+                            <option value="user">Users</option>
+                            <option value="game">Games</option>
+                            <option value="invite_code">Invites</option>
+                        </select>
+                        <button id="audit-filter-btn" class="btn">Filter</button>
+                    </div>
+                </div>
+                <table id="audit-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Admin</th>
+                            <th>Action</th>
+                            <th>Target</th>
+                            <th>Details</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div class="pagination">
+                    <button id="audit-prev" class="btn btn-small" disabled>Previous</button>
+                    <span id="audit-page-info">Page 1</span>
+                    <button id="audit-next" class="btn btn-small">Next</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- User Detail Modal -->
+    <div id="user-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>User Details</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="user-detail-grid">
+                    <div class="detail-row">
+                        <span class="detail-label">Username:</span>
+                        <span id="detail-username" class="detail-value"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Email:</span>
+                        <span id="detail-email" class="detail-value"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Role:</span>
+                        <span id="detail-role" class="detail-value"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Status:</span>
+                        <span id="detail-status" class="detail-value"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Games Played:</span>
+                        <span id="detail-games-played" class="detail-value"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Games Won:</span>
+                        <span id="detail-games-won" class="detail-value"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Joined:</span>
+                        <span id="detail-joined" class="detail-value"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Last Login:</span>
+                        <span id="detail-last-login" class="detail-value"></span>
+                    </div>
+                </div>
+
+                <div class="user-actions">
+                    <h4>Actions</h4>
+                    <div class="action-buttons">
+                        <button id="action-ban" class="btn btn-danger">Ban User</button>
+                        <button id="action-unban" class="btn btn-success hidden">Unban User</button>
+                        <button id="action-reset-pw" class="btn btn-warning">Force Password Reset</button>
+                        <button id="action-make-admin" class="btn">Make Admin</button>
+                        <button id="action-remove-admin" class="btn hidden">Remove Admin</button>
+                        <button id="action-impersonate" class="btn">Impersonate (Read-Only)</button>
+                    </div>
+                </div>
+
+                <div id="ban-history-section">
+                    <h4>Ban History</h4>
+                    <table id="ban-history-table" class="data-table small">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Reason</th>
+                                <th>By</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ban User Modal -->
+    <div id="ban-modal" class="modal hidden">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3>Ban User</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="ban-form">
+                    <div class="form-group">
+                        <label for="ban-reason">Reason:</label>
+                        <textarea id="ban-reason" required placeholder="Enter reason for ban..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="ban-duration">Duration (days, leave empty for permanent):</label>
+                        <input type="number" id="ban-duration" min="1" max="365" placeholder="Permanent">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn modal-close">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Ban User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- End Game Modal -->
+    <div id="end-game-modal" class="modal hidden">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3>End Game</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="end-game-form">
+                    <div class="form-group">
+                        <label for="end-game-reason">Reason:</label>
+                        <textarea id="end-game-reason" required placeholder="Enter reason for ending game..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn modal-close">Cancel</button>
+                        <button type="submit" class="btn btn-danger">End Game</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script src="admin.js"></script>
+</body>
+</html>

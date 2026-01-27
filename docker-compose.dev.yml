@@ -1,0 +1,58 @@
+# Development Docker Compose for Golf Game V2
+#
+# Provides PostgreSQL and Redis for local development.
+#
+# Usage:
+#   docker-compose -f docker-compose.dev.yml up -d
+#
+# Connect to PostgreSQL:
+#   docker exec -it golfgame-postgres-1 psql -U golf
+#
+# Connect to Redis CLI:
+#   docker exec -it golfgame-redis-1 redis-cli
+#
+# View logs:
+#   docker-compose -f docker-compose.dev.yml logs -f
+#
+# Stop services:
+#   docker-compose -f docker-compose.dev.yml down
+#
+# Stop and remove volumes (clean slate):
+#   docker-compose -f docker-compose.dev.yml down -v
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    # Enable AOF persistence for durability
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: golf
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_DB: golf
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U golf"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local

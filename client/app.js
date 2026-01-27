@@ -2257,4 +2257,197 @@ class GolfGame {
 // Initialize game when page loads
 document.addEventListener('DOMContentLoaded', () => {
     window.game = new GolfGame();
+    window.auth = new AuthManager(window.game);
 });
+
+
+// ===========================================
+// AUTH MANAGER
+// ===========================================
+
+class AuthManager {
+    constructor(game) {
+        this.game = game;
+        this.token = localStorage.getItem('authToken');
+        this.user = JSON.parse(localStorage.getItem('authUser') || 'null');
+
+        this.initElements();
+        this.bindEvents();
+        this.updateUI();
+    }
+
+    initElements() {
+        this.authBar = document.getElementById('auth-bar');
+        this.authUsername = document.getElementById('auth-username');
+        this.logoutBtn = document.getElementById('auth-logout-btn');
+        this.authButtons = document.getElementById('auth-buttons');
+        this.loginBtn = document.getElementById('login-btn');
+        this.signupBtn = document.getElementById('signup-btn');
+        this.modal = document.getElementById('auth-modal');
+        this.modalClose = document.getElementById('auth-modal-close');
+        this.loginFormContainer = document.getElementById('login-form-container');
+        this.loginForm = document.getElementById('login-form');
+        this.loginUsername = document.getElementById('login-username');
+        this.loginPassword = document.getElementById('login-password');
+        this.loginError = document.getElementById('login-error');
+        this.signupFormContainer = document.getElementById('signup-form-container');
+        this.signupForm = document.getElementById('signup-form');
+        this.signupUsername = document.getElementById('signup-username');
+        this.signupEmail = document.getElementById('signup-email');
+        this.signupPassword = document.getElementById('signup-password');
+        this.signupError = document.getElementById('signup-error');
+        this.showSignupLink = document.getElementById('show-signup');
+        this.showLoginLink = document.getElementById('show-login');
+    }
+
+    bindEvents() {
+        this.loginBtn?.addEventListener('click', () => this.showModal('login'));
+        this.signupBtn?.addEventListener('click', () => this.showModal('signup'));
+        this.modalClose?.addEventListener('click', () => this.hideModal());
+        this.modal?.addEventListener('click', (e) => {
+            if (e.target === this.modal) this.hideModal();
+        });
+        this.showSignupLink?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showForm('signup');
+        });
+        this.showLoginLink?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showForm('login');
+        });
+        this.loginForm?.addEventListener('submit', (e) => this.handleLogin(e));
+        this.signupForm?.addEventListener('submit', (e) => this.handleSignup(e));
+        this.logoutBtn?.addEventListener('click', () => this.logout());
+    }
+
+    showModal(form = 'login') {
+        this.modal.classList.remove('hidden');
+        this.showForm(form);
+        this.clearErrors();
+    }
+
+    hideModal() {
+        this.modal.classList.add('hidden');
+        this.clearForms();
+    }
+
+    showForm(form) {
+        if (form === 'login') {
+            this.loginFormContainer.classList.remove('hidden');
+            this.signupFormContainer.classList.add('hidden');
+            this.loginUsername.focus();
+        } else {
+            this.loginFormContainer.classList.add('hidden');
+            this.signupFormContainer.classList.remove('hidden');
+            this.signupUsername.focus();
+        }
+    }
+
+    clearForms() {
+        this.loginForm.reset();
+        this.signupForm.reset();
+        this.clearErrors();
+    }
+
+    clearErrors() {
+        this.loginError.textContent = '';
+        this.signupError.textContent = '';
+    }
+
+    async handleLogin(e) {
+        e.preventDefault();
+        this.clearErrors();
+
+        const username = this.loginUsername.value.trim();
+        const password = this.loginPassword.value;
+
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                this.loginError.textContent = data.detail || 'Login failed';
+                return;
+            }
+
+            this.setAuth(data.token, data.user);
+            this.hideModal();
+
+            if (data.user.username && this.game.playerNameInput) {
+                this.game.playerNameInput.value = data.user.username;
+            }
+        } catch (err) {
+            this.loginError.textContent = 'Connection error';
+        }
+    }
+
+    async handleSignup(e) {
+        e.preventDefault();
+        this.clearErrors();
+
+        const username = this.signupUsername.value.trim();
+        const email = this.signupEmail.value.trim() || null;
+        const password = this.signupPassword.value;
+
+        try {
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                this.signupError.textContent = data.detail || 'Signup failed';
+                return;
+            }
+
+            this.setAuth(data.token, data.user);
+            this.hideModal();
+
+            if (data.user.username && this.game.playerNameInput) {
+                this.game.playerNameInput.value = data.user.username;
+            }
+        } catch (err) {
+            this.signupError.textContent = 'Connection error';
+        }
+    }
+
+    setAuth(token, user) {
+        this.token = token;
+        this.user = user;
+        localStorage.setItem('authToken', token);
+        localStorage.setItem('authUser', JSON.stringify(user));
+        this.updateUI();
+    }
+
+    logout() {
+        this.token = null;
+        this.user = null;
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authUser');
+        this.updateUI();
+    }
+
+    updateUI() {
+        if (this.user) {
+            this.authBar?.classList.remove('hidden');
+            this.authButtons?.classList.add('hidden');
+            if (this.authUsername) {
+                this.authUsername.textContent = this.user.username;
+            }
+            if (this.game.playerNameInput && !this.game.playerNameInput.value) {
+                this.game.playerNameInput.value = this.user.username;
+            }
+        } else {
+            this.authBar?.classList.add('hidden');
+            this.authButtons?.classList.remove('hidden');
+        }
+    }
+}

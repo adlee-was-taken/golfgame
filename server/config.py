@@ -20,7 +20,10 @@ from typing import Optional
 # Load .env file if it exists
 try:
     from dotenv import load_dotenv
-    env_path = Path(__file__).parent.parent / ".env"
+    # Check server/.env first, then project root .env
+    env_path = Path(__file__).parent / ".env"
+    if not env_path.exists():
+        env_path = Path(__file__).parent.parent / ".env"
     if env_path.exists():
         load_dotenv(env_path)
 except ImportError:
@@ -110,8 +113,30 @@ class ServerConfig:
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
 
-    # Database
+    # Environment (development, staging, production)
+    ENVIRONMENT: str = "development"
+
+    # Database (SQLite for legacy analytics/auth)
     DATABASE_URL: str = "sqlite:///games.db"
+
+    # PostgreSQL for V2 event store
+    # Format: postgresql://user:password@host:port/database
+    POSTGRES_URL: str = ""
+
+    # Redis for V2 live state cache and pub/sub
+    # Format: redis://host:port or redis://:password@host:port
+    REDIS_URL: str = ""
+
+    # Email settings (Resend integration)
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "Golf Game <noreply@example.com>"
+    BASE_URL: str = "http://localhost:8000"
+
+    # Session settings
+    SESSION_EXPIRY_HOURS: int = 168  # 1 week
+
+    # Email verification
+    REQUIRE_EMAIL_VERIFICATION: bool = False
 
     # Room settings
     MAX_PLAYERS_PER_ROOM: int = 6
@@ -122,6 +147,12 @@ class ServerConfig:
     SECRET_KEY: str = ""
     INVITE_ONLY: bool = False
     ADMIN_EMAILS: list[str] = field(default_factory=list)
+
+    # Rate limiting
+    RATE_LIMIT_ENABLED: bool = True
+
+    # Error tracking (Sentry)
+    SENTRY_DSN: str = ""
 
     # Card values
     card_values: CardValues = field(default_factory=CardValues)
@@ -140,13 +171,23 @@ class ServerConfig:
             PORT=get_env_int("PORT", 8000),
             DEBUG=get_env_bool("DEBUG", False),
             LOG_LEVEL=get_env("LOG_LEVEL", "INFO"),
+            ENVIRONMENT=get_env("ENVIRONMENT", "development"),
             DATABASE_URL=get_env("DATABASE_URL", "sqlite:///games.db"),
+            POSTGRES_URL=get_env("POSTGRES_URL", ""),
+            REDIS_URL=get_env("REDIS_URL", ""),
+            RESEND_API_KEY=get_env("RESEND_API_KEY", ""),
+            EMAIL_FROM=get_env("EMAIL_FROM", "Golf Game <noreply@example.com>"),
+            BASE_URL=get_env("BASE_URL", "http://localhost:8000"),
+            SESSION_EXPIRY_HOURS=get_env_int("SESSION_EXPIRY_HOURS", 168),
+            REQUIRE_EMAIL_VERIFICATION=get_env_bool("REQUIRE_EMAIL_VERIFICATION", False),
             MAX_PLAYERS_PER_ROOM=get_env_int("MAX_PLAYERS_PER_ROOM", 6),
             ROOM_TIMEOUT_MINUTES=get_env_int("ROOM_TIMEOUT_MINUTES", 60),
             ROOM_CODE_LENGTH=get_env_int("ROOM_CODE_LENGTH", 4),
             SECRET_KEY=get_env("SECRET_KEY", ""),
             INVITE_ONLY=get_env_bool("INVITE_ONLY", False),
             ADMIN_EMAILS=admin_emails,
+            RATE_LIMIT_ENABLED=get_env_bool("RATE_LIMIT_ENABLED", True),
+            SENTRY_DSN=get_env("SENTRY_DSN", ""),
             card_values=CardValues(
                 ACE=get_env_int("CARD_ACE", 1),
                 TWO=get_env_int("CARD_TWO", -2),
