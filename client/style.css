@@ -275,59 +275,77 @@ body {
     }
 }
 
-/* Room Code Banner - positioned top-left to avoid auth bar overlap */
+/* Room Code Banner - styled as a hanging ribbon/bookmark */
 .room-code-banner {
     position: fixed;
     top: 0;
-    left: 0;
+    left: 20px;
     z-index: 100;
-    background: linear-gradient(135deg, rgba(244, 164, 96, 0.9) 0%, rgba(230, 140, 70, 0.95) 100%);
-    padding: 10px 15px;
-    border-radius: 0 0 12px 0;
+    background: linear-gradient(180deg, #d4845a 0%, #c4723f 50%, #b8663a 100%);
+    padding: 12px 16px 20px;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 10px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    gap: 4px;
+    box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.3);
+    /* Ribbon forked end (snake tongue style) */
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 12px), 0 100%);
+}
+
+.room-code-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 100%);
 }
 
 .room-code-label {
-    font-size: 0.65rem;
-    font-weight: 600;
+    font-size: 0.55rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: rgba(26, 71, 42, 0.8);
+    letter-spacing: 0.25em;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: center;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
 }
 
 .room-code-value {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     font-weight: 800;
     font-family: 'Courier New', monospace;
     letter-spacing: 0.2em;
-    color: #1a472a;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+    color: #fff;
+    text-shadow: 0 2px 2px rgba(0, 0, 0, 0.3);
+    padding: 2px 0;
+}
+
+.room-code-buttons {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
 }
 
 .room-code-copy {
-    background: rgba(26, 71, 42, 0.2);
+    background: rgba(255, 255, 255, 0.85);
     border: none;
-    border-radius: 6px;
-    padding: 6px 8px;
+    border-radius: 4px;
+    padding: 4px 8px;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: 0.9rem;
     transition: all 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
 .room-code-copy:hover {
-    background: rgba(26, 71, 42, 0.3);
+    background: rgba(255, 255, 255, 0.35);
     transform: scale(1.1);
 }
 
 .room-code-copy:active {
     transform: scale(0.95);
-}
-
-.room-code-copy.copied {
-    background: rgba(26, 71, 42, 0.4);
 }
 
 

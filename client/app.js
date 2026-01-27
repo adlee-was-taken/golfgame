@@ -33,6 +33,20 @@ class GolfGame {
         this.initElements();
         this.initAudio();
         this.bindEvents();
+        this.checkUrlParams();
+    }
+
+    checkUrlParams() {
+        // Handle ?room=XXXX share links
+        const params = new URLSearchParams(window.location.search);
+        const roomCode = params.get('room');
+        if (roomCode) {
+            this.roomCodeInput.value = roomCode.toUpperCase();
+            // Focus name input so user can quickly enter name and join
+            this.playerNameInput.focus();
+            // Clean up URL without reloading
+            window.history.replaceState({}, '', window.location.pathname);
+        }
     }
 
     initAudio() {
@@ -140,6 +154,7 @@ class GolfGame {
         // Waiting room elements
         this.displayRoomCode = document.getElementById('display-room-code');
         this.copyRoomCodeBtn = document.getElementById('copy-room-code');
+        this.shareRoomLinkBtn = document.getElementById('share-room-link');
         this.playersList = document.getElementById('players-list');
         this.hostSettings = document.getElementById('host-settings');
         this.waitingMessage = document.getElementById('waiting-message');
@@ -232,6 +247,12 @@ class GolfGame {
         this.copyRoomCodeBtn.addEventListener('click', () => {
             this.playSound('click');
             this.copyRoomCode();
+        });
+
+        // Share room link
+        this.shareRoomLinkBtn.addEventListener('click', () => {
+            this.playSound('click');
+            this.shareRoomLink();
         });
 
         // Enter key handlers
@@ -511,22 +532,47 @@ class GolfGame {
 
     copyRoomCode() {
         if (!this.roomCode) return;
+        this.copyToClipboard(this.roomCode, this.copyRoomCodeBtn);
+    }
 
-        navigator.clipboard.writeText(this.roomCode).then(() => {
-            // Show brief visual feedback
-            const originalText = this.copyRoomCodeBtn.textContent;
-            this.copyRoomCodeBtn.textContent = '✓';
+    shareRoomLink() {
+        if (!this.roomCode) return;
+
+        // Build shareable URL with room code
+        const url = new URL(window.location.href);
+        url.search = ''; // Clear existing params
+        url.hash = '';   // Clear hash
+        url.searchParams.set('room', this.roomCode);
+        const shareUrl = url.toString();
+
+        this.copyToClipboard(shareUrl, this.shareRoomLinkBtn);
+    }
+
+    copyToClipboard(text, feedbackBtn) {
+        // Use execCommand which is more reliable across contexts
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        let success = false;
+        try {
+            success = document.execCommand('copy');
+        } catch (err) {
+            console.error('Copy failed:', err);
+        }
+        document.body.removeChild(textarea);
+
+        // Show visual feedback
+        if (success && feedbackBtn) {
+            const originalText = feedbackBtn.textContent;
+            feedbackBtn.textContent = '✓';
             setTimeout(() => {
-                this.copyRoomCodeBtn.textContent = originalText;
+                feedbackBtn.textContent = originalText;
             }, 1500);
-        }).catch(err => {
-            console.error('Failed to copy room code:', err);
-            // Fallback: select the text for manual copy
-            const range = document.createRange();
-            range.selectNode(this.displayRoomCode);
-            window.getSelection().removeAllRanges();
-            window.getSelection().addRange(range);
-        });
+        }
     }
 
     startGame() {
