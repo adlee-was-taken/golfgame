@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <!-- Gradient for 3D ball effect -->
+    <radialGradient id="ballGradient" cx="30%" cy="25%" r="65%" fx="25%" fy="20%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="50%" stop-color="#f5f5f5"/>
+      <stop offset="80%" stop-color="#e0e0e0"/>
+      <stop offset="100%" stop-color="#c8c8c8"/>
+    </radialGradient>
+
+    <!-- Dimple shading gradient -->
+    <radialGradient id="dimpleGrad" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#d0d0d0"/>
+      <stop offset="100%" stop-color="#b8b8b8"/>
+    </radialGradient>
+
+    <!-- Clip for dimples to stay within ball -->
+    <clipPath id="ballClip">
+      <circle cx="50" cy="50" r="45"/>
+    </clipPath>
+  </defs>
+
+  <!-- Main ball base -->
+  <circle cx="50" cy="50" r="46" fill="url(#ballGradient)"/>
+
+  <!-- Dimples - arranged in organic pattern -->
+  <g clip-path="url(#ballClip)" fill="url(#dimpleGrad)" opacity="0.5">
+    <!-- Ring 1 - outer edge dimples -->
+    <circle cx="50" cy="8" r="3.5"/>
+    <circle cx="67" cy="12" r="3.5"/>
+    <circle cx="81" cy="23" r="3.5"/>
+    <circle cx="89" cy="40" r="3.5"/>
+    <circle cx="90" cy="58" r="3.5"/>
+    <circle cx="83" cy="75" r="3.5"/>
+    <circle cx="70" cy="87" r="3.5"/>
+    <circle cx="50" cy="92" r="3.5"/>
+    <circle cx="30" cy="87" r="3.5"/>
+    <circle cx="17" cy="75" r="3.5"/>
+    <circle cx="10" cy="58" r="3.5"/>
+    <circle cx="11" cy="40" r="3.5"/>
+    <circle cx="19" cy="23" r="3.5"/>
+    <circle cx="33" cy="12" r="3.5"/>
+
+    <!-- Ring 2 -->
+    <circle cx="50" cy="18" r="3.2"/>
+    <circle cx="64" cy="22" r="3.2"/>
+    <circle cx="75" cy="32" r="3.2"/>
+    <circle cx="80" cy="47" r="3.2"/>
+    <circle cx="78" cy="63" r="3.2"/>
+    <circle cx="70" cy="76" r="3.2"/>
+    <circle cx="57" cy="83" r="3.2"/>
+    <circle cx="43" cy="83" r="3.2"/>
+    <circle cx="30" cy="76" r="3.2"/>
+    <circle cx="22" cy="63" r="3.2"/>
+    <circle cx="20" cy="47" r="3.2"/>
+    <circle cx="25" cy="32" r="3.2"/>
+    <circle cx="36" cy="22" r="3.2"/>
+
+    <!-- Ring 3 - mid area (avoiding center for suits) -->
+    <circle cx="50" cy="27" r="2.8"/>
+    <circle cx="62" cy="32" r="2.8"/>
+    <circle cx="70" cy="42" r="2.8"/>
+    <circle cx="72" cy="58" r="2.8"/>
+    <circle cx="66" cy="70" r="2.8"/>
+    <circle cx="34" cy="70" r="2.8"/>
+    <circle cx="28" cy="58" r="2.8"/>
+    <circle cx="30" cy="42" r="2.8"/>
+    <circle cx="38" cy="32" r="2.8"/>
+
+    <!-- Scattered small dimples in gaps -->
+    <circle cx="57" cy="15" r="2.5"/>
+    <circle cx="43" cy="15" r="2.5"/>
+    <circle cx="84" cy="50" r="2.5"/>
+    <circle cx="16" cy="50" r="2.5"/>
+    <circle cx="76" cy="68" r="2.5"/>
+    <circle cx="24" cy="68" r="2.5"/>
+    <circle cx="76" cy="32" r="2.5"/>
+    <circle cx="24" cy="32" r="2.5"/>
+    <circle cx="40" cy="80" r="2.5"/>
+    <circle cx="60" cy="80" r="2.5"/>
+  </g>
+
+  <!-- Subtle inner shadow for depth -->
+  <circle cx="50" cy="50" r="45" fill="none" stroke="#a0a0a0" stroke-width="1" opacity="0.3"/>
+
+  <!-- Outer edge highlight -->
+  <circle cx="50" cy="50" r="46" fill="none" stroke="#ffffff" stroke-width="0.5" opacity="0.5"/>
+
+  <!-- Card suits - 2x2 grid in center -->
+  <!-- Club (black) - top left -->
+  <text x="38" y="50" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#1a1a1a" text-anchor="middle">&#9827;</text>
+
+  <!-- Diamond (red) - top right -->
+  <text x="62" y="50" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#cc0000" text-anchor="middle">&#9830;</text>
+
+  <!-- Spade (black) - bottom left -->
+  <text x="38" y="68" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#1a1a1a" text-anchor="middle">&#9824;</text>
+
+  <!-- Heart (red) - bottom right -->
+  <text x="62" y="68" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#cc0000" text-anchor="middle">&#9829;</text>
+</svg>

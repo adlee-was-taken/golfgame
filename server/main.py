@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import os
-import signal
 import uuid
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -60,22 +59,13 @@ async def _periodic_leaderboard_refresh():
             logger.error(f"Leaderboard refresh failed: {e}")
 
 
-async def _initiate_shutdown():
-    """Initiate graceful shutdown."""
-    logger.info("Received shutdown signal")
-    _shutdown_event.set()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for async service initialization."""
     global _user_store, _auth_service, _admin_service, _stats_service, _replay_service
     global _spectator_manager, _leaderboard_refresh_task, _redis_client, _rate_limiter
 
-    # Register signal handlers for graceful shutdown
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, lambda: asyncio.create_task(_initiate_shutdown()))
+    # Note: Uvicorn handles SIGINT/SIGTERM and triggers lifespan cleanup automatically
 
     # Initialize Redis client (for rate limiting, health checks, etc.)
     if config.REDIS_URL:
