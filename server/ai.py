@@ -1073,7 +1073,9 @@ async def process_cpu_turn(
         return
 
     await broadcast_callback()
-    await asyncio.sleep(0.4 + random.uniform(0, 0.4))
+    # Brief pause after draw to let the flash animation register visually
+    await asyncio.sleep(0.08)
+    await asyncio.sleep(0.35 + random.uniform(0, 0.35))
 
     # Decide whether to swap or discard
     swap_pos = GolfAI.choose_swap_or_discard(drawn, cpu_player, profile, game)

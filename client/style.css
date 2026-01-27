@@ -4,6 +4,10 @@
     padding: 0;
 }
 
+html {
+    scroll-behavior: smooth;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     /* Dark emerald pool table felt */
@@ -582,9 +586,6 @@ input::placeholder {
     white-space: nowrap;
 }
 
-.radio-label .rule-desc::before {
-    content: "— ";
-}
 
 /* Settings */
 .settings {
@@ -985,21 +986,32 @@ input::placeholder {
     box-shadow: none;
 }
 
-/* Pulse animation when opponent draws from a pile */
+/* Highlight flash when opponent draws from a pile */
 #deck.draw-pulse,
 #discard.draw-pulse {
-    animation: draw-pulse 0.6s ease-out;
+    animation: draw-highlight 0.4s ease-out;
+    z-index: 100;
 }
 
-@keyframes draw-pulse {
+@keyframes draw-highlight {
     0% {
-        box-shadow: 0 0 0 0 rgba(244, 164, 96, 0.8);
+        transform: scale(1);
+        outline: 0px solid rgba(255, 220, 100, 0);
     }
-    50% {
-        box-shadow: 0 0 0 12px rgba(244, 164, 96, 0.4);
+    15% {
+        transform: scale(1.08);
+        outline: 3px solid rgba(255, 220, 100, 1);
+        outline-offset: 2px;
+    }
+    40% {
+        transform: scale(1.04);
+        outline: 3px solid rgba(255, 200, 80, 0.7);
+        outline-offset: 4px;
     }
     100% {
-        box-shadow: 0 0 0 20px rgba(244, 164, 96, 0);
+        transform: scale(1);
+        outline: 3px solid rgba(255, 200, 80, 0);
+        outline-offset: 8px;
     }
 }
 
@@ -1244,8 +1256,8 @@ input::placeholder {
 }
 
 .status-message.your-turn {
-    background: linear-gradient(135deg, #f4a460 0%, #e8914d 100%);
-    color: #1a472a;
+    background: linear-gradient(135deg, #b5d484 0%, #9ab973 100%);
+    color: #2d3436;
 }
 
 /* Final turn badge - separate indicator */
@@ -2127,8 +2139,28 @@ input::placeholder {
     margin-left: 0;
 }
 
-.checkbox-label.inline .rule-desc::before {
-    content: "— ";
+
+/* Suit separators for rule descriptions */
+.suit {
+    font-size: 0.95em;
+    margin-right: 6px;
+}
+.suit-red { color: #e74c3c; }
+.suit-black { color: #888; }
+
+/* Combo note for stacking rules */
+.combo-note {
+    font-size: 0.8rem;
+    color: #ffd700;
+    background: rgba(255, 215, 0, 0.1);
+    border-left: 2px solid #ffd700;
+    padding: 4px 8px;
+    margin: 4px 0 8px 0;
+    border-radius: 0 4px 4px 0;
+}
+
+.combo-note.hidden {
+    display: none;
 }
 
 /* Rule description */
@@ -2376,28 +2408,114 @@ input::placeholder {
 }
 
 .rules-container {
+    position: relative;
     background: rgba(0, 0, 0, 0.3);
     border-radius: 12px;
     padding: 20px 35px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     margin-top: 0;
+    scroll-behavior: smooth;
 }
 
-.rules-container h1 {
+/* Rules back button */
+.rules-back-btn {
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 15px;
+}
+
+.rules-back-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.golfer-logo {
+    display: inline-block;
+    transform: scaleX(-1);
+}
+
+/* Rules header */
+.rules-header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 25px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid rgba(244, 164, 96, 0.3);
+}
+
+.rules-header h1 {
     color: #f4a460;
     font-size: 2rem;
+    margin-bottom: 8px;
 }
 
-.rules-container .back-btn {
-    margin-bottom: 20px;
+.rules-subtitle {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
+    margin: 0;
+}
+
+/* Table of Contents */
+.rules-toc {
+    background: linear-gradient(135deg, rgba(244, 164, 96, 0.15) 0%, rgba(244, 164, 96, 0.05) 100%);
+    border: 1px solid rgba(244, 164, 96, 0.3);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 30px;
+}
+
+.toc-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(244, 164, 96, 0.9);
+    margin-bottom: 14px;
+    font-weight: 600;
+}
+
+.toc-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.toc-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.toc-link:hover {
+    background: rgba(244, 164, 96, 0.25);
+    border-color: rgba(244, 164, 96, 0.4);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.toc-icon {
+    font-size: 1rem;
+}
+
+.toc-text {
+    font-weight: 500;
 }
 
 .rules-section {
     margin-bottom: 35px;
     padding-bottom: 25px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    scroll-margin-top: 20px;
 }
 
 .rules-section:last-child {
@@ -2554,6 +2672,45 @@ input::placeholder {
     margin-bottom: 15px;
 }
 
+/* House rule items */
+.house-rule {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-left: 3px solid rgba(244, 164, 96, 0.5);
+}
+
+.house-rule h4 {
+    margin: 0 0 6px 0;
+    color: #f4a460;
+    font-size: 1rem;
+}
+
+.house-rule p {
+    margin: 0 0 8px 0;
+    line-height: 1.5;
+}
+
+.house-rule p:last-child {
+    margin-bottom: 0;
+}
+
+.strategic-impact {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.75);
+    font-style: italic;
+}
+
+.combo-note {
+    background: rgba(244, 164, 96, 0.1);
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin-top: 15px;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
 /* FAQ items */
 .faq-item {
     background: rgba(0, 0, 0, 0.2);
@@ -2626,11 +2783,37 @@ input::placeholder {
 /* Mobile adjustments for rules */
 @media (max-width: 600px) {
     .rules-container {
-        padding: 20px;
+        padding: 15px;
     }
 
-    .rules-container h1 {
-        font-size: 1.6rem;
+
+    .rules-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .rules-subtitle {
+        font-size: 0.9rem;
+    }
+
+    .rules-toc {
+        padding: 14px 16px;
+    }
+
+    .toc-title {
+        font-size: 0.75rem;
+    }
+
+    .toc-links {
+        gap: 8px;
+    }
+
+    .toc-link {
+        padding: 6px 10px;
+        font-size: 0.8rem;
+    }
+
+    .toc-icon {
+        font-size: 0.9rem;
     }
 
     .rules-section h2 {

@@ -168,6 +168,7 @@ class GolfGame {
         this.fourOfAKindCheckbox = document.getElementById('four-of-a-kind');
         this.negativePairsCheckbox = document.getElementById('negative-pairs-keep-value');
         this.oneEyedJacksCheckbox = document.getElementById('one-eyed-jacks');
+        this.wolfpackComboNote = document.getElementById('wolfpack-combo-note');
         this.startGameBtn = document.getElementById('start-game-btn');
         this.leaveRoomBtn = document.getElementById('leave-room-btn');
         this.addCpuBtn = document.getElementById('add-cpu-btn');
@@ -248,6 +249,17 @@ class GolfGame {
             const playerCount = this.currentPlayers ? this.currentPlayers.length : 0;
             this.updateDeckRecommendation(playerCount);
         });
+
+        // Show combo note when wolfpack + four-of-a-kind are both selected
+        const updateWolfpackCombo = () => {
+            if (this.wolfpackCheckbox.checked && this.fourOfAKindCheckbox.checked) {
+                this.wolfpackComboNote.classList.remove('hidden');
+            } else {
+                this.wolfpackComboNote.classList.add('hidden');
+            }
+        };
+        this.wolfpackCheckbox.addEventListener('change', updateWolfpackCombo);
+        this.fourOfAKindCheckbox.addEventListener('change', updateWolfpackCombo);
 
         // Toggle scoreboard collapse on mobile
         const scoreboardTitle = this.scoreboard.querySelector('h4');
@@ -932,7 +944,7 @@ class GolfGame {
         // The swap animation handles showing the card at the correct position
     }
 
-    // Pulse animation on deck or discard pile to show where opponent drew from
+    // Flash animation on deck or discard pile to show where opponent drew from
     pulseDrawPile(source) {
         const pile = source === 'discard' ? this.discard : this.deck;
         pile.classList.remove('draw-pulse');
@@ -940,7 +952,7 @@ class GolfGame {
         void pile.offsetWidth;
         pile.classList.add('draw-pulse');
         // Remove class after animation completes
-        setTimeout(() => pile.classList.remove('draw-pulse'), 600);
+        setTimeout(() => pile.classList.remove('draw-pulse'), 400);
     }
 
     // Fire animation for discard without swap (card goes deck -> discard)

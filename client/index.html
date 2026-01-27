@@ -94,10 +94,10 @@
                     <summary>Advanced Options</summary>
 
                     <div class="advanced-options-grid">
-                        <!-- Left Column: Variants & Jokers -->
+                        <!-- Left Column: Gameplay & Jokers -->
                         <div class="options-column">
                             <div class="options-category">
-                                <h4>Variants</h4>
+                                <h4>Gameplay</h4>
                                 <div class="checkbox-group">
                                     <div class="select-option">
                                         <label for="flip-mode">Flip on Discard</label>
@@ -106,12 +106,17 @@
                                             <option value="always">Speed Golf - MUST flip a card after discarding</option>
                                             <option value="endgame">Endgame - Optional flip to help trailing players catch up</option>
                                         </select>
-                                        <span class="rule-desc">What happens when you draw from deck and discard</span>
+                                        <span class="rule-desc">After discarding a drawn card</span>
                                     </div>
-                                    <label class="checkbox-label">
+                                    <label class="checkbox-label inline">
+                                        <input type="checkbox" id="flip-as-action">
+                                        <span>Flip as Action</span>
+                                        <span class="rule-desc"><span class="suit suit-black">♣</span>flip instead of draw</span>
+                                    </label>
+                                    <label class="checkbox-label inline">
                                         <input type="checkbox" id="knock-penalty">
                                         <span>Knock Penalty</span>
-                                        <span class="rule-desc">+10 if you go out but don't have lowest</span>
+                                        <span class="rule-desc"><span class="suit suit-red">♦</span>+10 if not lowest</span>
                                     </label>
                                 </div>
                             </div>
@@ -126,94 +131,84 @@
                                     <label class="radio-label">
                                         <input type="radio" name="joker-mode" value="standard">
                                         <span>Standard</span>
-                                        <span class="rule-desc">2 per deck, -2 pts / 0 paired</span>
+                                        <span class="rule-desc"><span class="suit suit-black">♠</span>2 per deck, -2 / 0 paired</span>
                                     </label>
                                     <label class="radio-label">
                                         <input type="radio" name="joker-mode" value="lucky-swing">
                                         <span>Lucky Swing</span>
-                                        <span class="rule-desc">1-3 decks: 1 Joker, -5 pts!</span>
+                                        <span class="rule-desc"><span class="suit suit-red">♥</span>1 Joker total, -5!</span>
                                     </label>
                                     <label class="radio-label">
                                         <input type="radio" name="joker-mode" value="eagle-eye">
                                         <span>Eagle-Eyed</span>
-                                        <span class="rule-desc">2 per deck, +2 pts / -4 paired</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="options-category">
-                                <h4>Point Modifiers</h4>
-                                <div class="checkbox-group">
-                                    <label class="checkbox-label inline">
-                                        <input type="checkbox" id="super-kings">
-                                        <span>Super Kings</span>
-                                        <span class="rule-desc">K = -2 pts</span>
-                                    </label>
-                                    <label class="checkbox-label inline">
-                                        <input type="checkbox" id="ten-penny">
-                                        <span>Ten Penny</span>
-                                        <span class="rule-desc">10 = 1 pt</span>
+                                        <span class="rule-desc"><span class="suit suit-black">♣</span>+2 / -4 paired</span>
                                     </label>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Right Column: Bonuses & Gameplay -->
+                        <!-- Right Column: Card Values & Bonuses -->
                         <div class="options-column">
                             <div class="options-category">
-                                <h4>Bonuses & Penalties</h4>
+                                <h4>Card Values</h4>
                                 <div class="checkbox-group">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="knock-bonus">
-                                        <span>Knock Out Bonus</span>
-                                        <span class="rule-desc">-5 for going out first</span>
-                                    </label>
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="underdog-bonus">
-                                        <span>Underdog Bonus</span>
-                                        <span class="rule-desc">-3 for lowest score each hole</span>
-                                    </label>
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="tied-shame">
-                                        <span>Tied Shame</span>
-                                        <span class="rule-desc">+5 if you tie with someone</span>
+                                    <label class="checkbox-label inline">
+                                        <input type="checkbox" id="super-kings">
+                                        <span>Super Kings</span>
+                                        <span class="rule-desc"><span class="suit suit-red">♦</span>K = -2</span>
                                     </label>
                                     <label class="checkbox-label inline">
-                                        <input type="checkbox" id="blackjack">
-                                        <span>Blackjack</span>
-                                        <span class="rule-desc">21 pts = 0 pts</span>
+                                        <input type="checkbox" id="ten-penny">
+                                        <span>Ten Penny</span>
+                                        <span class="rule-desc"><span class="suit suit-black">♠</span>10 = 1</span>
                                     </label>
                                     <label class="checkbox-label inline">
-                                        <input type="checkbox" id="wolfpack">
-                                        <span>Wolfpack</span>
-                                        <span class="rule-desc">All 4 Jacks = -20 pts</span>
+                                        <input type="checkbox" id="one-eyed-jacks">
+                                        <span>One-Eyed Jacks</span>
+                                        <span class="rule-desc"><span class="suit suit-red">♥</span>J♥/J♠ = 0</span>
+                                    </label>
+                                    <label class="checkbox-label inline">
+                                        <input type="checkbox" id="negative-pairs-keep-value">
+                                        <span>Negative Pairs</span>
+                                        <span class="rule-desc"><span class="suit suit-black">♣</span>paired 2s/Jokers = -4</span>
                                     </label>
                                 </div>
                             </div>
 
                             <div class="options-category">
-                                <h4>New Variants</h4>
+                                <h4>Bonuses & Penalties</h4>
                                 <div class="checkbox-group">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="flip-as-action">
-                                        <span>Flip as Action</span>
-                                        <span class="rule-desc">Use turn to flip a card without drawing</span>
+                                    <label class="checkbox-label inline">
+                                        <input type="checkbox" id="knock-bonus">
+                                        <span>Knock Bonus</span>
+                                        <span class="rule-desc"><span class="suit suit-red">♦</span>-5 going out first</span>
                                     </label>
-                                    <label class="checkbox-label">
+                                    <label class="checkbox-label inline">
+                                        <input type="checkbox" id="underdog-bonus">
+                                        <span>Underdog</span>
+                                        <span class="rule-desc"><span class="suit suit-black">♠</span>-3 lowest score</span>
+                                    </label>
+                                    <label class="checkbox-label inline">
+                                        <input type="checkbox" id="tied-shame">
+                                        <span>Tied Shame</span>
+                                        <span class="rule-desc"><span class="suit suit-red">♥</span>+5 if tied</span>
+                                    </label>
+                                    <label class="checkbox-label inline">
+                                        <input type="checkbox" id="blackjack">
+                                        <span>Blackjack</span>
+                                        <span class="rule-desc"><span class="suit suit-black">♣</span>score 21 = 0</span>
+                                    </label>
+                                    <label class="checkbox-label inline">
                                         <input type="checkbox" id="four-of-a-kind">
                                         <span>Four of a Kind</span>
-                                        <span class="rule-desc">4 matching cards in 2 columns = -20 pts</span>
+                                        <span class="rule-desc"><span class="suit suit-red">♦</span>-20 bonus</span>
                                     </label>
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="negative-pairs-keep-value">
-                                        <span>Negative Pairs Keep Value</span>
-                                        <span class="rule-desc">Paired 2s/Jokers stay at -4 (not 0)</span>
+                                    <label class="checkbox-label inline">
+                                        <input type="checkbox" id="wolfpack">
+                                        <span>Wolfpack</span>
+                                        <span class="rule-desc"><span class="suit suit-black">♠</span>4 Jacks = -20</span>
                                     </label>
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="one-eyed-jacks">
-                                        <span>One-Eyed Jacks</span>
-                                        <span class="rule-desc">J♥ and J♠ worth 0 pts</span>
-                                    </label>
+                                    <p id="wolfpack-combo-note" class="combo-note hidden">🃏 4 Jacks = -40 (stacks!)</p>
                                 </div>
                             </div>
 
