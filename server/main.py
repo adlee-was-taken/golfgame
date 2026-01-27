@@ -970,6 +970,10 @@ if os.path.exists(client_path):
     async def serve_animation_queue():
         return FileResponse(os.path.join(client_path, "animation-queue.js"), media_type="application/javascript")
 
+    @app.get("/leaderboard.js")
+    async def serve_leaderboard_js():
+        return FileResponse(os.path.join(client_path, "leaderboard.js"), media_type="application/javascript")
+
     # Admin dashboard
     @app.get("/admin")
     async def serve_admin():
