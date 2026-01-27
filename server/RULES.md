@@ -78,12 +78,15 @@ Golf is a card game where players try to achieve the **lowest score** over multi
 
 | Tier | Cards | Strategy |
 |------|-------|----------|
-| **Excellent** | Joker (-2), 2 (-2) | Always keep, never pair |
+| **Excellent** | Joker (-2), 2 (-2) | Always keep, never pair (unless `negative_pairs_keep_value`) |
 | **Good** | King (0) | Safe, good for pairing |
+| **Good** | J♥, J♠ (0)* | Safe with `one_eyed_jacks` rule |
 | **Decent** | Ace (1) | Low risk |
 | **Neutral** | 3, 4, 5 | Acceptable |
 | **Bad** | 6, 7 | Replace when possible |
-| **Terrible** | 8, 9, 10, J, Q | High priority to replace |
+| **Terrible** | 8, 9, 10, J♣, J♦, Q | High priority to replace |
+
+*With `one_eyed_jacks` enabled, J♥ and J♠ are worth 0 points.
 
 | Implementation | File |
 |----------------|------|
@@ -263,6 +266,8 @@ Our implementation supports these optional rule variations. All are **disabled b
 | `flip_mode` | What happens when discarding from deck (see below) | `never` |
 | `knock_penalty` | +10 if you go out but don't have lowest score | Off |
 | `use_jokers` | Add Jokers to deck (-2 points each) | Off |
+| `flip_as_action` | Use turn to flip a card instead of drawing | Off |
+| `knock_early` | Flip all remaining cards (≤2) to go out early | Off |
 
 ### Flip Mode Options
 
@@ -298,9 +303,11 @@ The `flip_mode` setting controls what happens when you draw from the deck and ch
 
 | Implementation | File |
 |----------------|------|
-| LUCKY_SWING_JOKER_VALUE | `constants.py:23` |
-| SUPER_KINGS_VALUE | `constants.py:21` |
-| TEN_PENNY_VALUE | `constants.py:22` |
+| LUCKY_SWING_JOKER_VALUE | `constants.py:59` |
+| SUPER_KINGS_VALUE | `constants.py:57` |
+| TEN_PENNY_VALUE | `constants.py:58` |
+| WOLFPACK_BONUS | `constants.py:66` |
+| FOUR_OF_A_KIND_BONUS | `constants.py:67` |
 | Value application | `game.py:58-66` |
 
 | Tests | File |
@@ -318,7 +325,10 @@ The `flip_mode` setting controls what happens when you draw from the deck and ch
 | `underdog_bonus` | Lowest scorer each round gets **-3** | Round end |
 | `tied_shame` | Tying another player's score = **+5** penalty to both | Round end |
 | `blackjack` | Exact score of 21 becomes **0** | Round end |
-| `wolfpack` | 2 pairs of Jacks = **-5** bonus | Scoring |
+| `wolfpack` | 2 pairs of Jacks = **-20** bonus | Scoring |
+| `four_of_a_kind` | 4 cards of same rank in 2 columns = **-20** bonus | Scoring |
+
+> **Note:** Wolfpack and Four of a Kind stack. Four Jacks = -20 (wolfpack) + -20 (four of a kind) = **-40 total**.
 
 | Implementation | File |
 |----------------|------|
@@ -327,7 +337,8 @@ The `flip_mode` setting controls what happens when you draw from the deck and ch
 | Knock bonus | `game.py:527-531` |
 | Underdog bonus | `game.py:533-538` |
 | Tied shame | `game.py:540-546` |
-| Wolfpack | `game.py:180-182` |
+| Wolfpack (-20 bonus) | `game.py:180-182` |
+| Four of a kind (-20 bonus) | `game.py:192-205` |
 
 | Tests | File |
 |-------|------|
@@ -344,6 +355,49 @@ The `flip_mode` setting controls what happens when you draw from the deck and ch
 |----------------|------|
 | Eagle eye unpaired value | `game.py:60-61` |
 | Eagle eye paired value | `game.py:169-173` |
+
+## New Variants
+
+These rules add alternative gameplay options based on traditional Golf variants.
+
+### Flip as Action
+
+Use your turn to flip one of your face-down cards without drawing. Ends your turn immediately.
+
+**Strategic impact:** Lets you gather information without risking a bad deck draw. Conservative players can learn their hand safely. However, you miss the chance to actively improve your hand.
+
+### Four of a Kind
+
+Having 4 cards of the same rank across two columns (two complete column pairs of the same rank) scores a **-20 bonus**.
+
+**Strategic impact:** Rewards collecting matching cards beyond just column pairs. Changes whether you should take a third or fourth copy of a rank. Stacks with Wolfpack: four Jacks = -40 total.
+
+### Negative Pairs Keep Value
+
+When you pair 2s or Jokers in a column, they keep their combined **-4 points** instead of becoming 0.
+
+**Strategic impact:** Major change! Pairing your best cards is now beneficial. Two 2s paired = -4 points, not 0. Encourages hunting for duplicate negative cards.
+
+### One-Eyed Jacks
+
+The Jack of Hearts (J♥) and Jack of Spades (J♠) - the "one-eyed" Jacks - are worth **0 points** instead of 10.
+
+**Strategic impact:** Two of the four Jacks become safe cards, comparable to Kings. J♥ and J♠ are now good cards to keep. Only J♣ and J♦ remain dangerous. Reduces the "Jack disaster" by half.
+
+### Early Knock
+
+If you have **2 or fewer face-down cards**, you may use your turn to flip all remaining cards at once and immediately trigger the end of the round (all other players get one final turn).
+
+**Strategic impact:** High-risk, high-reward option! If you're confident your hidden cards are low, you can knock early to surprise opponents. But if those hidden cards are bad, you've just locked in a terrible score. Best used when you've deduced your face-down cards are safe.
+
+| Implementation | File |
+|----------------|------|
+| GameOptions new fields | `game.py:450-459` |
+| flip_card_as_action() | `game.py:936-962` |
+| knock_early() | `game.py:963-1010` |
+| One-eyed Jacks value | `game.py:65-67` |
+| Four of a kind scoring | `game.py:192-205` |
+| Negative pairs scoring | `game.py:169-185` |
 
 ---
 
@@ -371,6 +425,26 @@ The `flip_mode` setting controls what happens when you draw from the deck and ch
 
 ## Key AI Decision Functions
 
+### should_knock_early()
+
+Decides whether to use the knock_early action to flip all remaining cards at once.
+
+**Logic priority:**
+1. Only consider if knock_early rule is enabled and player has 1-2 face-down cards
+2. Aggressive players with good visible scores are more likely to knock
+3. Consider opponent scores and game phase
+4. Factor in personality profile aggression
+
+### should_use_flip_action()
+
+Decides whether to use flip_as_action instead of drawing (information gathering).
+
+**Logic priority:**
+1. Only consider if flip_as_action rule is enabled
+2. Don't use if discard pile has a good card we want
+3. Conservative players (low aggression) prefer this safe option
+4. Prioritize positions where column partner is visible (pair info)
+
 ### should_take_discard()
 
 Decides whether to take from discard pile or draw from deck.
@@ -378,11 +452,13 @@ Decides whether to take from discard pile or draw from deck.
 **Logic priority:**
 1. Always take Jokers (and pair if Eagle Eye)
 2. Always take Kings
-3. Take 10s if ten_penny enabled
-4. Take cards that complete a column pair (**except negative cards**)
-5. Take low cards based on game phase threshold
-6. Consider end-game pressure
-7. Take if we have worse visible cards
+3. Always take one-eyed Jacks (J♥, J♠) if rule enabled
+4. Take 10s if ten_penny enabled
+5. Take cards that complete a column pair (**except negative cards**, unless `negative_pairs_keep_value`)
+6. Take low cards based on game phase threshold
+7. Consider four_of_a_kind potential when collecting ranks
+8. Consider end-game pressure
+9. Take if we have worse visible cards
 
 | Implementation | File |
 |----------------|------|
@@ -541,6 +617,10 @@ WAITING -> INITIAL_FLIP -> PLAYING -> FINAL_TURN -> ROUND_OVER -> GAME_OVER
 
 ```
 Draw Phase:
+  ├── should_knock_early() returns True (if knock_early enabled, ≤2 face-down)
+  │   └── Knock early - flip all remaining cards, trigger final turn
+  ├── should_use_flip_action() returns position (if flip_as_action enabled)
+  │   └── Flip card at position, end turn
   ├── should_take_discard() returns True
   │   └── Draw from discard pile
   │       └── MUST swap (can_discard_drawn=False)
@@ -569,12 +649,18 @@ Draw Phase:
 
 | Scenario | Expected | Test |
 |----------|----------|------|
-| Paired 2s | 0 (not -4) | `test_game.py:108-115` |
+| Paired 2s (standard) | 0 (not -4) | `test_game.py:108-115` |
+| Paired 2s (negative_pairs_keep_value) | -4 | `game.py:169-185` |
 | Paired Jokers (standard) | 0 | Implicit |
 | Paired Jokers (eagle_eye) | -4 | `game.py:169-173` |
+| Paired Jokers (negative_pairs_keep_value) | -4 | `game.py:169-185` |
 | Unpaired negative cards | -2 each | `test_game.py:117-124` |
 | All columns matched | 0 total | `test_game.py:93-98` |
 | Blackjack (21) | 0 | `test_game.py:175-183` |
+| One-eyed Jacks (J♥, J♠) | 0 (with rule) | `game.py:65-67` |
+| Four of a kind | -20 bonus | `game.py:192-205` |
+| Wolfpack (4 Jacks) | -20 bonus | `game.py:180-182` |
+| Four Jacks + Four of a Kind | -40 total | Stacks |
 
 ## Running Tests
 

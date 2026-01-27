@@ -455,6 +455,9 @@ class GameOptions:
     one_eyed_jacks: bool = False
     """One-eyed Jacks (J♥ and J♠) are worth 0 points instead of 10."""
 
+    knock_early: bool = False
+    """Allow going out early by flipping all remaining cards (max 2 face-down)."""
+
 
 @dataclass
 class Game:
@@ -957,6 +960,48 @@ class Game:
         self._check_end_turn(player)
         return True
 
+    def knock_early(self, player_id: str) -> bool:
+        """
+        Flip all remaining face-down cards at once to go out early.
+
+        Only valid if knock_early house rule is enabled and player has
+        at most 2 face-down cards remaining. This is a gamble - you're
+        betting your hidden cards are good enough to win.
+
+        Args:
+            player_id: ID of the player knocking early.
+
+        Returns:
+            True if action was valid, False otherwise.
+        """
+        if not self.options.knock_early:
+            return False
+
+        player = self.current_player()
+        if not player or player.id != player_id:
+            return False
+
+        if self.phase not in (GamePhase.PLAYING, GamePhase.FINAL_TURN):
+            return False
+
+        # Can't use this action if already drawn a card
+        if self.drawn_card is not None:
+            return False
+
+        # Count face-down cards
+        face_down_indices = [i for i, c in enumerate(player.cards) if not c.face_up]
+
+        # Must have at least 1 and at most 2 face-down cards
+        if len(face_down_indices) == 0 or len(face_down_indices) > 2:
+            return False
+
+        # Flip all remaining face-down cards
+        for idx in face_down_indices:
+            player.cards[idx].face_up = True
+
+        self._check_end_turn(player)
+        return True
+
     # -------------------------------------------------------------------------
     # Turn & Round Flow (Internal)
     # -------------------------------------------------------------------------
@@ -1177,6 +1222,8 @@ class Game:
                 active_rules.append("Negative Pairs Keep Value")
             if self.options.one_eyed_jacks:
                 active_rules.append("One-Eyed Jacks")
+            if self.options.knock_early:
+                active_rules.append("Early Knock")
 
         return {
             "phase": self.phase.value,
@@ -1197,6 +1244,7 @@ class Game:
             "flip_mode": self.options.flip_mode,
             "flip_is_optional": self.flip_is_optional,
             "flip_as_action": self.options.flip_as_action,
+            "knock_early": self.options.knock_early,
             "card_values": self.get_card_values(),
             "active_rules": active_rules,
         }

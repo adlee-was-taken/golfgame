@@ -31,6 +31,10 @@ app = FastAPI(
 
 room_manager = RoomManager()
 
+# Initialize game logger database at startup
+_game_logger = get_logger()
+logger.info(f"Game analytics database initialized at: {_game_logger.db_path}")
+
 
 @app.get("/health")
 async def health_check():
@@ -580,6 +584,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     four_of_a_kind=data.get("four_of_a_kind", False),
                     negative_pairs_keep_value=data.get("negative_pairs_keep_value", False),
                     one_eyed_jacks=data.get("one_eyed_jacks", False),
+                    knock_early=data.get("knock_early", False),
                 )
 
                 # Validate settings
@@ -630,9 +635,27 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
 
                 source = data.get("source", "deck")
+                # Capture discard top before draw (for logging decision context)
+                discard_before_draw = current_room.game.discard_top()
                 card = current_room.game.draw_card(player_id, source)
 
                 if card:
+                    # Log draw decision for human player
+                    if current_room.game_log_id:
+                        game_logger = get_logger()
+                        player = current_room.game.get_player(player_id)
+                        if player:
+                            reason = f"took {discard_before_draw.rank.value} from discard" if source == "discard" else "drew from deck"
+                            game_logger.log_move(
+                                game_id=current_room.game_log_id,
+                                player=player,
+                                is_cpu=False,
+                                action="take_discard" if source == "discard" else "draw_deck",
+                                card=card,
+                                game=current_room.game,
+                                decision_reason=reason,
+                            )
+
                     # Send drawn card only to the player who drew
                     await websocket.send_json({
                         "type": "card_drawn",
@@ -647,9 +670,29 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
 
                 position = data.get("position", 0)
+                # Capture drawn card before swap for logging
+                drawn_card = current_room.game.drawn_card
+                player = current_room.game.get_player(player_id)
+                old_card = player.cards[position] if player and 0 <= position < len(player.cards) else None
+
                 discarded = current_room.game.swap_card(player_id, position)
 
                 if discarded:
+                    # Log swap decision for human player
+                    if current_room.game_log_id and drawn_card and player:
+                        game_logger = get_logger()
+                        old_rank = old_card.rank.value if old_card else "?"
+                        game_logger.log_move(
+                            game_id=current_room.game_log_id,
+                            player=player,
+                            is_cpu=False,
+                            action="swap",
+                            card=drawn_card,
+                            position=position,
+                            game=current_room.game,
+                            decision_reason=f"swapped {drawn_card.rank.value} into position {position}, replaced {old_rank}",
+                        )
+
                     await broadcast_game_state(current_room)
                     await check_and_run_cpu_turn(current_room)
 
@@ -657,7 +700,24 @@ async def websocket_endpoint(websocket: WebSocket):
                 if not current_room:
                     continue
 
+                # Capture drawn card before discard for logging
+                drawn_card = current_room.game.drawn_card
+                player = current_room.game.get_player(player_id)
+
                 if current_room.game.discard_drawn(player_id):
+                    # Log discard decision for human player
+                    if current_room.game_log_id and drawn_card and player:
+                        game_logger = get_logger()
+                        game_logger.log_move(
+                            game_id=current_room.game_log_id,
+                            player=player,
+                            is_cpu=False,
+                            action="discard",
+                            card=drawn_card,
+                            game=current_room.game,
+                            decision_reason=f"discarded {drawn_card.rank.value}",
+                        )
+
                     await broadcast_game_state(current_room)
 
                     if current_room.game.flip_on_discard:
@@ -681,7 +741,24 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
 
                 position = data.get("position", 0)
+                player = current_room.game.get_player(player_id)
                 current_room.game.flip_and_end_turn(player_id, position)
+
+                # Log flip decision for human player
+                if current_room.game_log_id and player and 0 <= position < len(player.cards):
+                    game_logger = get_logger()
+                    flipped_card = player.cards[position]
+                    game_logger.log_move(
+                        game_id=current_room.game_log_id,
+                        player=player,
+                        is_cpu=False,
+                        action="flip",
+                        card=flipped_card,
+                        position=position,
+                        game=current_room.game,
+                        decision_reason=f"flipped card at position {position}",
+                    )
+
                 await broadcast_game_state(current_room)
                 await check_and_run_cpu_turn(current_room)
 
@@ -689,7 +766,21 @@ async def websocket_endpoint(websocket: WebSocket):
                 if not current_room:
                     continue
 
+                player = current_room.game.get_player(player_id)
                 if current_room.game.skip_flip_and_end_turn(player_id):
+                    # Log skip flip decision for human player
+                    if current_room.game_log_id and player:
+                        game_logger = get_logger()
+                        game_logger.log_move(
+                            game_id=current_room.game_log_id,
+                            player=player,
+                            is_cpu=False,
+                            action="skip_flip",
+                            card=None,
+                            game=current_room.game,
+                            decision_reason="skipped optional flip (endgame mode)",
+                        )
+
                     await broadcast_game_state(current_room)
                     await check_and_run_cpu_turn(current_room)
 
@@ -698,7 +789,46 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
 
                 position = data.get("position", 0)
+                player = current_room.game.get_player(player_id)
                 if current_room.game.flip_card_as_action(player_id, position):
+                    # Log flip-as-action for human player
+                    if current_room.game_log_id and player and 0 <= position < len(player.cards):
+                        game_logger = get_logger()
+                        flipped_card = player.cards[position]
+                        game_logger.log_move(
+                            game_id=current_room.game_log_id,
+                            player=player,
+                            is_cpu=False,
+                            action="flip_as_action",
+                            card=flipped_card,
+                            position=position,
+                            game=current_room.game,
+                            decision_reason=f"used flip-as-action to reveal position {position}",
+                        )
+
+                    await broadcast_game_state(current_room)
+                    await check_and_run_cpu_turn(current_room)
+
+            elif msg_type == "knock_early":
+                if not current_room:
+                    continue
+
+                player = current_room.game.get_player(player_id)
+                if current_room.game.knock_early(player_id):
+                    # Log knock early for human player
+                    if current_room.game_log_id and player:
+                        game_logger = get_logger()
+                        face_down_count = sum(1 for c in player.cards if not c.face_up)
+                        game_logger.log_move(
+                            game_id=current_room.game_log_id,
+                            player=player,
+                            is_cpu=False,
+                            action="knock_early",
+                            card=None,
+                            game=current_room.game,
+                            decision_reason=f"knocked early, revealing {face_down_count} hidden cards",
+                        )
+
                     await broadcast_game_state(current_room)
                     await check_and_run_cpu_turn(current_room)
 

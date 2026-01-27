@@ -102,9 +102,9 @@
                                     <div class="select-option">
                                         <label for="flip-mode">Flip on Discard</label>
                                         <select id="flip-mode">
-                                            <option value="never">Standard - No flip after discarding</option>
-                                            <option value="always">Speed Golf - MUST flip a card after discarding</option>
-                                            <option value="endgame">Endgame - Optional flip to help trailing players catch up</option>
+                                            <option value="never">Standard (no flip)</option>
+                                            <option value="always">Speed Golf (must flip)</option>
+                                            <option value="endgame">Endgame (opt. flip late in game)</option>
                                         </select>
                                         <span class="rule-desc">After discarding a drawn card</span>
                                     </div>
@@ -117,6 +117,11 @@
                                         <input type="checkbox" id="knock-penalty">
                                         <span>Knock Penalty</span>
                                         <span class="rule-desc"><span class="suit suit-red">♦</span>+10 if not lowest</span>
+                                    </label>
+                                    <label class="checkbox-label inline">
+                                        <input type="checkbox" id="knock-early">
+                                        <span>Early Knock</span>
+                                        <span class="rule-desc"><span class="suit suit-black">♠</span>flip all (≤2) to go out</span>
                                     </label>
                                 </div>
                             </div>
@@ -262,6 +267,7 @@
                                         </div>
                                         <button id="discard-btn" class="btn btn-small hidden">Discard</button>
                                         <button id="skip-flip-btn" class="btn btn-small btn-secondary hidden">Skip Flip</button>
+                                        <button id="knock-early-btn" class="btn btn-small btn-danger hidden">Knock!</button>
                                     </div>
                                 </div>
                             </div>
@@ -567,6 +573,11 @@ TOTAL: 0 + 8 + 16 = 24 points</pre>
                             <h4>One-Eyed Jacks</h4>
                             <p>The Jack of Hearts (J♥) and Jack of Spades (J♠) - the "one-eyed" Jacks - are worth <strong>0 points</strong> instead of 10.</p>
                             <p class="strategic-impact"><strong>Strategic impact:</strong> Two of the four Jacks become safe cards, comparable to Kings. J♥ and J♠ are now good cards to keep! Only J♣ and J♦ remain dangerous. Reduces the "Jack disaster" probability by half.</p>
+                        </div>
+                        <div class="house-rule">
+                            <h4>Early Knock</h4>
+                            <p>If you have <strong>2 or fewer face-down cards</strong>, you may use your turn to flip all remaining cards at once and immediately end the round. Click the "Knock!" button during your draw phase.</p>
+                            <p class="strategic-impact"><strong>Strategic impact:</strong> A high-risk, high-reward option! If you're confident your hidden cards are low, you can knock early to surprise opponents. But if those hidden cards are bad, you've just locked in a terrible score. Best used when you've deduced your face-down cards are safe (like after drawing and discarding duplicates).</p>
                         </div>
                     </div>
                 </section>

@@ -893,6 +893,57 @@ class GolfAI:
         return False
 
     @staticmethod
+    def should_knock_early(game: Game, player: Player, profile: CPUProfile) -> bool:
+        """
+        Decide whether to use knock_early to flip all remaining cards at once.
+
+        Only available when knock_early house rule is enabled and player
+        has 1-2 face-down cards. This is a gamble - aggressive players
+        with good visible cards may take the risk.
+        """
+        if not game.options.knock_early:
+            return False
+
+        face_down = [c for c in player.cards if not c.face_up]
+        if len(face_down) == 0 or len(face_down) > 2:
+            return False
+
+        # Calculate current visible score
+        visible_score = 0
+        for col in range(3):
+            top_idx, bot_idx = col, col + 3
+            top = player.cards[top_idx]
+            bot = player.cards[bot_idx]
+
+            # Only count if both are visible
+            if top.face_up and bot.face_up:
+                if top.rank == bot.rank:
+                    continue  # Pair = 0
+                visible_score += get_ai_card_value(top, game.options)
+                visible_score += get_ai_card_value(bot, game.options)
+            elif top.face_up:
+                visible_score += get_ai_card_value(top, game.options)
+            elif bot.face_up:
+                visible_score += get_ai_card_value(bot, game.options)
+
+        # Aggressive players with low visible scores might knock early
+        # Expected value of hidden card is ~4.5
+        expected_hidden_total = len(face_down) * 4.5
+        projected_score = visible_score + expected_hidden_total
+
+        # More aggressive players accept higher risk
+        max_acceptable = 8 + int(profile.aggression * 10)  # Range: 8 to 18
+
+        if projected_score <= max_acceptable:
+            # Add some randomness based on aggression
+            knock_chance = profile.aggression * 0.4  # Max 40% for most aggressive
+            if random.random() < knock_chance:
+                ai_log(f"  Knock early: taking the gamble! (projected {projected_score:.1f})")
+                return True
+
+        return False
+
+    @staticmethod
     def should_use_flip_action(game: Game, player: Player, profile: CPUProfile) -> Optional[int]:
         """
         Decide whether to use flip-as-action instead of drawing.
@@ -1028,6 +1079,24 @@ async def process_cpu_turn(
 
     # Check if we should try to go out early
     GolfAI.should_go_out_early(cpu_player, game, profile)
+
+    # Check if we should knock early (flip all remaining cards at once)
+    if GolfAI.should_knock_early(game, cpu_player, profile):
+        if game.knock_early(cpu_player.id):
+            # Log knock early
+            if logger and game_id:
+                face_down_count = sum(1 for c in cpu_player.cards if not c.face_up)
+                logger.log_move(
+                    game_id=game_id,
+                    player=cpu_player,
+                    is_cpu=True,
+                    action="knock_early",
+                    card=None,
+                    game=game,
+                    decision_reason=f"knocked early, revealing {face_down_count} hidden cards",
+                )
+            await broadcast_callback()
+            return  # Turn is over
 
     # Check if we should use flip-as-action instead of drawing
     flip_action_pos = GolfAI.should_use_flip_action(game, cpu_player, profile)

@@ -168,6 +168,7 @@ class GolfGame {
         this.fourOfAKindCheckbox = document.getElementById('four-of-a-kind');
         this.negativePairsCheckbox = document.getElementById('negative-pairs-keep-value');
         this.oneEyedJacksCheckbox = document.getElementById('one-eyed-jacks');
+        this.knockEarlyCheckbox = document.getElementById('knock-early');
         this.wolfpackComboNote = document.getElementById('wolfpack-combo-note');
         this.startGameBtn = document.getElementById('start-game-btn');
         this.leaveRoomBtn = document.getElementById('leave-room-btn');
@@ -191,6 +192,7 @@ class GolfGame {
         this.discardContent = document.getElementById('discard-content');
         this.discardBtn = document.getElementById('discard-btn');
         this.skipFlipBtn = document.getElementById('skip-flip-btn');
+        this.knockEarlyBtn = document.getElementById('knock-early-btn');
         this.playerCards = document.getElementById('player-cards');
         this.playerArea = this.playerCards.closest('.player-area');
         this.swapAnimation = document.getElementById('swap-animation');
@@ -216,6 +218,7 @@ class GolfGame {
         this.discard.addEventListener('click', () => { this.drawFromDiscard(); });
         this.discardBtn.addEventListener('click', () => { this.playSound('card'); this.discardDrawn(); });
         this.skipFlipBtn.addEventListener('click', () => { this.playSound('click'); this.skipFlip(); });
+        this.knockEarlyBtn.addEventListener('click', () => { this.playSound('success'); this.knockEarly(); });
         this.nextRoundBtn.addEventListener('click', () => { this.playSound('click'); this.nextRound(); });
         this.newGameBtn.addEventListener('click', () => { this.playSound('click'); this.newGame(); });
         this.addCpuBtn.addEventListener('click', () => { this.playSound('click'); this.showCpuSelect(); });
@@ -326,6 +329,9 @@ class GolfGame {
     send(message) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(message));
+        } else {
+            console.error('WebSocket not ready, cannot send:', message.type);
+            this.showError('Connection lost. Please refresh.');
         }
     }
 
@@ -414,8 +420,20 @@ class GolfGame {
                 break;
 
             case 'your_turn':
-                if (this.gameState && this.gameState.flip_as_action) {
+                // Build toast based on available actions
+                const canFlip = this.gameState && this.gameState.flip_as_action;
+                let canKnock = false;
+                if (this.gameState && this.gameState.knock_early) {
+                    const myData = this.gameState.players.find(p => p.id === this.playerId);
+                    const faceDownCount = myData ? myData.cards.filter(c => !c.face_up).length : 0;
+                    canKnock = faceDownCount >= 1 && faceDownCount <= 2;
+                }
+                if (canFlip && canKnock) {
+                    this.showToast('Your turn! Draw, flip, or knock', 'your-turn');
+                } else if (canFlip) {
                     this.showToast('Your turn! Draw or flip a card', 'your-turn');
+                } else if (canKnock) {
+                    this.showToast('Your turn! Draw or knock', 'your-turn');
                 } else {
                     this.showToast('Your turn! Draw a card', 'your-turn');
                 }
@@ -512,59 +530,67 @@ class GolfGame {
     }
 
     startGame() {
-        const decks = parseInt(this.numDecksSelect.value);
-        const rounds = parseInt(this.numRoundsSelect.value);
-        const initial_flips = parseInt(this.initialFlipsSelect.value);
+        try {
+            const decks = parseInt(this.numDecksSelect.value);
+            const rounds = parseInt(this.numRoundsSelect.value);
+            const initial_flips = parseInt(this.initialFlipsSelect.value);
 
-        // Standard options
-        const flip_mode = this.flipModeSelect.value;  // "never", "always", or "endgame"
-        const knock_penalty = this.knockPenaltyCheckbox.checked;
+            // Standard options
+            const flip_mode = this.flipModeSelect.value;  // "never", "always", or "endgame"
+            const knock_penalty = this.knockPenaltyCheckbox?.checked || false;
 
-        // Joker mode (radio buttons)
-        const joker_mode = document.querySelector('input[name="joker-mode"]:checked').value;
-        const use_jokers = joker_mode !== 'none';
-        const lucky_swing = joker_mode === 'lucky-swing';
-        const eagle_eye = joker_mode === 'eagle-eye';
+            // Joker mode (radio buttons)
+            const jokerRadio = document.querySelector('input[name="joker-mode"]:checked');
+            const joker_mode = jokerRadio ? jokerRadio.value : 'none';
+            const use_jokers = joker_mode !== 'none';
+            const lucky_swing = joker_mode === 'lucky-swing';
+            const eagle_eye = joker_mode === 'eagle-eye';
 
-        // House Rules - Point Modifiers
-        const super_kings = this.superKingsCheckbox.checked;
-        const ten_penny = this.tenPennyCheckbox.checked;
+            // House Rules - Point Modifiers
+            const super_kings = this.superKingsCheckbox?.checked || false;
+            const ten_penny = this.tenPennyCheckbox?.checked || false;
 
-        // House Rules - Bonuses/Penalties
-        const knock_bonus = this.knockBonusCheckbox.checked;
-        const underdog_bonus = this.underdogBonusCheckbox.checked;
-        const tied_shame = this.tiedShameCheckbox.checked;
-        const blackjack = this.blackjackCheckbox.checked;
-        const wolfpack = this.wolfpackCheckbox.checked;
+            // House Rules - Bonuses/Penalties
+            const knock_bonus = this.knockBonusCheckbox?.checked || false;
+            const underdog_bonus = this.underdogBonusCheckbox?.checked || false;
+            const tied_shame = this.tiedShameCheckbox?.checked || false;
+            const blackjack = this.blackjackCheckbox?.checked || false;
+            const wolfpack = this.wolfpackCheckbox?.checked || false;
 
-        // House Rules - New Variants
-        const flip_as_action = this.flipAsActionCheckbox.checked;
-        const four_of_a_kind = this.fourOfAKindCheckbox.checked;
-        const negative_pairs_keep_value = this.negativePairsCheckbox.checked;
-        const one_eyed_jacks = this.oneEyedJacksCheckbox.checked;
+            // House Rules - New Variants
+            const flip_as_action = this.flipAsActionCheckbox?.checked || false;
+            const four_of_a_kind = this.fourOfAKindCheckbox?.checked || false;
+            const negative_pairs_keep_value = this.negativePairsCheckbox?.checked || false;
+            const one_eyed_jacks = this.oneEyedJacksCheckbox?.checked || false;
+            const knock_early = this.knockEarlyCheckbox?.checked || false;
 
-        this.send({
-            type: 'start_game',
-            decks,
-            rounds,
-            initial_flips,
-            flip_mode,
-            knock_penalty,
-            use_jokers,
-            lucky_swing,
-            super_kings,
-            ten_penny,
-            knock_bonus,
-            underdog_bonus,
-            tied_shame,
-            blackjack,
-            eagle_eye,
-            wolfpack,
-            flip_as_action,
-            four_of_a_kind,
-            negative_pairs_keep_value,
-            one_eyed_jacks
-        });
+            this.send({
+                type: 'start_game',
+                decks,
+                rounds,
+                initial_flips,
+                flip_mode,
+                knock_penalty,
+                use_jokers,
+                lucky_swing,
+                super_kings,
+                ten_penny,
+                knock_bonus,
+                underdog_bonus,
+                tied_shame,
+                blackjack,
+                eagle_eye,
+                wolfpack,
+                flip_as_action,
+                four_of_a_kind,
+                negative_pairs_keep_value,
+                one_eyed_jacks,
+                knock_early
+            });
+        } catch (error) {
+            console.error('Error starting game:', error);
+            this.showError('Error starting game. Please refresh.');
+        }
     }
 
     showCpuSelect() {
@@ -854,6 +880,13 @@ class GolfGame {
         this.send({ type: 'skip_flip' });
         this.waitingForFlip = false;
         this.flipIsOptional = false;
+        this.hideToast();
+    }
+
+    knockEarly() {
+        // Flip all remaining face-down cards to go out early
+        if (!this.gameState || !this.gameState.knock_early) return;
+        this.send({ type: 'knock_early' });
         this.hideToast();
     }
 
@@ -1398,6 +1431,8 @@ class GolfGame {
 
     showError(message) {
         this.lobbyError.textContent = message;
+        this.playSound('reject');
+        console.error('Game error:', message);
     }
 
     updatePlayersList(players) {
@@ -1495,8 +1530,21 @@ class GolfGame {
         if (currentPlayer && currentPlayer.id !== this.playerId) {
             this.setStatus(`${currentPlayer.name}'s turn`);
         } else if (this.isMyTurn()) {
-            if (this.gameState.flip_as_action && !this.drawnCard && !this.gameState.has_drawn_card) {
-                this.setStatus('Your turn - draw a card or flip one', 'your-turn');
+            if (!this.drawnCard && !this.gameState.has_drawn_card) {
+                // Build status message based on available actions
+                let options = ['draw'];
+                if (this.gameState.flip_as_action) options.push('flip');
+                // Check knock early eligibility
+                const myData = this.gameState.players.find(p => p.id === this.playerId);
+                const faceDownCount = myData ? myData.cards.filter(c => !c.face_up).length : 0;
+                if (this.gameState.knock_early && faceDownCount >= 1 && faceDownCount <= 2) {
+                    options.push('knock');
+                }
+                if (options.length === 1) {
+                    this.setStatus('Your turn - draw a card', 'your-turn');
+                } else {
+                    this.setStatus(`Your turn - ${options.join('/')}`, 'your-turn');
+                }
             } else {
                 this.setStatus('Your turn - draw a card', 'your-turn');
             }
@@ -1767,6 +1815,26 @@ class GolfGame {
             this.skipFlipBtn.classList.remove('hidden');
         } else {
             this.skipFlipBtn.classList.add('hidden');
+        }
+
+        // Show/hide knock early button (when knock_early rule is enabled)
+        // Conditions: rule enabled, my turn, no drawn card, have 1-2 face-down cards
+        const canKnockEarly = this.gameState.knock_early &&
+                              this.isMyTurn() &&
+                              !this.drawnCard &&
+                              !this.gameState.has_drawn_card &&
+                              !this.gameState.waiting_for_initial_flip;
+        if (canKnockEarly) {
+            // Count face-down cards for current player
+            const myData = this.gameState.players.find(p => p.id === this.playerId);
+            const faceDownCount = myData ? myData.cards.filter(c => !c.face_up).length : 0;
+            if (faceDownCount >= 1 && faceDownCount <= 2) {
+                this.knockEarlyBtn.classList.remove('hidden');
+            } else {
+                this.knockEarlyBtn.classList.add('hidden');
+            }
+        } else {
+            this.knockEarlyBtn.classList.add('hidden');
         }
 
         // Update scoreboard panel
