@@ -748,6 +748,14 @@ async def websocket_endpoint(websocket: WebSocket):
                             # Turn ended, check for CPU
                             await check_and_run_cpu_turn(current_room)
 
+            elif msg_type == "cancel_draw":
+                if not current_room:
+                    continue
+
+                async with current_room.game_lock:
+                    if current_room.game.cancel_discard_draw(player_id):
+                        await broadcast_game_state(current_room)
+
             elif msg_type == "flip_card":
                 if not current_room:
                     continue

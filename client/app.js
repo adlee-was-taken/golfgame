@@ -206,6 +206,7 @@ class GolfGame {
         this.discard = document.getElementById('discard');
         this.discardContent = document.getElementById('discard-content');
         this.discardBtn = document.getElementById('discard-btn');
+        this.cancelDrawBtn = document.getElementById('cancel-draw-btn');
         this.skipFlipBtn = document.getElementById('skip-flip-btn');
         this.knockEarlyBtn = document.getElementById('knock-early-btn');
         this.playerCards = document.getElementById('player-cards');
@@ -232,6 +233,7 @@ class GolfGame {
         this.deck.addEventListener('click', () => { this.drawFromDeck(); });
         this.discard.addEventListener('click', () => { this.drawFromDiscard(); });
         this.discardBtn.addEventListener('click', () => { this.playSound('card'); this.discardDrawn(); });
+        this.cancelDrawBtn.addEventListener('click', () => { this.playSound('click'); this.cancelDraw(); });
         this.skipFlipBtn.addEventListener('click', () => { this.playSound('click'); this.skipFlip(); });
         this.knockEarlyBtn.addEventListener('click', () => { this.playSound('success'); this.knockEarly(); });
         this.nextRoundBtn.addEventListener('click', () => { this.playSound('click'); this.nextRound(); });
@@ -763,6 +765,14 @@ class GolfGame {
     discardDrawn() {
         if (!this.drawnCard) return;
         this.send({ type: 'discard' });
+        this.drawnCard = null;
+        this.hideDrawnCard();
+        this.hideToast();
+    }
+
+    cancelDraw() {
+        if (!this.drawnCard) return;
+        this.send({ type: 'cancel_draw' });
         this.drawnCard = null;
         this.hideDrawnCard();
         this.hideToast();
@@ -1626,6 +1636,7 @@ class GolfGame {
         // Restore discard pile to show actual top card (handled by renderGame)
         this.discard.classList.remove('holding');
         this.discardBtn.classList.add('hidden');
+        this.cancelDrawBtn.classList.add('hidden');
     }
 
     isRedSuit(suit) {
@@ -1851,9 +1862,12 @@ class GolfGame {
         if (this.drawnCard && !this.gameState.can_discard) {
             this.discardBtn.disabled = true;
             this.discardBtn.classList.add('disabled');
+            // Show cancel button when drawn from discard (can put it back)
+            this.cancelDrawBtn.classList.remove('hidden');
         } else {
             this.discardBtn.disabled = false;
             this.discardBtn.classList.remove('disabled');
+            this.cancelDrawBtn.classList.add('hidden');
         }
 
         // Show/hide skip flip button (only when flip is optional in endgame mode)

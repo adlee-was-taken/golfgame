@@ -1051,6 +1051,45 @@ class Game:
             return False
         return True
 
+    def cancel_discard_draw(self, player_id: str) -> bool:
+        """
+        Cancel a draw from the discard pile, putting the card back.
+
+        Only allowed when the card was drawn from the discard pile.
+        This is a convenience feature to undo accidental clicks.
+
+        Args:
+            player_id: ID of the player canceling.
+
+        Returns:
+            True if cancel was successful, False otherwise.
+        """
+        player = self.current_player()
+        if not player or player.id != player_id:
+            return False
+
+        if self.drawn_card is None:
+            return False
+
+        if not self.drawn_from_discard:
+            return False  # Can only cancel discard draws
+
+        # Put the card back on the discard pile
+        cancelled_card = self.drawn_card
+        cancelled_card.face_up = True
+        self.discard_pile.append(cancelled_card)
+        self.drawn_card = None
+        self.drawn_from_discard = False
+
+        # Emit cancel event
+        self._emit(
+            "draw_cancelled",
+            player_id=player_id,
+            card={"rank": cancelled_card.rank.value, "suit": cancelled_card.suit.value},
+        )
+
+        return True
+
     def discard_drawn(self, player_id: str) -> bool:
         """
         Discard the drawn card without swapping.
