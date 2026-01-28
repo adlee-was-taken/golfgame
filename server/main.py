@@ -15,7 +15,7 @@ import redis.asyncio as redis
 from config import config
 from room import RoomManager, Room
 from game import GamePhase, GameOptions
-from ai import GolfAI, process_cpu_turn, get_all_profiles
+from ai import GolfAI, process_cpu_turn, get_all_profiles, reset_all_profiles
 from game_log import get_logger
 
 # Import production components
@@ -192,6 +192,14 @@ async def lifespan(app: FastAPI):
 
     # Close all WebSocket connections gracefully
     await _close_all_websockets()
+
+    # Clean up all rooms and release CPU profiles
+    for room in list(room_manager.rooms.values()):
+        for cpu in list(room.get_cpu_players()):
+            room.remove_player(cpu.id)
+    room_manager.rooms.clear()
+    reset_all_profiles()
+    logger.info("All rooms and CPU profiles cleaned up")
 
     # Cancel background tasks
     if _leaderboard_refresh_task:
@@ -390,6 +398,37 @@ async def require_admin(user: User = Depends(require_user)) -> User:
     if not user.is_admin():
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
+
+
+# =============================================================================
+# Debug Endpoints (CPU Profile Management)
+# =============================================================================
+
+@app.get("/api/debug/cpu-profiles")
+async def get_cpu_profile_status():
+    """Get current CPU profile allocation status."""
+    from ai import _used_profiles, _cpu_profiles, CPU_PROFILES
+    return {
+        "total_profiles": len(CPU_PROFILES),
+        "used_count": len(_used_profiles),
+        "used_profiles": list(_used_profiles),
+        "cpu_mappings": {cpu_id: profile.name for cpu_id, profile in _cpu_profiles.items()},
+        "active_rooms": len(room_manager.rooms),
+        "rooms": {
+            code: {
+                "players": len(room.players),
+                "cpu_players": [p.name for p in room.get_cpu_players()],
+            }
+            for code, room in room_manager.rooms.items()
+        },
+    }
+
+
+@app.post("/api/debug/reset-cpu-profiles")
+async def reset_cpu_profiles():
+    """Reset all CPU profiles (emergency cleanup)."""
+    reset_all_profiles()
+    return {"status": "ok", "message": "All CPU profiles reset"}
 
 
 @app.websocket("/ws")
