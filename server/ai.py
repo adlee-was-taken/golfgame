@@ -47,15 +47,74 @@ def can_make_pair(card1: Card, card2: Card) -> bool:
     return card1.rank == card2.rank
 
 
-def estimate_opponent_min_score(player: Player, game: Game) -> int:
-    """Estimate minimum opponent score from visible cards."""
+def get_discard_thinking_time(card: Optional[Card], options: GameOptions) -> float:
+    """Calculate CPU 'thinking time' based on how obvious the discard decision is.
+
+    Easy decisions (obviously good or bad cards) = quick (400-600ms)
+    Hard decisions (medium value cards) = slower (900-1100ms)
+
+    Returns time in seconds.
+    """
+    if not card:
+        # No discard available - quick decision to draw from deck
+        return random.uniform(0.4, 0.5)
+
+    value = get_card_value(card, options)
+
+    # Obviously good cards (easy take): 2 (-2), Joker (-2/-5), K (0), A (1)
+    if value <= 1:
+        return random.uniform(0.4, 0.6)
+
+    # Obviously bad cards (easy pass): 10, J, Q (value 10)
+    if value >= 10:
+        return random.uniform(0.4, 0.6)
+
+    # Medium cards require more thought: 3-9
+    # 5, 6, 7 are the hardest decisions (middle of the range)
+    if value in (5, 6, 7):
+        return random.uniform(0.9, 1.1)
+
+    # 3, 4, 8, 9 - moderate difficulty
+    return random.uniform(0.6, 0.85)
+
+
+def estimate_opponent_min_score(player: Player, game: Game, optimistic: bool = False) -> int:
+    """Estimate minimum opponent score from visible cards.
+
+    Args:
+        player: The player making the estimation (excluded from opponents)
+        game: The game state
+        optimistic: If True, assume opponents' hidden cards are average (4.5).
+                   If False, assume opponents could get lucky (lower estimate).
+    """
     min_est = 999
     for p in game.players:
         if p.id == player.id:
             continue
         visible = sum(get_ai_card_value(c, game.options) for c in p.cards if c.face_up)
         hidden = sum(1 for c in p.cards if not c.face_up)
-        estimate = visible + int(hidden * 4.5)  # Assume ~4.5 avg for hidden
+
+        if optimistic:
+            # Assume average hidden cards
+            estimate = visible + int(hidden * 4.5)
+        else:
+            # Assume opponents could get lucky - hidden cards might be low
+            # or could complete pairs, so use lower estimate
+            # Check for potential pairs in opponent's hand
+            pair_potential = 0
+            for col in range(3):
+                top, bot = p.cards[col], p.cards[col + 3]
+                # If one card is visible and the other is hidden, there's pair potential
+                if top.face_up and not bot.face_up:
+                    pair_potential += get_ai_card_value(top, game.options)
+                elif bot.face_up and not top.face_up:
+                    pair_potential += get_ai_card_value(bot, game.options)
+
+            # Conservative estimate: assume 2.5 avg for hidden (could be low cards)
+            # and subtract some pair potential (hidden cards might match visible)
+            base_estimate = visible + int(hidden * 2.5)
+            estimate = base_estimate - int(pair_potential * 0.25)  # 25% chance of pair
+
         min_est = min(min_est, estimate)
     return min_est
 
@@ -365,58 +424,89 @@ CPU_PROFILES = [
     ),
 ]
 
-# Track which profiles are in use
-_used_profiles: set[str] = set()
-_cpu_profiles: dict[str, CPUProfile] = {}
+# Track profiles per room (room_code -> set of used profile names)
+_room_used_profiles: dict[str, set[str]] = {}
+# Track cpu_id -> (room_code, profile) mapping
+_cpu_profiles: dict[str, tuple[str, CPUProfile]] = {}
 
 
-def get_available_profile() -> Optional[CPUProfile]:
-    """Get a random available CPU profile."""
-    available = [p for p in CPU_PROFILES if p.name not in _used_profiles]
+def get_available_profile(room_code: str) -> Optional[CPUProfile]:
+    """Get a random available CPU profile for a specific room."""
+    used_in_room = _room_used_profiles.get(room_code, set())
+    available = [p for p in CPU_PROFILES if p.name not in used_in_room]
     if not available:
         return None
     profile = random.choice(available)
-    _used_profiles.add(profile.name)
+    if room_code not in _room_used_profiles:
+        _room_used_profiles[room_code] = set()
+    _room_used_profiles[room_code].add(profile.name)
     return profile
 
 
-def release_profile(name: str):
-    """Release a CPU profile back to the pool."""
-    _used_profiles.discard(name)
-    # Also remove from cpu_profiles by finding the cpu_id with this profile
-    to_remove = [cpu_id for cpu_id, profile in _cpu_profiles.items() if profile.name == name]
+def release_profile(name: str, room_code: str):
+    """Release a CPU profile back to the room's pool."""
+    if room_code in _room_used_profiles:
+        _room_used_profiles[room_code].discard(name)
+        # Clean up empty room entries
+        if not _room_used_profiles[room_code]:
+            del _room_used_profiles[room_code]
+    # Also remove from cpu_profiles by finding the cpu_id with this profile in this room
+    to_remove = [
+        cpu_id for cpu_id, (rc, profile) in _cpu_profiles.items()
+        if profile.name == name and rc == room_code
+    ]
+    for cpu_id in to_remove:
+        del _cpu_profiles[cpu_id]
+
+
+def cleanup_room_profiles(room_code: str):
+    """Clean up all profile tracking for a room when it's deleted."""
+    if room_code in _room_used_profiles:
+        del _room_used_profiles[room_code]
+    # Remove all cpu_profiles for this room
+    to_remove = [cpu_id for cpu_id, (rc, _) in _cpu_profiles.items() if rc == room_code]
     for cpu_id in to_remove:
         del _cpu_profiles[cpu_id]
 
 
 def reset_all_profiles():
     """Reset all profile tracking (for cleanup)."""
-    _used_profiles.clear()
+    _room_used_profiles.clear()
     _cpu_profiles.clear()
 
 
 def get_profile(cpu_id: str) -> Optional[CPUProfile]:
     """Get the profile for a CPU player."""
-    return _cpu_profiles.get(cpu_id)
+    entry = _cpu_profiles.get(cpu_id)
+    return entry[1] if entry else None
 
 
-def assign_profile(cpu_id: str) -> Optional[CPUProfile]:
-    """Assign a random profile to a CPU player."""
-    profile = get_available_profile()
+def assign_profile(cpu_id: str, room_code: str) -> Optional[CPUProfile]:
+    """Assign a random profile to a CPU player in a specific room."""
+    profile = get_available_profile(room_code)
     if profile:
-        _cpu_profiles[cpu_id] = profile
+        _cpu_profiles[cpu_id] = (room_code, profile)
     return profile
 
 
-def assign_specific_profile(cpu_id: str, profile_name: str) -> Optional[CPUProfile]:
-    """Assign a specific profile to a CPU player by name."""
-    # Check if profile exists and is available
+def assign_specific_profile(cpu_id: str, profile_name: str, room_code: str) -> Optional[CPUProfile]:
+    """Assign a specific profile to a CPU player by name in a specific room."""
+    used_in_room = _room_used_profiles.get(room_code, set())
+    # Check if profile exists and is available in this room
     for profile in CPU_PROFILES:
-        if profile.name == profile_name and profile.name not in _used_profiles:
-            _used_profiles.add(profile.name)
-            _cpu_profiles[cpu_id] = profile
+        if profile.name == profile_name and profile.name not in used_in_room:
+            if room_code not in _room_used_profiles:
+                _room_used_profiles[room_code] = set()
+            _room_used_profiles[room_code].add(profile.name)
+            _cpu_profiles[cpu_id] = (room_code, profile)
             return profile
     return None
+
+
+def get_available_profiles(room_code: str) -> list[dict]:
+    """Get available CPU profiles for a specific room."""
+    used_in_room = _room_used_profiles.get(room_code, set())
+    return [p.to_dict() for p in CPU_PROFILES if p.name not in used_in_room]
 
 
 def get_all_profiles() -> list[dict]:
@@ -1150,7 +1240,7 @@ class GolfAI:
 
         # Knock Penalty (+10 if not lowest): Need to be confident we're lowest
         if options.knock_penalty:
-            opponent_min = estimate_opponent_min_score(player, game)
+            opponent_min = estimate_opponent_min_score(player, game, optimistic=False)
             # Conservative players require bigger lead
             safety_margin = 5 if profile.aggression < 0.4 else 2
             if estimated_score > opponent_min - safety_margin:
@@ -1174,8 +1264,37 @@ class GolfAI:
         if options.underdog_bonus:
             go_out_threshold -= 1
 
+        # HIGH SCORE CAUTION: When our score is >10, be extra careful
+        # Opponents' hidden cards could easily beat us with pairs or low cards
+        if estimated_score > 10:
+            # Get pessimistic estimate of opponent's potential score
+            opponent_min_pessimistic = estimate_opponent_min_score(player, game, optimistic=False)
+            opponent_min_optimistic = estimate_opponent_min_score(player, game, optimistic=True)
+
+            ai_log(f"  High score caution: our score={estimated_score}, "
+                   f"opponent estimates: optimistic={opponent_min_optimistic}, pessimistic={opponent_min_pessimistic}")
+
+            # If opponents could potentially beat us, reduce our willingness to go out
+            if opponent_min_pessimistic < estimated_score:
+                # Calculate how risky this is
+                risk_margin = estimated_score - opponent_min_pessimistic
+                # Reduce threshold based on risk (more risk = lower threshold)
+                risk_penalty = min(risk_margin, 8)  # Cap at 8 point penalty
+                go_out_threshold -= risk_penalty
+                ai_log(f"  Risk penalty: -{risk_penalty} (opponents could score {opponent_min_pessimistic})")
+
+            # Additional penalty for very high scores (>15) - almost never go out
+            if estimated_score > 15:
+                extra_penalty = (estimated_score - 15) * 2
+                go_out_threshold -= extra_penalty
+                ai_log(f"  Very high score penalty: -{extra_penalty}")
+
+        ai_log(f"  Go-out decision: score={estimated_score}, threshold={go_out_threshold}, "
+               f"aggression={profile.aggression:.2f}")
+
         if estimated_score <= go_out_threshold:
             if random.random() < profile.aggression:
+                ai_log(f"  >> GOING OUT with score {estimated_score}")
                 return True
 
         return False
@@ -1196,11 +1315,22 @@ async def process_cpu_turn(
     # Get logger if game_id provided
     logger = get_logger() if game_id else None
 
-    # Add delay based on unpredictability (chaotic players are faster/slower)
-    delay = 0.8 + random.uniform(0, 0.5)
+    # Brief initial delay before CPU "looks at" the discard pile
+    await asyncio.sleep(random.uniform(0.08, 0.15))
+
+    # "Thinking" delay based on how obvious the discard decision is
+    # Easy decisions (good/bad cards) are quick, medium cards take longer
+    discard_top = game.discard_top()
+    thinking_time = get_discard_thinking_time(discard_top, game.options)
+
+    # Adjust for personality - chaotic players have more variance
     if profile.unpredictability > 0.2:
-        delay = random.uniform(0.3, 1.2)
-    await asyncio.sleep(delay)
+        thinking_time *= random.uniform(0.6, 1.4)
+
+    discard_str = f"{discard_top.rank.value}" if discard_top else "empty"
+    ai_log(f"{cpu_player.name} thinking for {thinking_time:.2f}s (discard: {discard_str})")
+    await asyncio.sleep(thinking_time)
+    ai_log(f"{cpu_player.name} done thinking, making decision")
 
     # Check if we should try to go out early
     GolfAI.should_go_out_early(cpu_player, game, profile)
@@ -1243,8 +1373,7 @@ async def process_cpu_turn(
             await broadcast_callback()
             return  # Turn is over
 
-    # Decide whether to draw from discard or deck
-    discard_top = game.discard_top()
+    # Decide whether to draw from discard or deck (discard_top already fetched above)
     take_discard = GolfAI.should_take_discard(discard_top, cpu_player, profile, game)
 
     source = "discard" if take_discard else "deck"

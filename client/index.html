@@ -51,11 +51,10 @@
         <!-- Waiting Room Screen -->
         <div id="waiting-screen" class="screen">
             <div class="room-code-banner">
-                <span class="room-code-label">ROOM CODE</span>
                 <span class="room-code-value" id="display-room-code"></span>
                 <div class="room-code-buttons">
                     <button class="room-code-copy" id="copy-room-code" title="Copy code">📋</button>
-                    <button class="room-code-copy" id="share-room-link" title="Copy link">🌐</button>
+                    <button class="room-code-copy" id="share-room-link" title="Copy invite link">🌐</button>
                 </div>
             </div>
 
@@ -65,19 +64,19 @@
                         <h3>Players</h3>
                         <ul id="players-list"></ul>
                     </div>
+                    <div id="cpu-controls-section" class="cpu-controls-section hidden">
+                        <h4>Add CPU Opponents</h4>
+                        <div class="cpu-controls">
+                            <button id="remove-cpu-btn" class="btn btn-small btn-danger" title="Remove last CPU">−</button>
+                            <button id="add-cpu-btn" class="btn btn-small btn-success" title="Add CPU player">+</button>
+                        </div>
+                    </div>
                     <button id="leave-room-btn" class="btn btn-danger">Leave Room</button>
                 </div>
 
                 <div id="host-settings" class="settings hidden">
                     <h3>Game Settings</h3>
                     <div class="basic-settings-row">
-                        <div class="form-group">
-                            <label>CPU Players</label>
-                            <div class="cpu-controls">
-                                <button id="remove-cpu-btn" class="btn btn-small btn-danger">(-) Delete</button>
-                                <button id="add-cpu-btn" class="btn btn-small btn-success">(+) Add</button>
-                            </div>
-                        </div>
                         <div class="form-group">
                             <label for="num-decks">Decks</label>
                             <select id="num-decks">
@@ -262,6 +261,8 @@
                             <div id="final-turn-badge" class="final-turn-badge hidden">⚡ FINAL TURN</div>
                         </div>
                         <div class="header-col header-col-right">
+                            <span id="game-username" class="game-username hidden"></span>
+                            <button id="game-logout-btn" class="btn btn-small hidden">Logout</button>
                             <button id="mute-btn" class="mute-btn" title="Toggle sound">🔊</button>
                             <button id="leave-game-btn" class="btn btn-small btn-danger">Leave</button>
                         </div>
@@ -273,6 +274,13 @@
                         <div class="player-row">
                             <div class="table-center">
                                 <div class="deck-area">
+                                    <!-- Held card slot (left of deck) -->
+                                    <div id="held-card-slot" class="held-card-slot hidden">
+                                        <div id="held-card-display" class="card card-front">
+                                            <span id="held-card-content"></span>
+                                        </div>
+                                        <span class="held-label">Holding</span>
+                                    </div>
                                     <div id="deck" class="card card-back">
                                         <span>?</span>
                                     </div>
@@ -280,8 +288,11 @@
                                         <div id="discard" class="card">
                                             <span id="discard-content"></span>
                                         </div>
+                                        <!-- Floating held card (appears larger over discard when holding) -->
+                                        <div id="held-card-floating" class="card card-front held-card-floating hidden">
+                                            <span id="held-card-floating-content"></span>
+                                        </div>
                                         <button id="discard-btn" class="btn btn-small hidden">Discard</button>
-                                        <button id="cancel-draw-btn" class="btn btn-small btn-secondary hidden">Put Back</button>
                                         <button id="skip-flip-btn" class="btn btn-small btn-secondary hidden">Skip Flip</button>
                                         <button id="knock-early-btn" class="btn btn-small btn-danger hidden">Knock!</button>
                                     </div>
@@ -295,9 +306,17 @@
                                 </div>
                             </div>
 
-                            <!-- Legacy swap animation overlay (kept for rollback) -->
+                            <!-- Animation overlay for card movements -->
                             <div id="swap-animation" class="swap-animation hidden">
+                                <!-- Card being discarded from hand -->
                                 <div id="swap-card-from-hand" class="swap-card">
+                                    <div class="swap-card-inner">
+                                        <div class="swap-card-front"></div>
+                                        <div class="swap-card-back">?</div>
+                                    </div>
+                                </div>
+                                <!-- Drawn card being held (animates to hand) -->
+                                <div id="held-card" class="swap-card hidden">
                                     <div class="swap-card-inner">
                                         <div class="swap-card-front"></div>
                                         <div class="swap-card-back">?</div>
@@ -317,6 +336,10 @@
                 <!-- Right panel: Scores -->
                 <div id="scoreboard" class="side-panel right-panel">
                     <h4>Scores</h4>
+                    <div id="game-buttons" class="game-buttons hidden">
+                        <button id="next-round-btn" class="btn btn-next-round hidden">Next Hole</button>
+                        <button id="new-game-btn" class="btn btn-small btn-secondary hidden">New Game</button>
+                    </div>
                     <table id="score-table">
                         <thead>
                             <tr>
@@ -328,10 +351,6 @@
                         </thead>
                         <tbody></tbody>
                     </table>
-                    <div id="game-buttons" class="game-buttons hidden">
-                        <button id="next-round-btn" class="btn btn-small btn-primary hidden">Next Hole</button>
-                        <button id="new-game-btn" class="btn btn-small btn-secondary hidden">New Game</button>
-                    </div>
                 </div>
             </div>
         </div>

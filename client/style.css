@@ -195,12 +195,13 @@ body {
     grid-template-columns: 220px 1fr;
     gap: 25px;
     align-items: start;
+    padding-top: 70px;
 }
 
 .waiting-left-col {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 10px;
 }
 
 .waiting-left-col .players-list {
@@ -227,7 +228,7 @@ body {
 /* Basic settings in a row */
 .basic-settings-row {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
     margin-bottom: 15px;
     align-items: end;
@@ -248,14 +249,29 @@ body {
     padding: 8px 4px;
 }
 
-.basic-settings-row .cpu-controls {
-    display: flex;
-    gap: 5px;
+/* CPU Controls Section - below players list */
+.cpu-controls-section {
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 10px 12px;
 }
 
-.basic-settings-row .cpu-controls .btn {
+.cpu-controls-section h4 {
+    margin: 0 0 6px 0;
+    font-size: 0.8rem;
+    color: #f4a460;
+}
+
+.cpu-controls-section .cpu-controls {
+    display: flex;
+    gap: 6px;
+}
+
+.cpu-controls-section .cpu-controls .btn {
     flex: 1;
-    padding: 8px 0;
+    padding: 6px 0;
+    font-size: 1rem;
+    font-weight: bold;
 }
 
 #waiting-message {
@@ -282,14 +298,14 @@ body {
     left: 20px;
     z-index: 100;
     background: linear-gradient(180deg, #d4845a 0%, #c4723f 50%, #b8663a 100%);
-    padding: 12px 16px 20px;
+    padding: 10px 14px 18px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.3);
     /* Ribbon forked end (snake tongue style) */
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 12px), 0 100%);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 10px), 0 100%);
 }
 
 .room-code-banner::before {
@@ -302,39 +318,27 @@ body {
     background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 100%);
 }
 
-.room-code-label {
-    font-size: 0.55rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.25em;
-    color: rgba(255, 255, 255, 0.85);
-    text-align: center;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
-}
-
 .room-code-value {
-    font-size: 1.6rem;
+    font-size: 1.5rem;
     font-weight: 800;
     font-family: 'Courier New', monospace;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.15em;
     color: #fff;
     text-shadow: 0 2px 2px rgba(0, 0, 0, 0.3);
-    padding: 2px 0;
 }
 
 .room-code-buttons {
     display: flex;
-    gap: 6px;
-    margin-top: 2px;
+    gap: 5px;
 }
 
 .room-code-copy {
     background: rgba(255, 255, 255, 0.85);
     border: none;
     border-radius: 4px;
-    padding: 4px 8px;
+    padding: 4px 6px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     transition: all 0.2s;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
@@ -347,6 +351,7 @@ body {
 .room-code-copy:active {
     transform: scale(0.95);
 }
+
 
 
 h1 {
@@ -461,6 +466,15 @@ input::placeholder {
     padding: 8px 16px;
     font-size: 0.9rem;
     width: auto;
+}
+
+.game-buttons .btn-next-round {
+    padding: 10px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    width: 100%;
+    background: #f4a460;
+    color: #1a472a;
 }
 
 .btn.disabled,
@@ -625,7 +639,7 @@ input::placeholder {
 /* Game Screen */
 .game-header {
     display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
     padding: 10px 20px;
     background: rgba(0,0,0,0.35);
@@ -653,8 +667,18 @@ input::placeholder {
 }
 
 .header-col-right {
+    display: flex;
+    flex-direction: row;
     justify-content: flex-end;
-    gap: 8px;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    min-width: max-content;
+}
+
+#game-logout-btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
 }
 
 .game-header .round-info {
@@ -773,6 +797,7 @@ input::placeholder {
     background: #fff;
     border: 2px solid #ddd;
     color: #333;
+    text-align: center;
 }
 
 .card-front.red {
@@ -962,7 +987,73 @@ input::placeholder {
 .deck-area {
     display: flex;
     gap: 15px;
-    align-items: center;
+    align-items: flex-start;
+}
+
+/* Gentle pulse when it's your turn to draw */
+.deck-area.your-turn-to-draw {
+    animation: deckAreaPulse 2s ease-in-out infinite;
+}
+
+@keyframes deckAreaPulse {
+    0%, 100% {
+        filter: brightness(1);
+        transform: scale(1);
+    }
+    50% {
+        filter: brightness(1.08);
+        transform: scale(1.02);
+    }
+}
+
+/* Held card slot - hidden, using floating card over discard instead */
+.held-card-slot {
+    display: none !important;
+}
+
+/* Held card floating over discard pile (larger, closer to viewer) */
+.held-card-floating {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    transform: scale(1.2) translateY(-12px);
+    border: 3px solid #f4a460 !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(244, 164, 96, 0.7) !important;
+    pointer-events: none;
+    transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+}
+
+.held-card-floating.hidden {
+    opacity: 0;
+    transform: scale(1) translateY(0);
+    pointer-events: none;
+}
+
+/* Animate floating card dropping to discard pile (when drawn from discard) */
+.held-card-floating.dropping {
+    transform: scale(1) translateY(0);
+    border-color: transparent !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    transition: transform 0.25s ease-out, border-color 0.25s ease-out, box-shadow 0.25s ease-out;
+}
+
+/* Swoop animation for deck → immediate discard */
+.held-card-floating.swooping {
+    transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.35s ease-out,
+                border-color 0.35s ease-out,
+                box-shadow 0.35s ease-out;
+    transform: scale(1.15) rotate(-8deg);
+    border-color: rgba(244, 164, 96, 0.8) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(244, 164, 96, 0.6) !important;
+}
+
+.held-card-floating.swooping.landed {
+    transform: scale(1) rotate(0deg);
+    border-color: transparent !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
 }
 
 .deck-area .card {
@@ -989,11 +1080,19 @@ input::placeholder {
     transform: scale(1.05);
 }
 
+/* Picked-up state - showing card underneath after drawing from discard */
+#discard.picked-up {
+    opacity: 0.5;
+    filter: grayscale(40%);
+    transform: scale(0.95);
+}
+
 .discard-stack {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    position: relative;
 }
 
 .discard-stack .btn {
@@ -1016,7 +1115,7 @@ input::placeholder {
 /* Highlight flash when opponent draws from a pile */
 #deck.draw-pulse,
 #discard.draw-pulse {
-    animation: draw-highlight 0.4s ease-out;
+    animation: draw-highlight 0.45s ease-out;
     z-index: 100;
 }
 
@@ -1044,7 +1143,7 @@ input::placeholder {
 
 /* Card flip animation for discard pile */
 .card-flip-in {
-    animation: cardFlipIn 0.5s ease-out;
+    animation: cardFlipIn 0.56s ease-out;
 }
 
 @keyframes cardFlipIn {
@@ -1065,6 +1164,26 @@ input::placeholder {
     100% {
         transform: scale(1) translateY(0);
         opacity: 1;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+}
+
+/* Discard pile pulse when card lands */
+#discard.discard-land {
+    animation: discardLand 0.46s ease-out;
+}
+
+@keyframes discardLand {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    40% {
+        transform: scale(1.18);
+        box-shadow: 0 0 25px rgba(244, 164, 96, 0.9);
+    }
+    100% {
+        transform: scale(1);
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
 }
@@ -1092,12 +1211,16 @@ input::placeholder {
     perspective: 1000px;
 }
 
+.swap-card.hidden {
+    display: none;
+}
+
 .swap-card-inner {
     position: relative;
     width: 100%;
     height: 100%;
     transform-style: preserve-3d;
-    transition: transform 0.4s ease-in-out;
+    transition: transform 0.54s ease-in-out;
 }
 
 .swap-card.flipping .swap-card-inner {
@@ -1163,7 +1286,7 @@ input::placeholder {
 }
 
 .swap-card.moving {
-    transition: top 0.4s cubic-bezier(0.4, 0, 0.2, 1), left 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s ease-out;
+    transition: top 0.45s cubic-bezier(0.4, 0, 0.2, 1), left 0.45s cubic-bezier(0.4, 0, 0.2, 1), transform 0.45s ease-out;
     transform: scale(1.1) rotate(-5deg);
     filter: drop-shadow(0 0 25px rgba(244, 164, 96, 1));
 }
@@ -1178,6 +1301,31 @@ input::placeholder {
 #discard.swap-to-hand {
     opacity: 0;
     transition: opacity 0.2s;
+}
+
+/* Subtle swap pulse for face-to-face swaps (no flip needed) */
+.card.swap-pulse {
+    animation: swapPulse 0.4s ease-out;
+}
+
+@keyframes swapPulse {
+    0% {
+        transform: scale(1);
+        filter: brightness(1);
+    }
+    20% {
+        transform: scale(0.92);
+        filter: brightness(0.85);
+    }
+    50% {
+        transform: scale(1.08);
+        filter: brightness(1.15);
+        box-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
+    }
+    100% {
+        transform: scale(1);
+        filter: brightness(1);
+    }
 }
 
 /* Player Area */
@@ -1483,14 +1631,14 @@ input::placeholder {
 }
 
 .game-buttons {
-    margin-top: 8px;
+    margin-bottom: 8px;
     display: flex;
     flex-direction: column;
     gap: 5px;
 }
 
 .game-buttons .btn {
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     padding: 6px 8px;
     width: 100%;
 }
@@ -1728,9 +1876,25 @@ input::placeholder {
     }
 
     .game-header {
+        display: flex;
         flex-direction: column;
         text-align: center;
         gap: 3px;
+    }
+
+    .header-col-right {
+        justify-content: center;
+    }
+
+    #game-logout-btn,
+    #leave-game-btn {
+        padding: 3px 6px;
+        font-size: 0.7rem;
+    }
+
+    .game-username {
+        font-size: 0.7rem;
+        max-width: 60px;
     }
 
     .table-center {
@@ -1793,7 +1957,7 @@ input::placeholder {
     width: 100%;
     height: 100%;
     transform-style: preserve-3d;
-    transition: transform 0.4s ease-in-out;
+    transition: transform 0.54s ease-in-out;
 }
 
 .real-card .card-inner.flipped {
@@ -1867,9 +2031,9 @@ input::placeholder {
 .real-card.moving,
 .real-card.anim-card.moving {
     z-index: 600;
-    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                top 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.3s ease-out;
+    transition: left 0.27s cubic-bezier(0.4, 0, 0.2, 1),
+                top 0.27s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.27s ease-out;
     filter: drop-shadow(0 0 20px rgba(244, 164, 96, 0.8));
     transform: scale(1.08) rotate(-3deg);
 }
@@ -1881,7 +2045,7 @@ input::placeholder {
 }
 
 .real-card.anim-card .card-inner {
-    transition: transform 0.4s ease-in-out;
+    transition: transform 0.54s ease-in-out;
 }
 
 .real-card.holding {
@@ -2881,9 +3045,28 @@ input::placeholder {
     display: none;
 }
 
+/* Hide global auth-bar when game screen is active */
+#app:has(#game-screen.active) > .auth-bar {
+    display: none !important;
+}
+
 #auth-username {
     color: #f4a460;
     font-weight: 500;
+}
+
+/* Username in game header */
+.game-username {
+    color: #f4a460;
+    font-weight: 500;
+    font-size: 0.75rem;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.game-username.hidden {
+    display: none;
 }
 
 /* Auth buttons in lobby */

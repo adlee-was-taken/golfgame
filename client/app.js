@@ -8,6 +8,7 @@ class GolfGame {
         this.isHost = false;
         this.gameState = null;
         this.drawnCard = null;
+        this.drawnFromDiscard = false;
         this.selectedCards = [];
         this.waitingForFlip = false;
         this.currentPlayers = [];
@@ -189,6 +190,7 @@ class GolfGame {
         this.leaveRoomBtn = document.getElementById('leave-room-btn');
         this.addCpuBtn = document.getElementById('add-cpu-btn');
         this.removeCpuBtn = document.getElementById('remove-cpu-btn');
+        this.cpuControlsSection = document.getElementById('cpu-controls-section');
         this.cpuSelectModal = document.getElementById('cpu-select-modal');
         this.cpuProfilesGrid = document.getElementById('cpu-profiles-grid');
         this.cancelCpuBtn = document.getElementById('cancel-cpu-btn');
@@ -202,17 +204,22 @@ class GolfGame {
         this.yourScore = document.getElementById('your-score');
         this.muteBtn = document.getElementById('mute-btn');
         this.opponentsRow = document.getElementById('opponents-row');
+        this.deckArea = document.querySelector('.deck-area');
         this.deck = document.getElementById('deck');
         this.discard = document.getElementById('discard');
         this.discardContent = document.getElementById('discard-content');
         this.discardBtn = document.getElementById('discard-btn');
-        this.cancelDrawBtn = document.getElementById('cancel-draw-btn');
         this.skipFlipBtn = document.getElementById('skip-flip-btn');
         this.knockEarlyBtn = document.getElementById('knock-early-btn');
         this.playerCards = document.getElementById('player-cards');
         this.playerArea = this.playerCards.closest('.player-area');
         this.swapAnimation = document.getElementById('swap-animation');
         this.swapCardFromHand = document.getElementById('swap-card-from-hand');
+        this.heldCardSlot = document.getElementById('held-card-slot');
+        this.heldCardDisplay = document.getElementById('held-card-display');
+        this.heldCardContent = document.getElementById('held-card-content');
+        this.heldCardFloating = document.getElementById('held-card-floating');
+        this.heldCardFloatingContent = document.getElementById('held-card-floating-content');
         this.scoreboard = document.getElementById('scoreboard');
         this.scoreTable = document.getElementById('score-table').querySelector('tbody');
         this.standingsList = document.getElementById('standings-list');
@@ -223,6 +230,11 @@ class GolfGame {
         this.activeRulesBar = document.getElementById('active-rules-bar');
         this.activeRulesList = document.getElementById('active-rules-list');
         this.finalTurnBadge = document.getElementById('final-turn-badge');
+
+        // In-game auth elements
+        this.gameUsername = document.getElementById('game-username');
+        this.gameLogoutBtn = document.getElementById('game-logout-btn');
+        this.authBar = document.getElementById('auth-bar');
     }
 
     bindEvents() {
@@ -233,7 +245,6 @@ class GolfGame {
         this.deck.addEventListener('click', () => { this.drawFromDeck(); });
         this.discard.addEventListener('click', () => { this.drawFromDiscard(); });
         this.discardBtn.addEventListener('click', () => { this.playSound('card'); this.discardDrawn(); });
-        this.cancelDrawBtn.addEventListener('click', () => { this.playSound('click'); this.cancelDraw(); });
         this.skipFlipBtn.addEventListener('click', () => { this.playSound('click'); this.skipFlip(); });
         this.knockEarlyBtn.addEventListener('click', () => { this.playSound('success'); this.knockEarly(); });
         this.nextRoundBtn.addEventListener('click', () => { this.playSound('click'); this.nextRound(); });
@@ -244,6 +255,7 @@ class GolfGame {
         this.addSelectedCpusBtn.addEventListener('click', () => { this.playSound('success'); this.addSelectedCpus(); });
         this.muteBtn.addEventListener('click', () => this.toggleSound());
         this.leaveGameBtn.addEventListener('click', () => { this.playSound('click'); this.leaveGame(); });
+        this.gameLogoutBtn.addEventListener('click', () => { this.playSound('click'); this.auth?.logout(); });
 
         // Copy room code to clipboard
         this.copyRoomCodeBtn.addEventListener('click', () => {
@@ -401,8 +413,9 @@ class GolfGame {
                 this.gameState = data.game_state;
                 // Deep copy for previousState to avoid reference issues
                 this.previousState = JSON.parse(JSON.stringify(data.game_state));
-                // Reset tracking for new round
+                // Reset all tracking for new round
                 this.locallyFlippedCards = new Set();
+                this.selectedCards = [];
                 this.animatingPositions = new Set();
                 this.playSound('shuffle');
                 this.showGameScreen();
@@ -443,28 +456,33 @@ class GolfGame {
                 break;
 
             case 'your_turn':
-                // Build toast based on available actions
-                const canFlip = this.gameState && this.gameState.flip_as_action;
-                let canKnock = false;
-                if (this.gameState && this.gameState.knock_early) {
-                    const myData = this.gameState.players.find(p => p.id === this.playerId);
-                    const faceDownCount = myData ? myData.cards.filter(c => !c.face_up).length : 0;
-                    canKnock = faceDownCount >= 1 && faceDownCount <= 2;
-                }
-                if (canFlip && canKnock) {
-                    this.showToast('Your turn! Draw, flip, or knock', 'your-turn');
-                } else if (canFlip) {
-                    this.showToast('Your turn! Draw or flip a card', 'your-turn');
-                } else if (canKnock) {
-                    this.showToast('Your turn! Draw or knock', 'your-turn');
-                } else {
-                    this.showToast('Your turn! Draw a card', 'your-turn');
-                }
+                // Brief delay to let animations settle
+                setTimeout(() => {
+                    // Build toast based on available actions
+                    const canFlip = this.gameState && this.gameState.flip_as_action;
+                    let canKnock = false;
+                    if (this.gameState && this.gameState.knock_early) {
+                        const myData = this.gameState.players.find(p => p.id === this.playerId);
+                        const faceDownCount = myData ? myData.cards.filter(c => !c.face_up).length : 0;
+                        canKnock = faceDownCount >= 1 && faceDownCount <= 2;
+                    }
+                    if (canFlip && canKnock) {
+                        this.showToast('Your turn! Draw, flip, or knock', 'your-turn');
+                    } else if (canFlip) {
+                        this.showToast('Your turn! Draw or flip a card', 'your-turn');
+                    } else if (canKnock) {
+                        this.showToast('Your turn! Draw or knock', 'your-turn');
+                    } else {
+                        this.showToast('Your turn! Draw a card', 'your-turn');
+                    }
+                }, 200);
                 break;
 
             case 'card_drawn':
                 this.drawnCard = data.card;
+                this.drawnFromDiscard = data.source === 'discard';
                 this.showDrawnCard();
+                this.renderGame(); // Re-render to update discard pile
                 this.showToast('Swap with a card or discard', '', 3000);
                 break;
 
@@ -750,6 +768,13 @@ class GolfGame {
     }
 
     drawFromDiscard() {
+        // If holding a card drawn from discard, clicking discard puts it back
+        if (this.drawnCard && !this.gameState.can_discard) {
+            this.playSound('click');
+            this.cancelDraw();
+            return;
+        }
+
         if (!this.isMyTurn() || this.drawnCard || this.gameState.has_drawn_card) {
             if (this.gameState && !this.gameState.waiting_for_initial_flip) {
                 this.playSound('reject');
@@ -764,10 +789,98 @@ class GolfGame {
 
     discardDrawn() {
         if (!this.drawnCard) return;
+        const discardedCard = this.drawnCard;
+        const wasFromDeck = !this.drawnFromDiscard;
         this.send({ type: 'discard' });
         this.drawnCard = null;
-        this.hideDrawnCard();
         this.hideToast();
+        this.discardBtn.classList.add('hidden');
+
+        // Pre-emptively skip the flip animation - the server may broadcast the new state
+        // before our animation completes, and we don't want renderGame() to trigger
+        // the flip-in animation (which starts with opacity: 0, causing a flash)
+        this.skipNextDiscardFlip = true;
+        // Also update lastDiscardKey so renderGame() won't see a "change"
+        this.lastDiscardKey = `${discardedCard.rank}-${discardedCard.suit}`;
+
+        if (wasFromDeck) {
+            // Swoop animation: deck → discard (makes it clear the card is being tossed)
+            this.animateDeckToDiscardSwoop(discardedCard);
+        } else {
+            // Simple drop (drawn from discard, putting it back - though this requires swap usually)
+            this.heldCardFloating.classList.add('dropping');
+            this.playSound('card');
+            setTimeout(() => {
+                this.heldCardFloating.classList.add('hidden');
+                this.heldCardFloating.classList.remove('dropping');
+                this.updateDiscardPileDisplay(discardedCard);
+                this.pulseDiscardLand();
+                this.skipNextDiscardFlip = true;
+            }, 250);
+        }
+    }
+
+    // Swoop animation for discarding a card drawn from deck
+    animateDeckToDiscardSwoop(card) {
+        const deckRect = this.deck.getBoundingClientRect();
+        const discardRect = this.discard.getBoundingClientRect();
+        const floater = this.heldCardFloating;
+
+        // Reset any previous animation state
+        floater.classList.remove('dropping', 'swooping', 'landed');
+
+        // Instantly position at deck (card appears to come from deck)
+        floater.style.transition = 'none';
+        floater.style.left = `${deckRect.left}px`;
+        floater.style.top = `${deckRect.top}px`;
+        floater.style.width = `${deckRect.width}px`;
+        floater.style.height = `${deckRect.height}px`;
+        floater.style.transform = 'scale(1) rotate(0deg)';
+
+        // Force reflow
+        floater.offsetHeight;
+
+        // Start swoop to discard
+        floater.style.transition = '';
+        floater.classList.add('swooping');
+        floater.style.left = `${discardRect.left}px`;
+        floater.style.top = `${discardRect.top}px`;
+        floater.style.width = `${discardRect.width}px`;
+        floater.style.height = `${discardRect.height}px`;
+
+        this.playSound('card');
+
+        // After swoop completes, settle and show on discard pile
+        setTimeout(() => {
+            floater.classList.add('landed');
+
+            setTimeout(() => {
+                floater.classList.add('hidden');
+                floater.classList.remove('swooping', 'landed');
+                // Clear all inline styles from the animation
+                floater.style.cssText = '';
+                this.updateDiscardPileDisplay(card);
+                this.pulseDiscardLand();
+                this.skipNextDiscardFlip = true;
+            }, 150); // Brief settle
+        }, 350); // Match swoop transition duration
+    }
+
+    // Update the discard pile display with a card
+    updateDiscardPileDisplay(card) {
+        this.discard.classList.remove('picked-up', 'disabled');
+        this.discard.classList.add('has-card', 'card-front');
+        this.discard.classList.remove('red', 'black', 'joker');
+
+        if (card.rank === '★') {
+            this.discard.classList.add('joker');
+            const jokerIcon = card.suit === 'hearts' ? '🐉' : '👹';
+            this.discardContent.innerHTML = `<span class="joker-icon">${jokerIcon}</span><span class="joker-label">Joker</span>`;
+        } else {
+            this.discard.classList.add(card.suit === 'hearts' || card.suit === 'diamonds' ? 'red' : 'black');
+            this.discardContent.innerHTML = this.renderCardContent(card);
+        }
+        this.lastDiscardKey = `${card.rank}-${card.suit}`;
     }
 
     cancelDraw() {
@@ -786,6 +899,7 @@ class GolfGame {
     }
 
     // Animate player swapping drawn card with a card in their hand
+    // Uses flip-in-place + teleport (no zipping movement)
     animateSwap(position) {
         const cardElements = this.playerCards.querySelectorAll('.card');
         const handCardEl = cardElements[position];
@@ -801,12 +915,16 @@ class GolfGame {
 
         // Get positions
         const handRect = handCardEl.getBoundingClientRect();
-        const discardRect = this.discard.getBoundingClientRect();
 
         // Set up the animated card at hand position
         const swapCard = this.swapCardFromHand;
+        if (!swapCard) {
+            // Animation element missing - fall back to non-animated swap
+            console.error('Swap animation element missing, falling back to direct swap');
+            this.swapCard(position);
+            return;
+        }
         const swapCardFront = swapCard.querySelector('.swap-card-front');
-        const swapCardInner = swapCard.querySelector('.swap-card-inner');
 
         // Position at the hand card location
         swapCard.style.left = handRect.left + 'px';
@@ -814,97 +932,67 @@ class GolfGame {
         swapCard.style.width = handRect.width + 'px';
         swapCard.style.height = handRect.height + 'px';
 
-        // Reset state
+        // Reset state - no moving class needed
         swapCard.classList.remove('flipping', 'moving');
         swapCardFront.innerHTML = '';
         swapCardFront.className = 'swap-card-front';
 
+        // Mark animating
+        this.swapAnimationInProgress = true;
+        this.swapAnimationCardEl = handCardEl;
+        this.swapAnimationHandCardEl = handCardEl;
+
         if (isAlreadyFaceUp && card) {
-            // FACE-UP CARD: Show card content immediately, then slide to discard
-            if (card.rank === '★') {
-                swapCardFront.classList.add('joker');
-                const jokerIcon = card.suit === 'hearts' ? '🐉' : '👹';
-                swapCardFront.innerHTML = `<span class="joker-icon">${jokerIcon}</span><span class="joker-label">Joker</span>`;
-            } else {
-                swapCardFront.classList.add(card.suit === 'hearts' || card.suit === 'diamonds' ? 'red' : 'black');
-                const suitSymbol = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' }[card.suit];
-                swapCardFront.innerHTML = `${card.rank}<br>${suitSymbol}`;
-            }
-            swapCard.classList.add('flipping'); // Show front immediately
-
-            // Hide the actual hand card and discard
-            handCardEl.classList.add('swap-out');
-            this.discard.classList.add('swap-to-hand');
-            this.swapAnimation.classList.remove('hidden');
-
-            // Mark animating
-            this.swapAnimationInProgress = true;
-            this.swapAnimationCardEl = handCardEl;
+            // FACE-UP CARD: Subtle pulse animation (no flip needed)
             this.swapAnimationContentSet = true;
 
-            // Send swap
+            // Apply subtle swap pulse to both cards
+            handCardEl.classList.add('swap-pulse');
+            this.heldCardFloating.classList.add('swap-pulse');
+
+            // Play a soft sound for the swap
+            this.playSound('card');
+
+            // Send swap and let render handle the update
             this.send({ type: 'swap', position });
             this.drawnCard = null;
+            this.skipNextDiscardFlip = true;
 
-            // Slide to discard
+            // Complete after pulse animation
             setTimeout(() => {
-                swapCard.classList.add('moving');
-                swapCard.style.left = discardRect.left + 'px';
-                swapCard.style.top = discardRect.top + 'px';
-            }, 50);
-
-            // Complete
-            setTimeout(() => {
-                this.swapAnimation.classList.add('hidden');
-                swapCard.classList.remove('flipping', 'moving');
-                handCardEl.classList.remove('swap-out');
-                this.discard.classList.remove('swap-to-hand');
-                this.swapAnimationInProgress = false;
-                this.hideDrawnCard();
-
-                if (this.pendingGameState) {
-                    this.gameState = this.pendingGameState;
-                    this.pendingGameState = null;
-                    this.renderGame();
-                }
-            }, 500);
+                handCardEl.classList.remove('swap-pulse');
+                this.heldCardFloating.classList.remove('swap-pulse');
+                this.completeSwapAnimation(null);
+            }, 440);
         } else {
-            // FACE-DOWN CARD: Just slide card-back to discard (no flip mid-air)
-            // The new card will appear instantly when state updates
+            // FACE-DOWN CARD: Flip in place to reveal, then teleport
 
-            // Don't use overlay for face-down - just send swap and let state handle it
-            // This avoids the clunky "flip to empty front" issue
-            this.swapAnimationInProgress = true;
-            this.swapAnimationCardEl = handCardEl;
+            // Hide the actual hand card
+            handCardEl.classList.add('swap-out');
+            this.swapAnimation.classList.remove('hidden');
+
+            // Store references for updateSwapAnimation
+            this.swapAnimationFront = swapCardFront;
+            this.swapAnimationCard = swapCard;
             this.swapAnimationContentSet = false;
 
-            // Send swap
+            // Send swap - the flip will happen in updateSwapAnimation when server responds
             this.send({ type: 'swap', position });
             this.drawnCard = null;
-
-            // Brief visual feedback - hide drawn card area
-            this.discard.classList.add('swap-to-hand');
-            handCardEl.classList.add('swap-out');
-
-            // Short timeout then let state update handle it
-            setTimeout(() => {
-                this.discard.classList.remove('swap-to-hand');
-                handCardEl.classList.remove('swap-out');
-                this.swapAnimationInProgress = false;
-                this.hideDrawnCard();
-
-                if (this.pendingGameState) {
-                    this.gameState = this.pendingGameState;
-                    this.pendingGameState = null;
-                    this.renderGame();
-                }
-            }, 300);
+            this.skipNextDiscardFlip = true;
         }
     }
 
     // Update the animated card with actual card content when server responds
     updateSwapAnimation(card) {
-        if (!this.swapAnimationFront || !card) return;
+        // Safety: if animation references are missing, complete immediately to avoid freeze
+        if (!this.swapAnimationFront || !card) {
+            if (this.swapAnimationInProgress && !this.swapAnimationContentSet) {
+                console.error('Swap animation incomplete: missing front element or card data');
+                this.completeSwapAnimation(null);
+            }
+            return;
+        }
 
         // Skip if we already set the content (face-up card swap)
         if (this.swapAnimationContentSet) return;
@@ -922,6 +1010,61 @@ class GolfGame {
                 this.swapAnimationFront.classList.add('black');
             }
             this.swapAnimationFront.innerHTML = `${card.rank}<br>${this.getSuitSymbol(card.suit)}`;
+        }
+
+        this.swapAnimationContentSet = true;
+
+        // Quick flip to reveal, then complete - server will pause before next turn
+        if (this.swapAnimationCard) {
+            // Step 1: Flip to reveal (quick)
+            this.swapAnimationCard.classList.add('flipping');
+            this.playSound('flip');
+
+            // Step 2: Brief pulse after flip completes
+            setTimeout(() => {
+                this.swapAnimationCard.classList.add('swap-pulse');
+                this.playSound('card');
+            }, 350);
+
+            // Step 3: Complete animation - the pause to see the result happens
+            // on the server side before the next CPU turn starts
+            setTimeout(() => {
+                this.completeSwapAnimation(null);
+            }, 550);
+        } else {
+            // Fallback: animation element missing, complete immediately to avoid freeze
+            console.error('Swap animation element missing, completing immediately');
+            this.completeSwapAnimation(null);
+        }
+    }
+
+    completeSwapAnimation(heldCard) {
+        // Hide everything
+        this.swapAnimation.classList.add('hidden');
+        if (this.swapAnimationCard) {
+            this.swapAnimationCard.classList.remove('hidden', 'flipping', 'moving', 'swap-pulse');
+        }
+        if (heldCard) {
+            heldCard.classList.remove('flipping', 'moving');
+            heldCard.classList.add('hidden');
+        }
+        if (this.swapAnimationHandCardEl) {
+            this.swapAnimationHandCardEl.classList.remove('swap-out');
+        }
+        this.discard.classList.remove('swap-to-hand');
+        this.swapAnimationInProgress = false;
+        this.swapAnimationFront = null;
+        this.swapAnimationCard = null;
+        this.swapAnimationDiscardRect = null;
+        this.swapAnimationHandCardEl = null;
+        this.swapAnimationHandRect = null;
+        this.discardBtn.classList.add('hidden');
+        this.heldCardFloating.classList.add('hidden');
+
+        if (this.pendingGameState) {
+            this.gameState = this.pendingGameState;
+            this.pendingGameState = null;
+            this.renderGame();
         }
     }
 
@@ -987,7 +1130,7 @@ class GolfGame {
             }
         }
 
-        if (discardChanged && wasOtherPlayer) {
+        if (discardChanged) {
             // Check if the previous player actually SWAPPED (has a new face-up card)
             // vs just discarding the drawn card (no hand change)
             const oldPlayer = oldState.players.find(p => p.id === previousPlayerId);
@@ -998,34 +1141,38 @@ class GolfGame {
                 // Could be: face-down -> face-up (new reveal)
                 // Or: different card at same position (replaced visible card)
                 let swappedPosition = -1;
+                let wasFaceUp = false;  // Track if old card was already face-up
                 for (let i = 0; i < 6; i++) {
                     const oldCard = oldPlayer.cards[i];
                     const newCard = newPlayer.cards[i];
                     const wasUp = oldCard?.face_up;
                     const isUp = newCard?.face_up;
 
-                    // Case 1: face-down became face-up
+                    // Case 1: face-down became face-up (needs flip)
                     if (!wasUp && isUp) {
                         swappedPosition = i;
+                        wasFaceUp = false;
                         break;
                     }
-                    // Case 2: both face-up but different card (rank or suit changed)
+                    // Case 2: both face-up but different card (no flip needed)
                     if (wasUp && isUp && oldCard.rank && newCard.rank) {
                         if (oldCard.rank !== newCard.rank || oldCard.suit !== newCard.suit) {
                             swappedPosition = i;
+                            wasFaceUp = true;  // Face-to-face swap
                             break;
                         }
                     }
                 }
 
-                if (swappedPosition >= 0) {
-                    // Player swapped - animate from the actual position that changed
-                    this.fireSwapAnimation(previousPlayerId, newDiscard, swappedPosition);
-                } else {
-                    // Player drew and discarded without swapping
-                    // Animate card going from deck area to discard
+                if (swappedPosition >= 0 && wasOtherPlayer) {
+                    // Opponent swapped - animate from the actual position that changed
+                    this.fireSwapAnimation(previousPlayerId, newDiscard, swappedPosition, wasFaceUp);
+                } else if (swappedPosition < 0) {
+                    // Player drew and discarded without swapping - pulse for everyone
                     this.fireDiscardAnimation(newDiscard);
                 }
+                // Skip the card-flip-in animation since we just did our own
+                this.skipNextDiscardFlip = true;
             }
         }
 
@@ -1041,54 +1188,21 @@ class GolfGame {
         void pile.offsetWidth;
         pile.classList.add('draw-pulse');
         // Remove class after animation completes
-        setTimeout(() => pile.classList.remove('draw-pulse'), 400);
+        setTimeout(() => pile.classList.remove('draw-pulse'), 450);
     }
 
-    // Fire animation for discard without swap (card goes deck -> discard)
+    // Pulse discard pile when a card lands on it
+    pulseDiscardLand() {
+        this.discard.classList.remove('discard-land');
+        void this.discard.offsetWidth;
+        this.discard.classList.add('discard-land');
+        setTimeout(() => this.discard.classList.remove('discard-land'), 460);
+    }
+
+    // Fire animation for discard without swap (card lands on discard pile face-up)
     fireDiscardAnimation(discardCard) {
-        const deckRect = this.deck.getBoundingClientRect();
-        const discardRect = this.discard.getBoundingClientRect();
-        const swapCard = this.swapCardFromHand;
-        const swapCardFront = swapCard.querySelector('.swap-card-front');
-
-        // Start at deck position
-        swapCard.style.left = deckRect.left + 'px';
-        swapCard.style.top = deckRect.top + 'px';
-        swapCard.style.width = deckRect.width + 'px';
-        swapCard.style.height = deckRect.height + 'px';
-        swapCard.classList.remove('flipping', 'moving');
-
-        // Set card content
-        swapCardFront.className = 'swap-card-front';
-        if (discardCard.rank === '★') {
-            swapCardFront.classList.add('joker');
-            const jokerIcon = discardCard.suit === 'hearts' ? '🐉' : '👹';
-            swapCardFront.innerHTML = `<span class="joker-icon">${jokerIcon}</span><span class="joker-label">Joker</span>`;
-        } else {
-            swapCardFront.classList.add(discardCard.suit === 'hearts' || discardCard.suit === 'diamonds' ? 'red' : 'black');
-            swapCardFront.innerHTML = `${discardCard.rank}<br>${this.getSuitSymbol(discardCard.suit)}`;
-        }
-
-        this.swapAnimation.classList.remove('hidden');
-
-        // Flip to reveal card
-        setTimeout(() => {
-            swapCard.classList.add('flipping');
-            this.playSound('flip');
-        }, 50);
-
-        // Move to discard
-        setTimeout(() => {
-            swapCard.classList.add('moving');
-            swapCard.style.left = discardRect.left + 'px';
-            swapCard.style.top = discardRect.top + 'px';
-        }, 400);
-
-        // Complete
-        setTimeout(() => {
-            this.swapAnimation.classList.add('hidden');
-            swapCard.classList.remove('flipping', 'moving');
-        }, 800);
+        // Card is already known - just pulse to show it landed (no flip needed)
+        this.pulseDiscardLand();
     }
 
     // Get rotation angle from an element's computed transform
@@ -1108,8 +1222,9 @@ class GolfGame {
         return 0;
     }
 
-    // Fire a swap animation (non-blocking)
-    fireSwapAnimation(playerId, discardCard, position) {
+    // Fire a swap animation (non-blocking) - flip in place at opponent's position
+    // Uses flip-in-place for face-down cards, subtle pulse for face-up cards
+    fireSwapAnimation(playerId, discardCard, position, wasFaceUp = false) {
 
         // Find source position - the actual card that was swapped
         const opponentAreas = this.opponentsRow.querySelectorAll('.opponent-area');
@@ -1132,26 +1247,37 @@ class GolfGame {
             }
         }
 
-        if (!sourceRect) {
-            const discardRect = this.discard.getBoundingClientRect();
-            sourceRect = { left: discardRect.left, top: discardRect.top - 100, width: discardRect.width, height: discardRect.height };
+        // Face-to-face swap: use subtle pulse on the card, no flip needed
+        if (wasFaceUp && sourceCardEl) {
+            sourceCardEl.classList.add('swap-pulse');
+            this.playSound('card');
+            setTimeout(() => {
+                sourceCardEl.classList.remove('swap-pulse');
+            }, 400);
+            return;
         }
 
-        const discardRect = this.discard.getBoundingClientRect();
+        // Face-down to face-up: flip to reveal, pause to see it, then pulse before swap
+        if (!sourceRect) {
+            // Fallback: just show flip at discard position
+            const discardRect = this.discard.getBoundingClientRect();
+            sourceRect = { left: discardRect.left, top: discardRect.top, width: discardRect.width, height: discardRect.height };
+        }
+
         const swapCard = this.swapCardFromHand;
         const swapCardFront = swapCard.querySelector('.swap-card-front');
-        const swapCardInner = swapCard.querySelector('.swap-card-inner');
 
+        // Position at opponent's card location (flip in place there)
         swapCard.style.left = sourceRect.left + 'px';
         swapCard.style.top = sourceRect.top + 'px';
         swapCard.style.width = sourceRect.width + 'px';
         swapCard.style.height = sourceRect.height + 'px';
-        swapCard.classList.remove('flipping', 'moving');
+        swapCard.classList.remove('flipping', 'moving', 'swap-pulse');
 
         // Apply source rotation to match the arch layout
         swapCard.style.transform = `rotate(${sourceRotation}deg)`;
 
-        // Set card content
+        // Set card content (the card being discarded - what was hidden)
         swapCardFront.className = 'swap-card-front';
         if (discardCard.rank === '★') {
             swapCardFront.classList.add('joker');
@@ -1165,24 +1291,26 @@ class GolfGame {
         if (sourceCardEl) sourceCardEl.classList.add('swap-out');
         this.swapAnimation.classList.remove('hidden');
 
-        // Timing: flip takes ~400ms, then move takes ~400ms
+        // Step 1: Flip to reveal the hidden card
         setTimeout(() => {
             swapCard.classList.add('flipping');
             this.playSound('flip');
         }, 50);
+
+        // Step 2: After flip, pause to see the card then pulse before being replaced
         setTimeout(() => {
-            // Start move AFTER flip completes - also animate rotation back to 0
-            swapCard.classList.add('moving');
-            swapCard.style.left = discardRect.left + 'px';
-            swapCard.style.top = discardRect.top + 'px';
-            swapCard.style.transform = 'rotate(0deg)';
-        }, 500);
+            swapCard.classList.add('swap-pulse');
+            this.playSound('card');
+        }, 850);
+
+        // Step 3: Strategic pause to show discarded card, then complete
         setTimeout(() => {
             this.swapAnimation.classList.add('hidden');
-            swapCard.classList.remove('flipping', 'moving');
+            swapCard.classList.remove('flipping', 'moving', 'swap-pulse');
             swapCard.style.transform = '';
             if (sourceCardEl) sourceCardEl.classList.remove('swap-out');
-        }, 1000);
+            this.pulseDiscardLand();
+        }, 1400);
     }
 
     // Fire a flip animation for local player's card (non-blocking)
@@ -1233,7 +1361,7 @@ class GolfGame {
             swapCard.classList.remove('flipping');
             cardEl.classList.remove('swap-out');
             this.animatingPositions.delete(key);
-        }, 450);
+        }, 550);
     }
 
     // Fire a flip animation for opponent card (non-blocking)
@@ -1295,7 +1423,7 @@ class GolfGame {
         setTimeout(() => {
             swapCard.classList.add('flipping');
             this.playSound('flip');
-        }, 50);
+        }, 60);
 
         setTimeout(() => {
             this.swapAnimation.classList.add('hidden');
@@ -1303,7 +1431,7 @@ class GolfGame {
             swapCard.style.transform = '';
             cardEl.classList.remove('swap-out');
             this.animatingPositions.delete(key);
-        }, 450);
+        }, 560);
     }
 
     handleCardClick(position) {
@@ -1339,7 +1467,9 @@ class GolfGame {
         // Initial flip phase
         if (this.gameState.waiting_for_initial_flip) {
             if (card.face_up) return;
+            // Use Set to prevent duplicates - check both tracking mechanisms
             if (this.locallyFlippedCards.has(position)) return;
+            if (this.selectedCards.includes(position)) return;
 
             const requiredFlips = this.gameState.initial_flips || 2;
 
@@ -1353,12 +1483,15 @@ class GolfGame {
             // Re-render to show flipped state
             this.renderGame();
 
-            if (this.selectedCards.length === requiredFlips) {
-                this.send({ type: 'flip_initial', positions: this.selectedCards });
+            // Use Set to ensure unique positions when sending to server
+            const uniquePositions = [...new Set(this.selectedCards)];
+            if (uniquePositions.length === requiredFlips) {
+                this.send({ type: 'flip_initial', positions: uniquePositions });
                 this.selectedCards = [];
+                // Note: locallyFlippedCards is cleared when server confirms (in game_state handler)
                 this.hideToast();
             } else {
-                const remaining = requiredFlips - this.selectedCards.length;
+                const remaining = requiredFlips - uniquePositions.length;
                 this.showToast(`Select ${remaining} more card${remaining > 1 ? 's' : ''} to flip`, '', 5000);
             }
             return;
@@ -1417,6 +1550,25 @@ class GolfGame {
             this.rulesScreen.classList.remove('active');
         }
         screen.classList.add('active');
+
+        // Handle auth bar visibility - hide global bar during game, show in-game controls instead
+        const isGameScreen = screen === this.gameScreen;
+        const user = this.auth?.user;
+
+        if (isGameScreen && user) {
+            // Hide global auth bar, show in-game auth controls
+            this.authBar?.classList.add('hidden');
+            this.gameUsername.textContent = user.username;
+            this.gameUsername.classList.remove('hidden');
+            this.gameLogoutBtn.classList.remove('hidden');
+        } else {
+            // Show global auth bar (if logged in), hide in-game auth controls
+            if (user) {
+                this.authBar?.classList.remove('hidden');
+            }
+            this.gameUsername.classList.add('hidden');
+            this.gameLogoutBtn.classList.add('hidden');
+        }
     }
 
     showLobby() {
@@ -1435,9 +1587,11 @@ class GolfGame {
 
         if (this.isHost) {
             this.hostSettings.classList.remove('hidden');
+            this.cpuControlsSection.classList.remove('hidden');
             this.waitingMessage.classList.add('hidden');
         } else {
             this.hostSettings.classList.add('hidden');
+            this.cpuControlsSection.classList.add('hidden');
             this.waitingMessage.classList.remove('hidden');
         }
     }
@@ -1499,13 +1653,8 @@ class GolfGame {
             if (player.is_host) badges += '<span class="host-badge">HOST</span>';
             if (player.is_cpu) badges += '<span class="cpu-badge">CPU</span>';
 
-            let nameDisplay = player.name;
-            if (player.style) {
-                nameDisplay += ` <span class="cpu-style">(${player.style})</span>`;
-            }
-
             li.innerHTML = `
-                <span>${nameDisplay}</span>
+                <span>${player.name}</span>
                 <span>${badges}</span>
             `;
             if (player.id === this.playerId) {
@@ -1516,6 +1665,7 @@ class GolfGame {
             if (player.id === this.playerId && player.is_host) {
                 this.isHost = true;
                 this.hostSettings.classList.remove('hidden');
+                this.cpuControlsSection.classList.remove('hidden');
                 this.waitingMessage.classList.add('hidden');
             }
         });
@@ -1573,6 +1723,18 @@ class GolfGame {
             return;
         }
 
+        // Check for round/game over states
+        if (this.gameState.phase === 'round_over') {
+            this.setStatus('Hole Complete!', 'round-over');
+            this.finalTurnBadge.classList.add('hidden');
+            return;
+        }
+        if (this.gameState.phase === 'game_over') {
+            this.setStatus('Game Over!', 'game-over');
+            this.finalTurnBadge.classList.add('hidden');
+            return;
+        }
+
         const isFinalTurn = this.gameState.phase === 'final_turn';
         const currentPlayer = this.gameState.players.find(p => p.id === this.gameState.current_player_id);
 
@@ -1610,33 +1772,37 @@ class GolfGame {
     }
 
     showDrawnCard() {
-        // Show drawn card in the discard pile position, highlighted
+        // Show drawn card floating over the discard pile (larger, closer to viewer)
         const card = this.drawnCard;
 
-        this.discard.className = 'card card-front holding';
+        // Set up the floating held card display
+        this.heldCardFloating.className = 'card card-front held-card-floating';
+        // Clear any inline styles left over from swoop animations
+        this.heldCardFloating.style.cssText = '';
         if (card.rank === '★') {
-            this.discard.classList.add('joker');
-        } else if (this.isRedSuit(card.suit)) {
-            this.discard.classList.add('red');
+            this.heldCardFloating.classList.add('joker');
+            const jokerIcon = card.suit === 'hearts' ? '🐉' : '👹';
+            this.heldCardFloatingContent.innerHTML = `<span class="joker-icon">${jokerIcon}</span><span class="joker-label">Joker</span>`;
         } else {
-            this.discard.classList.add('black');
+            if (this.isRedSuit(card.suit)) {
+                this.heldCardFloating.classList.add('red');
+            } else {
+                this.heldCardFloating.classList.add('black');
+            }
+            this.heldCardFloatingContent.innerHTML = `${card.rank}<br>${this.getSuitSymbol(card.suit)}`;
         }
 
-        // Render card directly without checking face_up (drawn card is always visible to drawer)
-        if (card.rank === '★') {
-            const jokerIcon = card.suit === 'hearts' ? '🐉' : '👹';
-            this.discardContent.innerHTML = `<span class="joker-icon">${jokerIcon}</span><span class="joker-label">Joker</span>`;
-        } else {
-            this.discardContent.innerHTML = `${card.rank}<br>${this.getSuitSymbol(card.suit)}`;
-        }
+        // Show the floating card and discard button
+        this.heldCardFloating.classList.remove('hidden');
         this.discardBtn.classList.remove('hidden');
     }
 
     hideDrawnCard() {
-        // Restore discard pile to show actual top card (handled by renderGame)
-        this.discard.classList.remove('holding');
+        // Hide the floating held card
+        this.heldCardFloating.classList.add('hidden');
+        // Clear any inline styles from animations
+        this.heldCardFloating.style.cssText = '';
         this.discardBtn.classList.add('hidden');
-        this.cancelDrawBtn.classList.add('hidden');
     }
 
     isRedSuit(suit) {
@@ -1745,19 +1911,50 @@ class GolfGame {
             playerNameSpan.innerHTML = crownHtml + displayName + checkmark;
         }
 
-        // Update discard pile (skip if holding a drawn card)
-        if (!this.drawnCard) {
+        // Update discard pile
+        if (this.drawnCard) {
+            // Holding a drawn card - show discard pile as greyed/disabled
+            // If drawn from discard, show what's underneath (new discard_top or empty)
+            // If drawn from deck, show current discard_top greyed
+            this.discard.classList.add('picked-up');
+            this.discard.classList.remove('holding');
+
+            if (this.gameState.discard_top) {
+                const discardCard = this.gameState.discard_top;
+                this.discard.classList.add('has-card', 'card-front');
+                this.discard.classList.remove('card-back', 'red', 'black', 'joker');
+
+                if (discardCard.rank === '★') {
+                    this.discard.classList.add('joker');
+                } else if (this.isRedSuit(discardCard.suit)) {
+                    this.discard.classList.add('red');
+                } else {
+                    this.discard.classList.add('black');
+                }
+                this.discardContent.innerHTML = this.renderCardContent(discardCard);
+            } else {
+                // No card underneath - show empty
+                this.discard.classList.remove('has-card', 'card-front', 'red', 'black', 'joker');
+                this.discardContent.innerHTML = '';
+            }
+        } else {
+            // Not holding - show normal discard pile
+            this.discard.classList.remove('picked-up');
+
             if (this.gameState.discard_top) {
                 const discardCard = this.gameState.discard_top;
                 const cardKey = `${discardCard.rank}-${discardCard.suit}`;
 
-                // Animate if discard changed
-                if (this.lastDiscardKey && this.lastDiscardKey !== cardKey) {
-                    this.discard.classList.add('card-flip-in');
-                    setTimeout(() => this.discard.classList.remove('card-flip-in'), 400);
-                }
+                // Only animate discard flip during active gameplay, not at round/game end
+                const isActivePlay = this.gameState.phase !== 'round_over' &&
+                                     this.gameState.phase !== 'game_over';
+                const shouldAnimate = isActivePlay && this.lastDiscardKey &&
+                                      this.lastDiscardKey !== cardKey && !this.skipNextDiscardFlip;
+
+                this.skipNextDiscardFlip = false;
                 this.lastDiscardKey = cardKey;
 
+                // Set card content and styling FIRST (before any animation)
                 this.discard.classList.add('has-card', 'card-front');
                 this.discard.classList.remove('card-back', 'red', 'black', 'joker', 'holding');
 
@@ -1769,6 +1966,15 @@ class GolfGame {
                     this.discard.classList.add('black');
                 }
                 this.discardContent.innerHTML = this.renderCardContent(discardCard);
+
+                // THEN animate if needed (content is already set, so no blank flash)
+                if (shouldAnimate) {
+                    // Remove any existing animation first to allow re-trigger
+                    this.discard.classList.remove('card-flip-in');
+                    void this.discard.offsetWidth; // Force reflow
+                    this.discard.classList.add('card-flip-in');
+                    setTimeout(() => this.discard.classList.remove('card-flip-in'), 560);
+                }
             } else {
                 this.discard.classList.remove('has-card', 'card-front', 'red', 'black', 'joker', 'holding');
                 this.discardContent.innerHTML = '';
@@ -1781,22 +1987,30 @@ class GolfGame {
         const hasDrawn = this.drawnCard || this.gameState.has_drawn_card;
         const canDraw = this.isMyTurn() && !hasDrawn && !this.gameState.waiting_for_initial_flip;
 
+        // Pulse the deck area when it's player's turn to draw
+        this.deckArea.classList.toggle('your-turn-to-draw', canDraw);
+
         this.deck.classList.toggle('clickable', canDraw);
-        this.deck.classList.toggle('disabled', hasDrawn);
+        // Only show disabled on deck when it's my turn and I've drawn
+        this.deck.classList.toggle('disabled', this.isMyTurn() && hasDrawn);
 
         this.discard.classList.toggle('clickable', canDraw && this.gameState.discard_top);
-        // Don't show disabled state when we're holding a drawn card (it's displayed in discard position)
-        this.discard.classList.toggle('disabled', hasDrawn && !this.drawnCard);
+        // Only show disabled state when it's my turn and I've drawn (not holding visible card)
+        // Don't grey out when opponents are playing
+        this.discard.classList.toggle('disabled', this.isMyTurn() && hasDrawn && !this.drawnCard);
 
         // Render opponents in a single row
         const opponents = this.gameState.players.filter(p => p.id !== this.playerId);
 
         this.opponentsRow.innerHTML = '';
 
+        // Don't highlight current player during round/game over
+        const isPlaying = this.gameState.phase !== 'round_over' && this.gameState.phase !== 'game_over';
+
         opponents.forEach((player) => {
             const div = document.createElement('div');
             div.className = 'opponent-area';
-            if (player.id === this.gameState.current_player_id) {
+            if (isPlaying && player.id === this.gameState.current_player_id) {
                 div.classList.add('current-turn');
             }
 
@@ -1810,7 +2024,7 @@ class GolfGame {
             const crownHtml = isRoundWinner ? '<span class="winner-crown">👑</span>' : '';
 
             div.innerHTML = `
-                <h4>${crownHtml}${displayName}${player.all_face_up ? ' ✓' : ''}<span class="opponent-showing">${showingScore}</span></h4>
+                <h4><span class="opponent-name">${crownHtml}${displayName}${player.all_face_up ? ' ✓' : ''}</span><span class="opponent-showing">${showingScore}</span></h4>
                 <div class="card-grid">
                     ${player.cards.map(card => this.renderCard(card, false, false)).join('')}
                 </div>
@@ -1862,12 +2076,9 @@ class GolfGame {
         if (this.drawnCard && !this.gameState.can_discard) {
             this.discardBtn.disabled = true;
             this.discardBtn.classList.add('disabled');
-            // Show cancel button when drawn from discard (can put it back)
-            this.cancelDrawBtn.classList.remove('hidden');
         } else {
             this.discardBtn.disabled = false;
             this.discardBtn.classList.remove('disabled');
-            this.cancelDrawBtn.classList.add('hidden');
         }
 
         // Show/hide skip flip button (only when flip is optional in endgame mode)
@@ -1907,14 +2118,20 @@ class GolfGame {
         // Update standings (left panel)
         this.updateStandings();
 
+        // Skip score table update during round_over/game_over - showScoreboard handles these
+        if (this.gameState.phase === 'round_over' || this.gameState.phase === 'game_over') {
+            return;
+        }
+
         // Update score table (right panel)
         this.scoreTable.innerHTML = '';
 
         this.gameState.players.forEach(player => {
             const tr = document.createElement('tr');
 
-            // Highlight current player
-            if (player.id === this.gameState.current_player_id) {
+            // Highlight current player (but not during round/game over)
+            const isPlaying = this.gameState.phase !== 'round_over' && this.gameState.phase !== 'game_over';
+            if (isPlaying && player.id === this.gameState.current_player_id) {
                 tr.classList.add('current-player');
             }
 

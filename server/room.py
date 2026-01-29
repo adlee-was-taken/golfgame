@@ -19,7 +19,7 @@ from typing import Optional
 
 from fastapi import WebSocket
 
-from ai import assign_profile, assign_specific_profile, get_profile, release_profile
+from ai import assign_profile, assign_specific_profile, get_profile, release_profile, cleanup_room_profiles
 from game import Game, Player
 
 
@@ -33,11 +33,12 @@ class RoomPlayer:
     in-game state like cards and scores.
 
     Attributes:
-        id: Unique player identifier.
+        id: Unique player identifier (connection_id for multi-tab support).
         name: Display name.
         websocket: WebSocket connection (None for CPU players).
         is_host: Whether this player controls game settings.
         is_cpu: Whether this is an AI-controlled player.
+        auth_user_id: Authenticated user ID for stats/limits (None for guests).
     """
 
     id: str
@@ -45,6 +46,7 @@ class RoomPlayer:
     websocket: Optional[WebSocket] = None
     is_host: bool = False
     is_cpu: bool = False
+    auth_user_id: Optional[str] = None
 
 
 @dataclass
@@ -73,6 +75,7 @@ class Room:
         player_id: str,
         name: str,
         websocket: WebSocket,
+        auth_user_id: Optional[str] = None,
     ) -> RoomPlayer:
         """
         Add a human player to the room.
@@ -80,9 +83,10 @@ class Room:
         The first player to join becomes the host.
 
         Args:
-            player_id: Unique identifier for the player.
+            player_id: Unique identifier for the player (connection_id).
             name: Display name.
             websocket: The player's WebSocket connection.
+            auth_user_id: Authenticated user ID for stats/limits (None for guests).
 
         Returns:
             The created RoomPlayer object.
@@ -93,6 +97,7 @@ class Room:
             name=name,
             websocket=websocket,
             is_host=is_host,
+            auth_user_id=auth_user_id,
         )
         self.players[player_id] = room_player
 
@@ -117,9 +122,9 @@ class Room:
             The created RoomPlayer, or None if profile unavailable.
         """
         if profile_name:
-            profile = assign_specific_profile(cpu_id, profile_name)
+            profile = assign_specific_profile(cpu_id, profile_name, self.code)
         else:
-            profile = assign_profile(cpu_id)
+            profile = assign_profile(cpu_id, self.code)
 
         if not profile:
             return None
@@ -157,9 +162,9 @@ class Room:
         room_player = self.players.pop(player_id)
         self.game.remove_player(player_id)
 
-        # Release CPU profile back to the pool
+        # Release CPU profile back to the room's pool
         if room_player.is_cpu:
-            release_profile(room_player.name)
+            release_profile(room_player.name, self.code)
 
         # Assign new host if needed
         if room_player.is_host and self.players:

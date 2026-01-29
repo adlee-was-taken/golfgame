@@ -15,7 +15,7 @@ import redis.asyncio as redis
 from config import config
 from room import RoomManager, Room
 from game import GamePhase, GameOptions
-from ai import GolfAI, process_cpu_turn, get_all_profiles, reset_all_profiles
+from ai import GolfAI, process_cpu_turn, get_all_profiles, reset_all_profiles, cleanup_room_profiles
 from game_log import get_logger
 
 # Import production components
@@ -407,12 +407,17 @@ async def require_admin(user: User = Depends(require_user)) -> User:
 @app.get("/api/debug/cpu-profiles")
 async def get_cpu_profile_status():
     """Get current CPU profile allocation status."""
-    from ai import _used_profiles, _cpu_profiles, CPU_PROFILES
+    from ai import _room_used_profiles, _cpu_profiles, CPU_PROFILES
     return {
         "total_profiles": len(CPU_PROFILES),
-        "used_count": len(_used_profiles),
-        "used_profiles": list(_used_profiles),
-        "cpu_mappings": {cpu_id: profile.name for cpu_id, profile in _cpu_profiles.items()},
+        "room_profiles": {
+            room_code: list(profiles)
+            for room_code, profiles in _room_used_profiles.items()
+        },
+        "cpu_mappings": {
+            cpu_id: {"room": room_code, "profile": profile.name}
+            for cpu_id, (room_code, profile) in _cpu_profiles.items()
+        },
         "active_rooms": len(room_manager.rooms),
         "rooms": {
             code: {
@@ -431,6 +436,19 @@ async def reset_cpu_profiles():
     return {"status": "ok", "message": "All CPU profiles reset"}
 
 
+MAX_CONCURRENT_GAMES = 4
+
+
+def count_user_games(user_id: str) -> int:
+    """Count how many games this authenticated user is currently in."""
+    count = 0
+    for room in room_manager.rooms.values():
+        for player in room.players.values():
+            if player.auth_user_id == user_id:
+                count += 1
+    return count
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -444,13 +462,17 @@ async def websocket_endpoint(websocket: WebSocket):
         except Exception as e:
             logger.debug(f"WebSocket auth failed: {e}")
 
-    # Use authenticated user ID if available, otherwise generate random UUID
+    # Each connection gets a unique ID (allows multi-tab play)
+    connection_id = str(uuid.uuid4())
+    player_id = connection_id
+
+    # Track auth user separately for stats/limits (can be None)
+    auth_user_id = str(authenticated_user.id) if authenticated_user else None
+
     if authenticated_user:
-        player_id = str(authenticated_user.id)
-        logger.debug(f"WebSocket authenticated as user {player_id}")
+        logger.debug(f"WebSocket authenticated as user {auth_user_id}, connection {connection_id}")
     else:
-        player_id = str(uuid.uuid4())
-        logger.debug(f"WebSocket connected anonymously as {player_id}")
+        logger.debug(f"WebSocket connected anonymously as {connection_id}")
 
     current_room: Room | None = None
 
@@ -460,12 +482,20 @@ async def websocket_endpoint(websocket: WebSocket):
             msg_type = data.get("type")
 
             if msg_type == "create_room":
+                # Check concurrent game limit for authenticated users
+                if auth_user_id and count_user_games(auth_user_id) >= MAX_CONCURRENT_GAMES:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": f"Maximum {MAX_CONCURRENT_GAMES} concurrent games allowed",
+                    })
+                    continue
+
                 player_name = data.get("player_name", "Player")
                 # Use authenticated user's name if available
                 if authenticated_user and authenticated_user.display_name:
                     player_name = authenticated_user.display_name
                 room = room_manager.create_room()
-                room.add_player(player_id, player_name, websocket)
+                room.add_player(player_id, player_name, websocket, auth_user_id)
                 current_room = room
 
                 await websocket.send_json({
@@ -483,6 +513,14 @@ async def websocket_endpoint(websocket: WebSocket):
             elif msg_type == "join_room":
                 room_code = data.get("room_code", "").upper()
                 player_name = data.get("player_name", "Player")
+
+                # Check concurrent game limit for authenticated users
+                if auth_user_id and count_user_games(auth_user_id) >= MAX_CONCURRENT_GAMES:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": f"Maximum {MAX_CONCURRENT_GAMES} concurrent games allowed",
+                    })
+                    continue
 
                 room = room_manager.get_room(room_code)
                 if not room:
@@ -509,7 +547,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Use authenticated user's name if available
                 if authenticated_user and authenticated_user.display_name:
                     player_name = authenticated_user.display_name
-                room.add_player(player_id, player_name, websocket)
+                room.add_player(player_id, player_name, websocket, auth_user_id)
                 current_room = room
 
                 await websocket.send_json({
@@ -744,6 +782,9 @@ async def websocket_endpoint(websocket: WebSocket):
                             )
 
                         await broadcast_game_state(current_room)
+                        # Let client swap animation complete (~550ms), then pause to show result
+                        # Total 1.0s = 550ms animation + 450ms visible pause
+                        await asyncio.sleep(1.0)
                         await check_and_run_cpu_turn(current_room)
 
             elif msg_type == "discard":
@@ -782,9 +823,15 @@ async def websocket_endpoint(websocket: WebSocket):
                                     "optional": current_room.game.flip_is_optional,
                                 })
                             else:
+                                # Let client animation complete before CPU turn
+                                await asyncio.sleep(0.5)
                                 await check_and_run_cpu_turn(current_room)
                         else:
-                            # Turn ended, check for CPU
+                            # Turn ended - let client animation complete before CPU turn
+                            # (player discard swoop animation is ~500ms: 350ms swoop + 150ms settle)
+                            logger.debug(f"Player discarded, waiting 0.5s before CPU turn")
+                            await asyncio.sleep(0.5)
+                            logger.debug(f"Post-discard delay complete, checking for CPU turn")
                             await check_and_run_cpu_turn(current_room)
 
             elif msg_type == "cancel_draw":
@@ -954,9 +1001,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 })
 
                 # Clean up the room
+                room_code = current_room.code
                 for cpu in list(current_room.get_cpu_players()):
                     current_room.remove_player(cpu.id)
-                room_manager.remove_room(current_room.code)
+                cleanup_room_profiles(room_code)
+                room_manager.remove_room(room_code)
                 current_room = None
 
     except WebSocketDisconnect:
@@ -972,12 +1021,12 @@ async def _process_stats_safe(room: Room):
     notifications while stats are being processed.
     """
     try:
-        # Build mapping - for non-CPU players, the player_id is their user_id
-        # (assigned during authentication or as a session UUID)
+        # Build mapping - use auth_user_id for authenticated players
+        # Only authenticated players get their stats tracked
         player_user_ids = {}
         for player_id, room_player in room.players.items():
-            if not room_player.is_cpu:
-                player_user_ids[player_id] = player_id
+            if not room_player.is_cpu and room_player.auth_user_id:
+                player_user_ids[player_id] = room_player.auth_user_id
 
         # Find winner
         winner_id = None
@@ -1095,6 +1144,7 @@ async def check_and_run_cpu_turn(room: Room):
 
 async def handle_player_leave(room: Room, player_id: str):
     """Handle a player leaving a room."""
+    room_code = room.code
     room_player = room.remove_player(player_id)
 
     # If no human players left, clean up the room entirely
@@ -1102,7 +1152,9 @@ async def handle_player_leave(room: Room, player_id: str):
         # Remove all remaining CPU players to release their profiles
         for cpu in list(room.get_cpu_players()):
             room.remove_player(cpu.id)
-        room_manager.remove_room(room.code)
+        # Clean up any remaining profile tracking for this room
+        cleanup_room_profiles(room_code)
+        room_manager.remove_room(room_code)
     elif room_player:
         await room.broadcast({
             "type": "player_left",

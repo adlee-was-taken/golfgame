@@ -1,0 +1,22 @@
+{
+  "name": "golf-e2e-tests",
+  "version": "1.0.0",
+  "description": "End-to-end tests for Golf Card Game",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:full-game": "playwright test specs/full-game.spec.ts",
+    "test:visual": "playwright test specs/visual.spec.ts",
+    "test:stress": "playwright test specs/stress.spec.ts",
+    "test:report": "playwright show-report",
+    "install:browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  }
+}

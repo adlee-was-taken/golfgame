@@ -12,12 +12,15 @@ class AnimationQueue {
         this.animationInProgress = false;
 
         // Timing configuration (ms)
+        // Rhythm: action → settle → action → breathe
         this.timing = {
-            flipDuration: 400,
-            moveDuration: 300,
-            pauseAfterMove: 200,
-            pauseAfterFlip: 100,
-            pauseBetweenAnimations: 100
+            flipDuration: 540,            // Must match CSS .card-inner transition (0.54s)
+            moveDuration: 270,
+            pauseAfterFlip: 144,          // Brief settle after flip before move
+            pauseAfterDiscard: 550,       // Let discard land + pulse (400ms) + settle
+            pauseBeforeNewCard: 150,      // Anticipation before new card moves in
+            pauseAfterSwapComplete: 400,  // Breathing room after swap completes
+            pauseBetweenAnimations: 90
         };
     }
 
@@ -159,20 +162,16 @@ class AnimationQueue {
         inner.classList.add('flipped');
 
         // Step 1: If card was face down, flip to reveal it
+        this.setCardFront(front, oldCard);
         if (!oldCard.face_up) {
-            // Set up the front with the old card content (what we're discarding)
-            this.setCardFront(front, oldCard);
-
             this.playSound('flip');
             inner.classList.remove('flipped');
             await this.delay(this.timing.flipDuration);
+            await this.delay(this.timing.pauseAfterFlip);
         } else {
-            // Already face up, just show it
-            this.setCardFront(front, oldCard);
+            // Already face up, just show it immediately
             inner.classList.remove('flipped');
         }
-
-        await this.delay(100);
 
         // Step 2: Move card to discard pile
         this.playSound('card');
@@ -181,8 +180,8 @@ class AnimationQueue {
         await this.delay(this.timing.moveDuration);
         animCard.classList.remove('moving');
 
-        // Pause to show the card landing on discard
-        await this.delay(this.timing.pauseAfterMove + 200);
+        // Let discard land and pulse settle
+        await this.delay(this.timing.pauseAfterDiscard);
 
         // Step 3: Create second card for the new card coming into hand
         const newAnimCard = this.createAnimCard();
@@ -197,6 +196,9 @@ class AnimationQueue {
         this.setCardFront(newFront, newCard);
         newInner.classList.remove('flipped');
 
+        // Brief anticipation before new card moves
+        await this.delay(this.timing.pauseBeforeNewCard);
+
         // Step 4: Move new card to the hand slot
         this.playSound('card');
         newAnimCard.classList.add('moving');
@@ -204,8 +206,8 @@ class AnimationQueue {
         await this.delay(this.timing.moveDuration);
         newAnimCard.classList.remove('moving');
 
-        // Clean up animation cards
-        await this.delay(this.timing.pauseAfterMove);
+        // Breathing room after swap completes
+        await this.delay(this.timing.pauseAfterSwapComplete);
         animCard.remove();
         newAnimCard.remove();
     }
@@ -297,7 +299,8 @@ class AnimationQueue {
         await this.delay(this.timing.moveDuration);
         animCard.classList.remove('moving');
 
-        await this.delay(this.timing.pauseAfterMove);
+        // Same timing as player swap - let discard land and pulse settle
+        await this.delay(this.timing.pauseAfterDiscard);
 
         // Clean up
         animCard.remove();
@@ -322,17 +325,13 @@ class AnimationQueue {
 
         // Move to holding position
         this.playSound('card');
-        await this.delay(50);
-
         animCard.classList.add('moving');
         this.setCardPosition(animCard, holdingRect);
         await this.delay(this.timing.moveDuration);
         animCard.classList.remove('moving');
 
-        // The card stays face down until the player decides what to do
-        // (the actual card reveal happens when server sends card_drawn)
-
-        await this.delay(this.timing.pauseAfterMove);
+        // Brief settle before state updates
+        await this.delay(this.timing.pauseBeforeNewCard);
 
         // Clean up - renderGame will show the holding card state
         animCard.remove();
