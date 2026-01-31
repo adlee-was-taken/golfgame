@@ -1011,13 +1011,14 @@ input::placeholder {
     display: none !important;
 }
 
-/* Held card floating over discard pile (larger, closer to viewer) */
+/* Held card floating above and between deck and discard (larger, closer to viewer) */
 .held-card-floating {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     z-index: 100;
-    transform: scale(1.2) translateY(-12px);
+    transform: scale(1.15);
+    transform-origin: center bottom;
     border: 3px solid #f4a460 !important;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(244, 164, 96, 0.7) !important;
     pointer-events: none;
@@ -1026,33 +1027,26 @@ input::placeholder {
 
 .held-card-floating.hidden {
     opacity: 0;
-    transform: scale(1) translateY(0);
+    transform: scale(0.9);
     pointer-events: none;
 }
 
 /* Animate floating card dropping to discard pile (when drawn from discard) */
 .held-card-floating.dropping {
-    transform: scale(1) translateY(0);
     border-color: transparent !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-    transition: transform 0.25s ease-out, border-color 0.25s ease-out, box-shadow 0.25s ease-out;
+    transition: border-color 0.3s ease-out, box-shadow 0.3s ease-out;
 }
 
 /* Swoop animation for deck → immediate discard */
 .held-card-floating.swooping {
-    transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.35s ease-out,
-                border-color 0.35s ease-out,
-                box-shadow 0.35s ease-out;
-    transform: scale(1.15) rotate(-8deg);
-    border-color: rgba(244, 164, 96, 0.8) !important;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(244, 164, 96, 0.6) !important;
+    transition: left 0.4s cubic-bezier(0.25, 0.1, 0.25, 1),
+                top 0.4s cubic-bezier(0.25, 0.1, 0.25, 1),
+                width 0.4s cubic-bezier(0.25, 0.1, 0.25, 1),
+                height 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .held-card-floating.swooping.landed {
-    transform: scale(1) rotate(0deg);
-    border-color: transparent !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
 }
 
@@ -1080,11 +1074,10 @@ input::placeholder {
     transform: scale(1.05);
 }
 
-/* Picked-up state - showing card underneath after drawing from discard */
+/* Picked-up state - dimmed when someone is holding a card */
 #discard.picked-up {
     opacity: 0.5;
     filter: grayscale(40%);
-    transform: scale(0.95);
 }
 
 .discard-stack {
@@ -1092,11 +1085,38 @@ input::placeholder {
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    position: relative;
 }
 
 .discard-stack .btn {
     white-space: nowrap;
+}
+
+/* Discard button as a tab attached to right side of held card */
+#discard-btn {
+    position: fixed;
+    z-index: 101;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    padding: 16px 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    border-radius: 0 8px 8px 0;
+    background: linear-gradient(90deg, #e8914d 0%, #f4a460 100%);
+    color: #1a472a;
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.15s;
+}
+
+#discard-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 3px 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+#discard-btn:active {
+    transform: scale(0.98);
 }
 
 #deck.disabled,
@@ -1141,50 +1161,62 @@ input::placeholder {
     }
 }
 
-/* Card flip animation for discard pile */
+/* Card appearing on discard pile */
 .card-flip-in {
-    animation: cardFlipIn 0.56s ease-out;
+    animation: cardFlipIn 0.25s ease-out;
 }
 
 @keyframes cardFlipIn {
-    0% {
-        transform: scale(1.4) translateY(-20px);
-        opacity: 0;
-        box-shadow: 0 0 40px rgba(244, 164, 96, 1);
-    }
-    30% {
-        transform: scale(1.25) translateY(-10px);
-        opacity: 1;
-        box-shadow: 0 0 35px rgba(244, 164, 96, 0.9);
-    }
-    70% {
-        transform: scale(1.1) translateY(0);
-        box-shadow: 0 0 20px rgba(244, 164, 96, 0.5);
-    }
-    100% {
-        transform: scale(1) translateY(0);
-        opacity: 1;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
+    from { opacity: 0.5; }
+    to { opacity: 1; }
 }
 
-/* Discard pile pulse when card lands */
+/* Discard pile pulse when card lands - simple glow */
 #discard.discard-land {
-    animation: discardLand 0.46s ease-out;
+    animation: discardLand 0.3s ease-out;
 }
 
 @keyframes discardLand {
     0% {
-        transform: scale(1);
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
-    40% {
-        transform: scale(1.18);
-        box-shadow: 0 0 25px rgba(244, 164, 96, 0.9);
+    50% {
+        box-shadow: 0 0 20px rgba(244, 164, 96, 0.8);
     }
     100% {
-        transform: scale(1);
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+}
+
+/* CPU considering discard pile - subtle blue glow pulse */
+#discard.cpu-considering {
+    animation: cpuConsider 1.5s ease-in-out infinite;
+}
+
+@keyframes cpuConsider {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    50% {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3),
+                    0 0 18px rgba(59, 130, 246, 0.5);
+    }
+}
+
+/* Discard pickup animation - simple dim */
+#discard.discard-pickup {
+    animation: discardPickup 0.25s ease-out;
+}
+
+@keyframes discardPickup {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+    100% {
+        opacity: 1;
     }
 }
 
@@ -1197,7 +1229,6 @@ input::placeholder {
     height: 100%;
     pointer-events: none;
     z-index: 1000;
-    perspective: 1000px;
 }
 
 .swap-animation.hidden {
@@ -1208,7 +1239,7 @@ input::placeholder {
     position: absolute;
     width: 70px;
     height: 98px;
-    perspective: 1000px;
+    perspective: 800px;
 }
 
 .swap-card.hidden {
@@ -1219,8 +1250,9 @@ input::placeholder {
     position: relative;
     width: 100%;
     height: 100%;
+    border-radius: 8px;
     transform-style: preserve-3d;
-    transition: transform 0.54s ease-in-out;
+    transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .swap-card.flipping .swap-card-inner {
@@ -1232,13 +1264,13 @@ input::placeholder {
     position: absolute;
     width: 100%;
     height: 100%;
-    backface-visibility: hidden;
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
     box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    backface-visibility: hidden;
 }
 
 .swap-card-back {
@@ -1248,17 +1280,18 @@ input::placeholder {
 }
 
 .swap-card-front {
-    background: linear-gradient(145deg, #fff 0%, #f0f0f0 100%);
-    transform: rotateY(180deg);
-    font-size: 2rem;
+    background: linear-gradient(145deg, #fff 0%, #f5f5f5 100%);
+    border: 2px solid #ddd;
+    font-size: clamp(1.8rem, 2.2vw, 2.8rem);
     flex-direction: column;
-    color: #2c3e50;
+    color: #333;
     line-height: 1.1;
     font-weight: bold;
+    transform: rotateY(180deg);
 }
 
 .swap-card-front.red {
-    color: #e74c3c;
+    color: #c0392b;
 }
 
 .swap-card-front.black {
@@ -1270,25 +1303,20 @@ input::placeholder {
 }
 
 .swap-card-front .joker-icon {
-    font-size: 1.6em;
+    font-size: 1.5em;
     line-height: 1;
 }
 
 .swap-card-front .joker-label {
-    font-size: 0.45em;
+    font-size: 0.4em;
     font-weight: 700;
     text-transform: uppercase;
-}
-
-/* Movement animation */
-.swap-card.flipping {
-    filter: drop-shadow(0 0 20px rgba(244, 164, 96, 0.8));
+    letter-spacing: 0.05em;
 }
 
 .swap-card.moving {
-    transition: top 0.45s cubic-bezier(0.4, 0, 0.2, 1), left 0.45s cubic-bezier(0.4, 0, 0.2, 1), transform 0.45s ease-out;
-    transform: scale(1.1) rotate(-5deg);
-    filter: drop-shadow(0 0 25px rgba(244, 164, 96, 1));
+    transition: top 0.4s cubic-bezier(0.25, 0.1, 0.25, 1),
+                left 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 /* Card in hand fading during swap */
@@ -1325,6 +1353,51 @@ input::placeholder {
     100% {
         transform: scale(1);
         filter: brightness(1);
+    }
+}
+
+/* Fade transitions for swap animation */
+.card.fade-out,
+.held-card-floating.fade-out,
+.anim-card.fade-out {
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+}
+
+.card.fade-in,
+.held-card-floating.fade-in,
+.anim-card.fade-in {
+    opacity: 1;
+    transition: opacity 0.3s ease-in;
+}
+
+/* Pulse animation for clickable cards during initial flip phase */
+.card.clickable.initial-flip-pulse {
+    animation: initialFlipPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes initialFlipPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 2px rgba(244, 164, 96, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(244, 164, 96, 0.8),
+                    0 0 15px rgba(244, 164, 96, 0.4);
+    }
+}
+
+/* Held card pulse glow for local player's turn */
+.held-card-floating.your-turn-pulse {
+    animation: heldCardPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes heldCardPulse {
+    0%, 100% {
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(244, 164, 96, 0.7);
+    }
+    50% {
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 35px rgba(244, 164, 96, 1),
+                    0 0 50px rgba(244, 164, 96, 0.5);
     }
 }
 
@@ -1433,6 +1506,12 @@ input::placeholder {
 .status-message.your-turn {
     background: linear-gradient(135deg, #b5d484 0%, #9ab973 100%);
     color: #2d3436;
+}
+
+/* CPU action status - subtle blue to indicate CPU is doing something */
+.status-message.cpu-action {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    color: #fff;
 }
 
 /* Final turn badge - separate indicator */
@@ -1631,7 +1710,9 @@ input::placeholder {
 }
 
 .game-buttons {
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     display: flex;
     flex-direction: column;
     gap: 5px;
@@ -1938,14 +2019,14 @@ input::placeholder {
     display: none;
 }
 
-/* Real Card - persistent card element with 3D structure */
+/* Real Card - persistent card element with 3D flip */
 .real-card {
     position: fixed;
     border-radius: 6px;
-    perspective: 1000px;
     z-index: 501;
     cursor: pointer;
-    transition: box-shadow 0.2s, opacity 0.2s;
+    transition: box-shadow 0.3s ease-out, opacity 0.3s ease-out;
+    perspective: 800px;
 }
 
 .real-card:hover {
@@ -1956,8 +2037,9 @@ input::placeholder {
     position: relative;
     width: 100%;
     height: 100%;
+    border-radius: 6px;
     transform-style: preserve-3d;
-    transition: transform 0.54s ease-in-out;
+    transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .real-card .card-inner.flipped {
@@ -1968,7 +2050,6 @@ input::placeholder {
     position: absolute;
     width: 100%;
     height: 100%;
-    backface-visibility: hidden;
     border-radius: 6px;
     display: flex;
     flex-direction: column;
@@ -1976,6 +2057,7 @@ input::placeholder {
     justify-content: center;
     font-weight: bold;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    backface-visibility: hidden;
 }
 
 /* Card Front */
@@ -1984,7 +2066,7 @@ input::placeholder {
     border: 2px solid #ddd;
     color: #333;
     font-size: clamp(1.8rem, 2.2vw, 2.8rem);
-    line-height: 1.1;
+    line-height: 0.95;
 }
 
 .real-card .card-face-front.red {
@@ -2031,11 +2113,8 @@ input::placeholder {
 .real-card.moving,
 .real-card.anim-card.moving {
     z-index: 600;
-    transition: left 0.27s cubic-bezier(0.4, 0, 0.2, 1),
-                top 0.27s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.27s ease-out;
-    filter: drop-shadow(0 0 20px rgba(244, 164, 96, 0.8));
-    transform: scale(1.08) rotate(-3deg);
+    transition: left 0.4s cubic-bezier(0.25, 0.1, 0.25, 1),
+                top 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 /* Animation card - temporary cards used for animations */
@@ -2045,14 +2124,13 @@ input::placeholder {
 }
 
 .real-card.anim-card .card-inner {
-    transition: transform 0.54s ease-in-out;
+    transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .real-card.holding {
     z-index: 550;
     box-shadow: 0 0 20px rgba(244, 164, 96, 0.6),
                 0 4px 15px rgba(0, 0, 0, 0.4);
-    transform: scale(1.08);
 }
 
 .real-card.clickable {
@@ -2062,7 +2140,6 @@ input::placeholder {
 .real-card.clickable:hover {
     box-shadow: 0 0 0 3px #f4a460,
                 0 4px 12px rgba(0, 0, 0, 0.3);
-    transform: scale(1.02);
 }
 
 /* Disable hover effects when not player's turn */
@@ -2077,7 +2154,6 @@ input::placeholder {
 
 .real-card.selected {
     box-shadow: 0 0 0 4px #fff, 0 0 15px 5px #f4a460;
-    transform: scale(1.06);
     z-index: 520;
 }
 

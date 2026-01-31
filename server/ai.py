@@ -33,6 +33,40 @@ def ai_log(message: str):
         ai_logger.debug(message)
 
 
+# =============================================================================
+# CPU Turn Timing Configuration (seconds)
+# =============================================================================
+# Centralized timing constants for all CPU turn delays.
+# Adjust these values to tune the "feel" of CPU gameplay.
+
+CPU_TIMING = {
+    # Delay before CPU "looks at" the discard pile
+    "initial_look": (0.5, 0.7),
+    # Brief pause after draw broadcast
+    "post_draw_settle": 0.05,
+    # Consideration time after drawing (before swap/discard decision)
+    "post_draw_consider": (0.2, 0.4),
+    # Variance multiplier range for chaotic personality players
+    "thinking_multiplier_chaotic": (0.6, 1.4),
+    # Pause after swap/discard to let animation complete and show result
+    "post_action_pause": (0.5, 0.7),
+}
+
+# Thinking time ranges by card difficulty (seconds)
+THINKING_TIME = {
+    # Obviously good cards (Jokers, Kings, 2s, Aces) - easy take
+    "easy_good": (0.2, 0.4),
+    # Obviously bad cards (10s, Jacks, Queens) - easy pass
+    "easy_bad": (0.2, 0.4),
+    # Medium difficulty (3, 4, 8, 9)
+    "medium": (0.2, 0.4),
+    # Hardest decisions (5, 6, 7 - middle of range)
+    "hard": (0.2, 0.4),
+    # No discard available - quick decision
+    "no_card": (0.2, 0.4),
+}
+
+
 # Alias for backwards compatibility - use the centralized function from game.py
 def get_ai_card_value(card: Card, options: GameOptions) -> int:
     """Get card value with house rules applied for AI decisions.
@@ -50,32 +84,37 @@ def can_make_pair(card1: Card, card2: Card) -> bool:
 def get_discard_thinking_time(card: Optional[Card], options: GameOptions) -> float:
     """Calculate CPU 'thinking time' based on how obvious the discard decision is.
 
-    Easy decisions (obviously good or bad cards) = quick (400-600ms)
-    Hard decisions (medium value cards) = slower (900-1100ms)
+    Easy decisions (obviously good or bad cards) = quick
+    Hard decisions (medium value cards) = slower
 
-    Returns time in seconds.
+    Returns time in seconds. Uses THINKING_TIME constants.
     """
     if not card:
         # No discard available - quick decision to draw from deck
-        return random.uniform(0.4, 0.5)
+        t = THINKING_TIME["no_card"]
+        return random.uniform(t[0], t[1])
 
     value = get_card_value(card, options)
 
     # Obviously good cards (easy take): 2 (-2), Joker (-2/-5), K (0), A (1)
     if value <= 1:
-        return random.uniform(0.4, 0.6)
+        t = THINKING_TIME["easy_good"]
+        return random.uniform(t[0], t[1])
 
     # Obviously bad cards (easy pass): 10, J, Q (value 10)
     if value >= 10:
-        return random.uniform(0.4, 0.6)
+        t = THINKING_TIME["easy_bad"]
+        return random.uniform(t[0], t[1])
 
     # Medium cards require more thought: 3-9
     # 5, 6, 7 are the hardest decisions (middle of the range)
     if value in (5, 6, 7):
-        return random.uniform(0.9, 1.1)
+        t = THINKING_TIME["hard"]
+        return random.uniform(t[0], t[1])
 
     # 3, 4, 8, 9 - moderate difficulty
-    return random.uniform(0.6, 0.85)
+    t = THINKING_TIME["medium"]
+    return random.uniform(t[0], t[1])
 
 
 def estimate_opponent_min_score(player: Player, game: Game, optimistic: bool = False) -> int:
@@ -1316,7 +1355,8 @@ async def process_cpu_turn(
     logger = get_logger() if game_id else None
 
     # Brief initial delay before CPU "looks at" the discard pile
-    await asyncio.sleep(random.uniform(0.08, 0.15))
+    initial_look = CPU_TIMING["initial_look"]
+    await asyncio.sleep(random.uniform(initial_look[0], initial_look[1]))
 
     # "Thinking" delay based on how obvious the discard decision is
     # Easy decisions (good/bad cards) are quick, medium cards take longer
@@ -1325,7 +1365,8 @@ async def process_cpu_turn(
 
     # Adjust for personality - chaotic players have more variance
     if profile.unpredictability > 0.2:
-        thinking_time *= random.uniform(0.6, 1.4)
+        chaos_mult = CPU_TIMING["thinking_multiplier_chaotic"]
+        thinking_time *= random.uniform(chaos_mult[0], chaos_mult[1])
 
     discard_str = f"{discard_top.rank.value}" if discard_top else "empty"
     ai_log(f"{cpu_player.name} thinking for {thinking_time:.2f}s (discard: {discard_str})")
@@ -1397,8 +1438,10 @@ async def process_cpu_turn(
 
     await broadcast_callback()
     # Brief pause after draw to let the flash animation register visually
-    await asyncio.sleep(0.08)
-    await asyncio.sleep(0.35 + random.uniform(0, 0.35))
+    await asyncio.sleep(CPU_TIMING["post_draw_settle"])
+    # Consideration time before swap/discard decision
+    consider = CPU_TIMING["post_draw_consider"]
+    await asyncio.sleep(consider[0] + random.uniform(0, consider[1] - consider[0]))
 
     # Decide whether to swap or discard
     swap_pos = GolfAI.choose_swap_or_discard(drawn, cpu_player, profile, game)
@@ -1535,3 +1578,7 @@ async def process_cpu_turn(
                     )
 
     await broadcast_callback()
+
+    # Pause to let client animation complete and show result before next turn
+    post_action = CPU_TIMING["post_action_pause"]
+    await asyncio.sleep(random.uniform(post_action[0], post_action[1]))

@@ -11,16 +11,23 @@ class AnimationQueue {
         this.processing = false;
         this.animationInProgress = false;
 
-        // Timing configuration (ms)
-        // Rhythm: action → settle → action → breathe
+        // Timing configuration (ms) - use centralized TIMING config
+        const T = window.TIMING || {};
         this.timing = {
-            flipDuration: 540,            // Must match CSS .card-inner transition (0.54s)
-            moveDuration: 270,
-            pauseAfterFlip: 144,          // Brief settle after flip before move
-            pauseAfterDiscard: 550,       // Let discard land + pulse (400ms) + settle
-            pauseBeforeNewCard: 150,      // Anticipation before new card moves in
-            pauseAfterSwapComplete: 400,  // Breathing room after swap completes
-            pauseBetweenAnimations: 90
+            flipDuration: T.card?.flip || 540,
+            moveDuration: T.card?.move || 270,
+            cardLift: T.card?.lift || 100,
+            pauseAfterFlip: T.pause?.afterFlip || 144,
+            pauseAfterDiscard: T.pause?.afterDiscard || 550,
+            pauseBeforeNewCard: T.pause?.beforeNewCard || 150,
+            pauseAfterSwapComplete: T.pause?.afterSwapComplete || 400,
+            pauseBetweenAnimations: T.pause?.betweenAnimations || 90,
+            pauseBeforeFlip: T.pause?.beforeFlip || 50,
+            // Beat timing
+            beatBase: T.beat?.base || 1000,
+            beatVariance: T.beat?.variance || 200,
+            fadeOut: T.beat?.fadeOut || 300,
+            fadeIn: T.beat?.fadeIn || 300,
         };
     }
 
@@ -124,7 +131,7 @@ class AnimationQueue {
 
         // Animate the flip
         this.playSound('flip');
-        await this.delay(50); // Brief pause before flip
+        await this.delay(this.timing.pauseBeforeFlip);
 
         // Remove flipped to trigger animation to front
         inner.classList.remove('flipped');
@@ -136,11 +143,10 @@ class AnimationQueue {
         animCard.remove();
     }
 
-    // Animate a card swap (hand card to discard, drawn card to hand)
+    // Animate a card swap - smooth continuous motion
     async animateSwap(movement) {
         const { playerId, position, oldCard, newCard } = movement;
 
-        // Get positions
         const slotRect = this.getSlotRect(playerId, position);
         const discardRect = this.getLocationRect('discard');
         const holdingRect = this.getLocationRect('holding');
@@ -149,67 +155,54 @@ class AnimationQueue {
             return;
         }
 
-        // Create a temporary card element for the animation
-        const animCard = this.createAnimCard();
-        this.cardManager.cardLayer.appendChild(animCard);
+        // Create animation cards
+        const handCard = this.createAnimCard();
+        this.cardManager.cardLayer.appendChild(handCard);
+        this.setCardPosition(handCard, slotRect);
 
-        // Position at slot
-        this.setCardPosition(animCard, slotRect);
+        const handInner = handCard.querySelector('.card-inner');
+        const handFront = handCard.querySelector('.card-face-front');
 
-        // Start face down (showing back)
-        const inner = animCard.querySelector('.card-inner');
-        const front = animCard.querySelector('.card-face-front');
-        inner.classList.add('flipped');
+        const heldCard = this.createAnimCard();
+        this.cardManager.cardLayer.appendChild(heldCard);
+        this.setCardPosition(heldCard, holdingRect || discardRect);
 
-        // Step 1: If card was face down, flip to reveal it
-        this.setCardFront(front, oldCard);
+        const heldInner = heldCard.querySelector('.card-inner');
+        const heldFront = heldCard.querySelector('.card-face-front');
+
+        // Set up initial state
+        this.setCardFront(handFront, oldCard);
+        if (!oldCard.face_up) {
+            handInner.classList.add('flipped');
+        }
+        this.setCardFront(heldFront, newCard);
+        heldInner.classList.remove('flipped');
+
+        // Step 1: If face-down, flip to reveal
         if (!oldCard.face_up) {
             this.playSound('flip');
-            inner.classList.remove('flipped');
+            handInner.classList.remove('flipped');
             await this.delay(this.timing.flipDuration);
-            await this.delay(this.timing.pauseAfterFlip);
-        } else {
-            // Already face up, just show it immediately
-            inner.classList.remove('flipped');
         }
 
-        // Step 2: Move card to discard pile
+        // Step 2: Quick crossfade swap
+        handCard.classList.add('fade-out');
+        heldCard.classList.add('fade-out');
+        await this.delay(150);
+
+        this.setCardPosition(handCard, discardRect);
+        this.setCardPosition(heldCard, slotRect);
+
         this.playSound('card');
-        animCard.classList.add('moving');
-        this.setCardPosition(animCard, discardRect);
-        await this.delay(this.timing.moveDuration);
-        animCard.classList.remove('moving');
+        handCard.classList.remove('fade-out');
+        heldCard.classList.remove('fade-out');
+        handCard.classList.add('fade-in');
+        heldCard.classList.add('fade-in');
+        await this.delay(150);
 
-        // Let discard land and pulse settle
-        await this.delay(this.timing.pauseAfterDiscard);
-
-        // Step 3: Create second card for the new card coming into hand
-        const newAnimCard = this.createAnimCard();
-        this.cardManager.cardLayer.appendChild(newAnimCard);
-
-        // New card starts at holding/discard position
-        this.setCardPosition(newAnimCard, holdingRect || discardRect);
-        const newInner = newAnimCard.querySelector('.card-inner');
-        const newFront = newAnimCard.querySelector('.card-face-front');
-
-        // Show new card (it's face up from the drawn card)
-        this.setCardFront(newFront, newCard);
-        newInner.classList.remove('flipped');
-
-        // Brief anticipation before new card moves
-        await this.delay(this.timing.pauseBeforeNewCard);
-
-        // Step 4: Move new card to the hand slot
-        this.playSound('card');
-        newAnimCard.classList.add('moving');
-        this.setCardPosition(newAnimCard, slotRect);
-        await this.delay(this.timing.moveDuration);
-        newAnimCard.classList.remove('moving');
-
-        // Breathing room after swap completes
-        await this.delay(this.timing.pauseAfterSwapComplete);
-        animCard.remove();
-        newAnimCard.remove();
+        // Clean up
+        handCard.remove();
+        heldCard.remove();
     }
 
     // Create a temporary animation card element
@@ -337,22 +330,47 @@ class AnimationQueue {
         animCard.remove();
     }
 
-    // Animate drawing from discard
+    // Animate drawing from discard - show card lifting and moving to holding position
     async animateDrawDiscard(movement) {
-        const { playerId } = movement;
-
-        // Discard to holding is mostly visual feedback
-        // The card "lifts" slightly
+        const { card } = movement;
 
         const discardRect = this.getLocationRect('discard');
         const holdingRect = this.getLocationRect('holding');
 
         if (!discardRect || !holdingRect) return;
 
-        // Just play sound - visual handled by CSS :holding state
-        this.playSound('card');
+        // Create animation card at discard position (face UP - visible card)
+        const animCard = this.createAnimCard();
+        this.cardManager.cardLayer.appendChild(animCard);
+        this.setCardPosition(animCard, discardRect);
 
+        const inner = animCard.querySelector('.card-inner');
+        const front = animCard.querySelector('.card-face-front');
+
+        // Show the card face (discard is always visible)
+        if (card) {
+            this.setCardFront(front, card);
+        }
+        inner.classList.remove('flipped'); // Face up
+
+        // Lift effect before moving - card rises slightly
+        animCard.style.transform = 'translateY(-8px) scale(1.05)';
+        animCard.style.transition = `transform ${this.timing.cardLift}ms ease-out`;
+        await this.delay(this.timing.cardLift);
+
+        // Move to holding position
+        this.playSound('card');
+        animCard.classList.add('moving');
+        animCard.style.transform = '';
+        this.setCardPosition(animCard, holdingRect);
         await this.delay(this.timing.moveDuration);
+        animCard.classList.remove('moving');
+
+        // Brief settle before state updates
+        await this.delay(this.timing.pauseBeforeNewCard);
+
+        // Clean up - renderGame will show the holding card state
+        animCard.remove();
     }
 
     // Check if animations are currently playing
