@@ -190,7 +190,7 @@ class CardAnimations {
                 targets: animCard,
                 translateY: -15,
                 rotate: [-2, 0],
-                duration: 105,
+                duration: 63,
                 easing: this.getEasing('lift')
             });
 
@@ -200,7 +200,7 @@ class CardAnimations {
                 left: holdingRect.left,
                 top: holdingRect.top,
                 translateY: 0,
-                duration: 175,
+                duration: 105,
                 easing: this.getEasing('move')
             });
 
@@ -276,7 +276,7 @@ class CardAnimations {
                 targets: animCard,
                 translateY: -12,
                 scale: 1.05,
-                duration: 42
+                duration: 25
             });
 
             // Direct move to holding
@@ -286,7 +286,7 @@ class CardAnimations {
                 top: holdingRect.top,
                 translateY: 0,
                 scale: 1,
-                duration: 126
+                duration: 76
             });
 
             // Minimal pause
@@ -675,8 +675,8 @@ class CardAnimations {
 
             anime({
                 targets: element,
-                translateX: [0, -4, 4, -3, 2, 0],
-                duration: 200,
+                translateX: [0, -8, 8, -6, 4, 0],
+                duration: 400,
                 easing: 'easeInOutQuad'
             });
         };

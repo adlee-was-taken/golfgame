@@ -1144,8 +1144,8 @@ async def check_and_run_cpu_turn(room: Room):
     if not room_player or not room_player.is_cpu:
         return
 
-    # Pause before CPU starts - let client animations settle and show current state
-    await asyncio.sleep(0.6)
+    # Brief pause before CPU starts - animations are faster now
+    await asyncio.sleep(0.25)
 
     # Run CPU turn
     async def broadcast_cb():

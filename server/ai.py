@@ -41,29 +41,29 @@ def ai_log(message: str):
 
 CPU_TIMING = {
     # Delay before CPU "looks at" the discard pile
-    "initial_look": (0.5, 0.7),
-    # Brief pause after draw broadcast
-    "post_draw_settle": 0.05,
+    "initial_look": (0.3, 0.5),
+    # Brief pause after draw broadcast - let draw animation complete
+    "post_draw_settle": 0.5,
     # Consideration time after drawing (before swap/discard decision)
-    "post_draw_consider": (0.2, 0.4),
+    "post_draw_consider": (0.3, 0.6),
     # Variance multiplier range for chaotic personality players
     "thinking_multiplier_chaotic": (0.6, 1.4),
     # Pause after swap/discard to let animation complete and show result
-    "post_action_pause": (0.5, 0.7),
+    "post_action_pause": (0.3, 0.5),
 }
 
 # Thinking time ranges by card difficulty (seconds)
 THINKING_TIME = {
     # Obviously good cards (Jokers, Kings, 2s, Aces) - easy take
-    "easy_good": (0.2, 0.4),
+    "easy_good": (0.15, 0.3),
     # Obviously bad cards (10s, Jacks, Queens) - easy pass
-    "easy_bad": (0.2, 0.4),
+    "easy_bad": (0.15, 0.3),
     # Medium difficulty (3, 4, 8, 9)
-    "medium": (0.2, 0.4),
+    "medium": (0.15, 0.3),
     # Hardest decisions (5, 6, 7 - middle of range)
-    "hard": (0.2, 0.4),
+    "hard": (0.15, 0.3),
     # No discard available - quick decision
-    "no_card": (0.2, 0.4),
+    "no_card": (0.15, 0.3),
 }
 
 
@@ -1056,20 +1056,28 @@ class GolfAI:
         # Pair hunters might hold medium cards hoping for matches
         if best_pos is not None and not player.cards[best_pos].face_up:
             if drawn_value >= 5:  # Only hold out for medium/high cards
-                pair_viability = get_pair_viability(drawn_card.rank, game)
-                phase = get_game_phase(game)
-                pressure = get_end_game_pressure(player, game)
+                # DON'T hold if placing at best_pos would actually CREATE a pair right now!
+                partner_pos = get_column_partner_position(best_pos)
+                partner_card = player.cards[partner_pos]
+                would_make_pair = partner_card.face_up and partner_card.rank == drawn_card.rank
 
-                effective_hope = profile.pair_hope * pair_viability
-                if phase == 'late' or pressure > 0.5:
-                    effective_hope *= 0.3
+                if would_make_pair:
+                    ai_log(f"  Skip hold-for-pair: placing at {best_pos} creates pair with {partner_card.rank.value}")
+                else:
+                    pair_viability = get_pair_viability(drawn_card.rank, game)
+                    phase = get_game_phase(game)
+                    pressure = get_end_game_pressure(player, game)
 
-                ai_log(f"  Hold-for-pair check: value={drawn_value}, viability={pair_viability:.2f}, "
-                       f"phase={phase}, effective_hope={effective_hope:.2f}")
+                    effective_hope = profile.pair_hope * pair_viability
+                    if phase == 'late' or pressure > 0.5:
+                        effective_hope *= 0.3
 
-                if effective_hope > 0.5 and random.random() < effective_hope:
-                    ai_log(f"  >> HOLDING: discarding {drawn_card.rank.value} hoping for future pair")
-                    return None  # Discard and hope for pair later
+                    ai_log(f"  Hold-for-pair check: value={drawn_value}, viability={pair_viability:.2f}, "
+                           f"phase={phase}, effective_hope={effective_hope:.2f}")
+
+                    if effective_hope > 0.5 and random.random() < effective_hope:
+                        ai_log(f"  >> HOLDING: discarding {drawn_card.rank.value} hoping for future pair")
+                        return None  # Discard and hope for pair later
 
         # Log final decision
         if best_pos is not None:
