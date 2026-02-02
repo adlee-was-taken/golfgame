@@ -78,12 +78,13 @@
                     <h3>Game Settings</h3>
                     <div class="basic-settings-row">
                         <div class="form-group">
-                            <label for="num-decks">Decks</label>
-                            <select id="num-decks">
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                            </select>
+                            <label>Decks</label>
+                            <div class="stepper-control">
+                                <button type="button" id="decks-minus" class="stepper-btn">−</button>
+                                <span id="num-decks-display" class="stepper-value">1</span>
+                                <input type="hidden" id="num-decks" value="1">
+                                <button type="button" id="decks-plus" class="stepper-btn">+</button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="num-rounds">Holes</label>
@@ -94,13 +95,36 @@
                                 <option value="1">1</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label for="initial-flips">Cards Revealed</label>
-                            <select id="initial-flips">
-                                <option value="2" selected>2 cards</option>
-                                <option value="1">1 card</option>
-                                <option value="0">None</option>
-                            </select>
+                        <div id="deck-colors-group" class="form-group">
+                            <label for="deck-color-preset">Card Backs</label>
+                            <div class="deck-color-selector">
+                                <select id="deck-color-preset">
+                                    <optgroup label="Themes">
+                                        <option value="classic" selected>Classic</option>
+                                        <option value="ninja">Ninja Turtles</option>
+                                        <option value="ocean">Ocean</option>
+                                        <option value="forest">Forest</option>
+                                        <option value="sunset">Sunset</option>
+                                        <option value="berry">Berry</option>
+                                        <option value="neon">Neon</option>
+                                        <option value="royal">Royal</option>
+                                        <option value="earth">Earth</option>
+                                    </optgroup>
+                                    <optgroup label="Single Color">
+                                        <option value="all-red">All Red</option>
+                                        <option value="all-blue">All Blue</option>
+                                        <option value="all-green">All Green</option>
+                                        <option value="all-gold">All Gold</option>
+                                        <option value="all-purple">All Purple</option>
+                                        <option value="all-teal">All Teal</option>
+                                        <option value="all-pink">All Pink</option>
+                                        <option value="all-slate">All Slate</option>
+                                    </optgroup>
+                                </select>
+                                <div id="deck-color-preview" class="deck-color-preview">
+                                    <div class="preview-card deck-red"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <p id="deck-recommendation" class="recommendation hidden">Recommended: 2+ decks for 4+ players</p>
@@ -281,9 +305,7 @@
                                         </div>
                                         <span class="held-label">Holding</span>
                                     </div>
-                                    <div id="deck" class="card card-back">
-                                        <span>?</span>
-                                    </div>
+                                    <div id="deck" class="card card-back"></div>
                                     <div class="discard-stack">
                                         <div id="discard" class="card">
                                             <span id="discard-content"></span>
@@ -312,14 +334,14 @@
                                 <div id="swap-card-from-hand" class="swap-card">
                                     <div class="swap-card-inner">
                                         <div class="swap-card-front"></div>
-                                        <div class="swap-card-back">?</div>
+                                        <div class="swap-card-back"></div>
                                     </div>
                                 </div>
                                 <!-- Drawn card being held (animates to hand) -->
                                 <div id="held-card" class="swap-card hidden">
                                     <div class="swap-card-inner">
                                         <div class="swap-card-front"></div>
-                                        <div class="swap-card-back">?</div>
+                                        <div class="swap-card-back"></div>
                                     </div>
                                 </div>
                             </div>
@@ -335,11 +357,12 @@
 
                 <!-- Right panel: Scores -->
                 <div id="scoreboard" class="side-panel right-panel">
-                    <h4>Scores</h4>
                     <div id="game-buttons" class="game-buttons hidden">
                         <button id="next-round-btn" class="btn btn-next-round hidden">Next Hole</button>
                         <button id="new-game-btn" class="btn btn-small btn-secondary hidden">New Game</button>
+                        <hr class="scores-divider">
                     </div>
+                    <h4>Scores</h4>
                     <table id="score-table">
                         <thead>
                             <tr>
@@ -805,6 +828,9 @@ TOTAL: 0 + 8 + 16 = 24 points</pre>
         </div>
     </div>
 
+    <script src="anime.min.js"></script>
+    <script src="timing-config.js"></script>
+    <script src="card-animations.js"></script>
     <script src="card-manager.js"></script>
     <script src="state-differ.js"></script>
     <script src="animation-queue.js"></script>

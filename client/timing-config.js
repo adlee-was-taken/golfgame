@@ -30,8 +30,8 @@ const TIMING = {
 
     // UI feedback durations (milliseconds)
     feedback: {
-        drawPulse: 300,         // Draw pile highlight duration
-        discardLand: 300,       // Discard land effect duration
+        drawPulse: 375,         // Draw pile highlight duration (25% slower for clear sequencing)
+        discardLand: 375,       // Discard land effect duration (25% slower)
         cardFlipIn: 300,        // Card flip-in effect duration
         statusMessage: 2000,    // Toast/status message duration
         copyConfirm: 2000,      // Copy button confirmation duration
@@ -41,6 +41,21 @@ const TIMING = {
     // CSS animation timing (for reference - actual values in style.css)
     css: {
         cpuConsidering: 1500,   // CPU considering pulse cycle
+    },
+
+    // Anime.js animation configuration
+    anime: {
+        easing: {
+            flip: 'easeInOutQuad',
+            move: 'easeOutCubic',
+            lift: 'easeOutQuad',
+            pulse: 'easeInOutSine',
+        },
+        loop: {
+            turnPulse: { duration: 2000 },
+            cpuThinking: { duration: 1500 },
+            initialFlipGlow: { duration: 1500 },
+        }
     },
 
     // Card manager specific

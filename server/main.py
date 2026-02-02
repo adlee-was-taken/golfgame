@@ -645,6 +645,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 num_decks = data.get("decks", 1)
                 num_rounds = data.get("rounds", 1)
 
+                # Parse deck colors (validate against allowed colors)
+                allowed_colors = {
+                    "red", "blue", "gold", "teal", "purple", "orange", "yellow",
+                    "green", "pink", "cyan", "brown", "slate"
+                }
+                raw_deck_colors = data.get("deck_colors", ["red", "blue", "gold"])
+                deck_colors = [c for c in raw_deck_colors if c in allowed_colors]
+                if not deck_colors:
+                    deck_colors = ["red", "blue", "gold"]
+
                 # Build game options
                 options = GameOptions(
                     # Standard options
@@ -669,6 +679,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     negative_pairs_keep_value=data.get("negative_pairs_keep_value", False),
                     one_eyed_jacks=data.get("one_eyed_jacks", False),
                     knock_early=data.get("knock_early", False),
+                    # Multi-deck card back colors
+                    deck_colors=deck_colors,
                 )
 
                 # Validate settings
@@ -1132,6 +1144,9 @@ async def check_and_run_cpu_turn(room: Room):
     if not room_player or not room_player.is_cpu:
         return
 
+    # Pause before CPU starts - let client animations settle and show current state
+    await asyncio.sleep(0.6)
+
     # Run CPU turn
     async def broadcast_cb():
         await broadcast_game_state(room)
@@ -1191,6 +1206,10 @@ if os.path.exists(client_path):
     async def serve_animation_queue():
         return FileResponse(os.path.join(client_path, "animation-queue.js"), media_type="application/javascript")
 
+    @app.get("/timing-config.js")
+    async def serve_timing_config():
+        return FileResponse(os.path.join(client_path, "timing-config.js"), media_type="application/javascript")
+
     @app.get("/leaderboard.js")
     async def serve_leaderboard_js():
         return FileResponse(os.path.join(client_path, "leaderboard.js"), media_type="application/javascript")
@@ -1215,6 +1234,14 @@ if os.path.exists(client_path):
     @app.get("/replay.js")
     async def serve_replay_js():
         return FileResponse(os.path.join(client_path, "replay.js"), media_type="application/javascript")
+
+    @app.get("/card-animations.js")
+    async def serve_card_animations_js():
+        return FileResponse(os.path.join(client_path, "card-animations.js"), media_type="application/javascript")
+
+    @app.get("/anime.min.js")
+    async def serve_anime_js():
+        return FileResponse(os.path.join(client_path, "anime.min.js"), media_type="application/javascript")
 
     # Serve replay page for share links
     @app.get("/replay/{share_code}")

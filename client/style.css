@@ -249,6 +249,87 @@ body {
     padding: 8px 4px;
 }
 
+/* Stepper Control */
+.stepper-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 6px;
+    padding: 4px 8px;
+}
+
+.stepper-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    background: #4a5568;
+    color: white;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.stepper-btn:hover {
+    background: #5a6578;
+}
+
+.stepper-btn:active {
+    background: #3a4558;
+}
+
+.stepper-value {
+    min-width: 24px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+/* Deck Color Selector */
+.deck-color-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.deck-color-selector select {
+    flex: 1;
+}
+
+.deck-color-preview {
+    display: flex;
+    gap: 3px;
+    padding: 4px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+}
+
+.preview-card {
+    width: 16px;
+    height: 22px;
+    border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+/* Deck color classes for preview cards */
+.deck-red { background: linear-gradient(135deg, #c41e3a 0%, #922b21 100%); }
+.deck-blue { background: linear-gradient(135deg, #2e5cb8 0%, #1a3a7a 100%); }
+.deck-green { background: linear-gradient(135deg, #228b22 0%, #145214 100%); }
+.deck-gold { background: linear-gradient(135deg, #daa520 0%, #b8860b 100%); }
+.deck-purple { background: linear-gradient(135deg, #6a0dad 0%, #4b0082 100%); }
+.deck-teal { background: linear-gradient(135deg, #008b8b 0%, #005f5f 100%); }
+.deck-pink { background: linear-gradient(135deg, #db7093 0%, #c04f77 100%); }
+.deck-slate { background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%); }
+.deck-orange { background: linear-gradient(135deg, #e67e22 0%, #d35400 100%); }
+.deck-cyan { background: linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); }
+.deck-brown { background: linear-gradient(135deg, #8b4513 0%, #5d2f0d 100%); }
+
 /* CPU Controls Section - below players list */
 .cpu-controls-section {
     background: rgba(0,0,0,0.2);
@@ -778,7 +859,7 @@ input::placeholder {
 }
 
 .card-back {
-    /* Bee-style diamond grid pattern - red with white crosshatch */
+    /* Bee-style diamond grid pattern - default red with white crosshatch */
     background-color: #c41e3a;
     background-image:
         linear-gradient(45deg, rgba(255,255,255,0.25) 25%, transparent 25%),
@@ -792,6 +873,19 @@ input::placeholder {
     font-size: clamp(1.8rem, 2.5vw, 3rem);
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
+
+/* Card back color variants */
+.card-back.back-red { background-color: #c41e3a; border-color: #8b1528; }
+.card-back.back-blue { background-color: #2e5cb8; border-color: #1a3a7a; }
+.card-back.back-green { background-color: #228b22; border-color: #145214; }
+.card-back.back-gold { background-color: #daa520; border-color: #b8860b; }
+.card-back.back-purple { background-color: #6a0dad; border-color: #4b0082; }
+.card-back.back-teal { background-color: #008b8b; border-color: #005f5f; }
+.card-back.back-pink { background-color: #db7093; border-color: #c04f77; }
+.card-back.back-slate { background-color: #4a5568; border-color: #2d3748; }
+.card-back.back-orange { background-color: #e67e22; border-color: #d35400; }
+.card-back.back-cyan { background-color: #00bcd4; border-color: #0097a7; }
+.card-back.back-brown { background-color: #8b4513; border-color: #5d2f0d; }
 
 .card-front {
     background: #fff;
@@ -827,6 +921,13 @@ input::placeholder {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: #9b59b6;
+}
+
+/* Unknown card placeholder (locally flipped, server hasn't confirmed yet) */
+.card-front .unknown-card {
+    font-size: 1.8em;
+    color: #7f8c8d;
+    opacity: 0.6;
 }
 
 .card.clickable {
@@ -990,23 +1091,42 @@ input::placeholder {
     align-items: flex-start;
 }
 
-/* Gentle pulse when it's your turn to draw */
-.deck-area.your-turn-to-draw {
-    animation: deckAreaPulse 2s ease-in-out infinite;
-}
-
-@keyframes deckAreaPulse {
-    0%, 100% {
-        filter: brightness(1);
-        transform: scale(1);
-    }
-    50% {
-        filter: brightness(1.08);
-        transform: scale(1.02);
-    }
-}
+/* Gentle pulse when it's your turn to draw - handled by anime.js */
+/* The .your-turn-to-draw class triggers anime.js startTurnPulse() */
 
 /* Held card slot - hidden, using floating card over discard instead */
+/* Draw animation card (Anime.js powered) */
+.draw-anim-card {
+    position: fixed;
+    z-index: 200;
+    perspective: 800px;
+    pointer-events: none;
+}
+
+.draw-anim-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+}
+
+.draw-anim-front,
+.draw-anim-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 8px;
+}
+
+.draw-anim-front {
+    transform: rotateY(0deg);
+}
+
+.draw-anim-back {
+    transform: rotateY(180deg);
+}
+
 .held-card-slot {
     display: none !important;
 }
@@ -1022,28 +1142,30 @@ input::placeholder {
     border: 3px solid #f4a460 !important;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(244, 164, 96, 0.7) !important;
     pointer-events: none;
-    transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+    /* No transition - anime.js handles animations */
 }
 
 .held-card-floating.hidden {
     opacity: 0;
-    transform: scale(0.9);
     pointer-events: none;
+}
+
+/* Pop-in animation - now handled by anime.js popIn() */
+/* Keeping class for backwards compatibility */
+.held-card-floating.pop-in {
+    /* Animation handled by JS */
 }
 
 /* Animate floating card dropping to discard pile (when drawn from discard) */
 .held-card-floating.dropping {
     border-color: transparent !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-    transition: border-color 0.3s ease-out, box-shadow 0.3s ease-out;
+    /* transition removed - anime.js handles animations */
 }
 
 /* Swoop animation for deck → immediate discard */
 .held-card-floating.swooping {
-    transition: left 0.4s cubic-bezier(0.25, 0.1, 0.25, 1),
-                top 0.4s cubic-bezier(0.25, 0.1, 0.25, 1),
-                width 0.4s cubic-bezier(0.25, 0.1, 0.25, 1),
-                height 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    /* transition removed - anime.js handles animations */
 }
 
 .held-card-floating.swooping.landed {
@@ -1132,33 +1254,55 @@ input::placeholder {
     box-shadow: none;
 }
 
-/* Highlight flash when opponent draws from a pile */
+/* Highlight flash when drawing from a pile - uses ::after for guaranteed visibility */
 #deck.draw-pulse,
 #discard.draw-pulse {
-    animation: draw-highlight 0.45s ease-out;
-    z-index: 100;
+    position: relative;
+    z-index: 250;
 }
 
-@keyframes draw-highlight {
+#deck.draw-pulse::after,
+#discard.draw-pulse::after {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    bottom: -8px;
+    border: 4px solid gold;
+    border-radius: 10px;
+    animation: draw-highlight-ring 0.4s ease-out forwards;
+    pointer-events: none;
+    z-index: 999;
+}
+
+@keyframes draw-highlight-ring {
     0% {
-        transform: scale(1);
-        outline: 0px solid rgba(255, 220, 100, 0);
+        opacity: 1;
+        transform: scale(0.9);
+        border-width: 4px;
     }
-    15% {
-        transform: scale(1.08);
-        outline: 3px solid rgba(255, 220, 100, 1);
-        outline-offset: 2px;
-    }
-    40% {
-        transform: scale(1.04);
-        outline: 3px solid rgba(255, 200, 80, 0.7);
-        outline-offset: 4px;
+    30% {
+        opacity: 1;
+        transform: scale(1.1);
+        border-width: 6px;
     }
     100% {
-        transform: scale(1);
-        outline: 3px solid rgba(255, 200, 80, 0);
-        outline-offset: 8px;
+        opacity: 0;
+        transform: scale(1.2);
+        border-width: 2px;
     }
+}
+
+/* Deck "dealing" effect when drawing from deck */
+#deck.dealing {
+    animation: deck-deal 0.15s ease-out;
+}
+
+@keyframes deck-deal {
+    0% { transform: scale(1); }
+    30% { transform: scale(0.97) translateY(2px); }
+    100% { transform: scale(1); }
 }
 
 /* Card appearing on discard pile */
@@ -1171,37 +1315,11 @@ input::placeholder {
     to { opacity: 1; }
 }
 
-/* Discard pile pulse when card lands - simple glow */
-#discard.discard-land {
-    animation: discardLand 0.3s ease-out;
-}
+/* Discard pile pulse when card lands - handled by anime.js pulseDiscard() */
+/* The .discard-land class is kept for backwards compatibility */
 
-@keyframes discardLand {
-    0% {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
-    50% {
-        box-shadow: 0 0 20px rgba(244, 164, 96, 0.8);
-    }
-    100% {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
-}
-
-/* CPU considering discard pile - subtle blue glow pulse */
-#discard.cpu-considering {
-    animation: cpuConsider 1.5s ease-in-out infinite;
-}
-
-@keyframes cpuConsider {
-    0%, 100% {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
-    50% {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3),
-                    0 0 18px rgba(59, 130, 246, 0.5);
-    }
-}
+/* CPU considering discard pile - handled by anime.js startCpuThinking() */
+/* The .cpu-considering class is still used as a flag, but animation is via JS */
 
 /* Discard pickup animation - simple dim */
 #discard.discard-pickup {
@@ -1252,7 +1370,7 @@ input::placeholder {
     height: 100%;
     border-radius: 8px;
     transform-style: preserve-3d;
-    transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    /* transition removed - anime.js handles all flip animations */
 }
 
 .swap-card.flipping .swap-card-inner {
@@ -1278,6 +1396,19 @@ input::placeholder {
     color: rgba(255,255,255,0.4);
     font-size: 2rem;
 }
+
+/* Swap card back color variants */
+.swap-card-back.back-red { background: linear-gradient(135deg, #c41e3a 0%, #922b21 100%); }
+.swap-card-back.back-blue { background: linear-gradient(135deg, #2e5cb8 0%, #1a3a7a 100%); }
+.swap-card-back.back-green { background: linear-gradient(135deg, #228b22 0%, #145214 100%); }
+.swap-card-back.back-gold { background: linear-gradient(135deg, #daa520 0%, #b8860b 100%); }
+.swap-card-back.back-purple { background: linear-gradient(135deg, #6a0dad 0%, #4b0082 100%); }
+.swap-card-back.back-teal { background: linear-gradient(135deg, #008b8b 0%, #005f5f 100%); }
+.swap-card-back.back-pink { background: linear-gradient(135deg, #db7093 0%, #c04f77 100%); }
+.swap-card-back.back-slate { background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%); }
+.swap-card-back.back-orange { background: linear-gradient(135deg, #e67e22 0%, #d35400 100%); }
+.swap-card-back.back-cyan { background: linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); }
+.swap-card-back.back-brown { background: linear-gradient(135deg, #8b4513 0%, #5d2f0d 100%); }
 
 .swap-card-front {
     background: linear-gradient(145deg, #fff 0%, #f5f5f5 100%);
@@ -1314,79 +1445,59 @@ input::placeholder {
     letter-spacing: 0.05em;
 }
 
+.swap-card-front.unknown {
+    color: #7f8c8d;
+}
+
+.swap-card-front .unknown-icon {
+    font-size: 2em;
+    opacity: 0.6;
+}
+
 .swap-card.moving {
-    transition: top 0.4s cubic-bezier(0.25, 0.1, 0.25, 1),
-                left 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    /* transition removed - anime.js handles animations */
 }
 
 /* Card in hand fading during swap */
 .card.swap-out {
     opacity: 0;
-    transition: opacity 0.1s;
+    /* transition removed - anime.js handles animations */
 }
 
 /* Discard fading during swap */
 #discard.swap-to-hand {
     opacity: 0;
-    transition: opacity 0.2s;
+    /* transition removed - anime.js handles animations */
 }
 
-/* Subtle swap pulse for face-to-face swaps (no flip needed) */
-.card.swap-pulse {
-    animation: swapPulse 0.4s ease-out;
-}
-
-@keyframes swapPulse {
-    0% {
-        transform: scale(1);
-        filter: brightness(1);
-    }
-    20% {
-        transform: scale(0.92);
-        filter: brightness(0.85);
-    }
-    50% {
-        transform: scale(1.08);
-        filter: brightness(1.15);
-        box-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
-    }
-    100% {
-        transform: scale(1);
-        filter: brightness(1);
-    }
-}
+/* Subtle swap pulse for face-to-face swaps - handled by anime.js pulseSwap() */
+/* Keeping the class for backwards compatibility */
 
 /* Fade transitions for swap animation */
 .card.fade-out,
 .held-card-floating.fade-out,
 .anim-card.fade-out {
     opacity: 0;
-    transition: opacity 0.3s ease-out;
+    /* transition removed - anime.js handles animations */
 }
 
 .card.fade-in,
 .held-card-floating.fade-in,
 .anim-card.fade-in {
     opacity: 1;
-    transition: opacity 0.3s ease-in;
+    /* transition removed - anime.js handles animations */
 }
 
 /* Pulse animation for clickable cards during initial flip phase */
+/* Now handled by anime.js startInitialFlipPulse() for consistency */
+/* Keeping the class as a hook but animation is via JS */
 .card.clickable.initial-flip-pulse {
-    animation: initialFlipPulse 1.5s ease-in-out infinite;
-}
-
-@keyframes initialFlipPulse {
-    0%, 100% {
-        box-shadow: 0 0 0 2px rgba(244, 164, 96, 0.5);
-    }
-    50% {
-        box-shadow: 0 0 0 4px rgba(244, 164, 96, 0.8),
-                    0 0 15px rgba(244, 164, 96, 0.4);
-    }
+    /* Fallback static glow if JS doesn't start animation */
+    box-shadow: 0 0 0 2px rgba(244, 164, 96, 0.5);
 }
 
 /* Held card pulse glow for local player's turn */
+/* Keeping CSS animation for this as it's a simple looping effect */
 .held-card-floating.your-turn-pulse {
     animation: heldCardPulse 1.5s ease-in-out infinite;
 }
@@ -1711,11 +1822,16 @@ input::placeholder {
 
 .game-buttons {
     margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 8px;
+}
+
+.game-buttons .scores-divider {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    margin: 4px 0 0 0;
+    width: 100%;
 }
 
 .game-buttons .btn {
@@ -2039,7 +2155,7 @@ input::placeholder {
     height: 100%;
     border-radius: 6px;
     transform-style: preserve-3d;
-    transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    /* transition removed - anime.js handles all flip animations */
 }
 
 .real-card .card-inner.flipped {
@@ -2113,8 +2229,7 @@ input::placeholder {
 .real-card.moving,
 .real-card.anim-card.moving {
     z-index: 600;
-    transition: left 0.4s cubic-bezier(0.25, 0.1, 0.25, 1),
-                top 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    /* transition removed - anime.js handles animations */
 }
 
 /* Animation card - temporary cards used for animations */
@@ -2124,7 +2239,7 @@ input::placeholder {
 }
 
 .real-card.anim-card .card-inner {
-    transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    /* transition removed - anime.js handles all flip animations */
 }
 
 .real-card.holding {
