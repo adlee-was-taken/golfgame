@@ -251,7 +251,7 @@ async def _close_all_websockets():
 app = FastAPI(
     title="Golf Card Game",
     debug=config.DEBUG,
-    version="0.1.0",
+    version="2.0.1",
     lifespan=lifespan,
 )
 

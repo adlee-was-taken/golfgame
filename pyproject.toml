@@ -1,6 +1,6 @@
 [project]
 name = "golfgame"
-version = "0.1.0"
+version = "2.0.1"
 description = "6-Card Golf card game with AI opponents"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,6 +27,12 @@ dependencies = [
     "python-dotenv>=1.0.0",
     # V2: Event sourcing infrastructure
     "asyncpg>=0.29.0",
+    "redis>=5.0.0",
+    # V2: Authentication
+    "bcrypt>=4.1.0",
+    "resend>=2.0.0",
+    # V2: Production monitoring (optional but recommended)
+    "sentry-sdk[fastapi]>=1.40.0",
 ]
 
 [project.optional-dependencies]
