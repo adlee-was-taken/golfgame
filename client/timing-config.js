@@ -64,6 +64,55 @@ const TIMING = {
         moveDuration: 400,      // Card move animation
     },
 
+    // V3_02: Dealing animation
+    dealing: {
+        shufflePause: 400,        // Pause after shuffle sound
+        cardFlyTime: 150,         // Time for card to fly to destination
+        cardStagger: 80,          // Delay between cards
+        roundPause: 50,           // Pause between deal rounds
+        discardFlipDelay: 200,    // Pause before flipping discard
+    },
+
+    // V3_03: Round end reveal timing
+    reveal: {
+        voluntaryWindow: 4000,    // Time for players to flip their own cards
+        initialPause: 500,        // Pause before auto-reveals start
+        cardStagger: 100,         // Between cards in same hand
+        playerPause: 400,         // Pause after each player's reveal
+        highlightDuration: 200,   // Player area highlight fade-in
+    },
+
+    // V3_04: Pair celebration
+    celebration: {
+        pairDuration: 400,        // Celebration animation length
+        pairDelay: 50,            // Slight delay before celebration
+    },
+
+    // V3_07: Score tallying animation
+    tally: {
+        initialPause: 200,        // After reveal, before tally
+        cardHighlight: 140,       // Duration to show each card value
+        columnPause: 100,         // Between columns
+        pairCelebration: 300,     // Pair cancel effect
+        playerPause: 350,         // Between players
+        finalScoreReveal: 400,    // Final score animation
+    },
+
+    // Opponent initial flip stagger (after dealing)
+    // All players flip concurrently within this window (not taking turns)
+    initialFlips: {
+        windowStart: 500,         // Minimum delay before any opponent starts flipping
+        windowEnd: 2500,          // Maximum delay before opponent starts (random in range)
+        cardStagger: 400,         // Delay between an opponent's two card flips
+    },
+
+    // V3_11: Physical swap animation
+    swap: {
+        lift: 80,             // Time to lift cards
+        arc: 280,             // Time for arc travel
+        settle: 60,           // Time to settle into place
+    },
+
     // Player swap animation steps - smooth continuous motion
     playerSwap: {
         flipToReveal: 400,      // Initial flip to show card

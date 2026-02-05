@@ -848,15 +848,12 @@ input::placeholder {
     font-size: clamp(2rem, 2.5vw, 3.2rem);
     font-weight: bold;
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    /* No CSS transition - hover effects handled by anime.js */
     position: relative;
     user-select: none;
 }
 
-.card:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
+/* Hover state set by anime.js - do not add CSS hover transform here */
 
 .card-back {
     /* Bee-style diamond grid pattern - default red with white crosshatch */
@@ -1000,7 +997,7 @@ input::placeholder {
     align-items: flex-end;
     gap: clamp(12px, 1.8vw, 35px);
     min-height: clamp(120px, 14vw, 200px);
-    padding: 0 20px;
+    padding: 8px 20px 0;
     width: 100%;
 }
 
@@ -1522,6 +1519,7 @@ input::placeholder {
 }
 
 .player-area {
+    position: relative;
     background: rgba(0,0,0,0.2);
     border-radius: 8px;
     padding: 10px 15px;
@@ -1530,6 +1528,7 @@ input::placeholder {
 
 /* Opponent Areas */
 .opponent-area {
+    position: relative;
     background: rgba(0,0,0,0.2);
     border-radius: 8px;
     padding: clamp(4px, 0.5vw, 10px) clamp(6px, 0.7vw, 14px) clamp(6px, 0.7vw, 14px);
@@ -1591,6 +1590,12 @@ input::placeholder {
     box-shadow: 0 0 0 2px #f4a460;
 }
 
+/* Local player turn highlight - green tint to match "your turn" status */
+.player-area.current-turn {
+    background: rgba(181, 212, 132, 0.25);
+    box-shadow: 0 0 0 2px #9ab973;
+}
+
 /* Round winner highlight */
 .opponent-area.round-winner h4,
 .player-area.round-winner h4 {
@@ -1619,34 +1624,48 @@ input::placeholder {
     color: #2d3436;
 }
 
+/* Opponent turn status - subtle purple/slate for other player's turn */
+.status-message.opponent-turn {
+    background: linear-gradient(135deg, #8b7eb8 0%, #6b5b95 100%);
+    color: #fff;
+}
+
 /* CPU action status - subtle blue to indicate CPU is doing something */
 .status-message.cpu-action {
     background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
     color: #fff;
 }
 
-/* Final turn badge - separate indicator */
+/* Final turn badge - enhanced V3 with countdown */
 .final-turn-badge {
-    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #ff6b35 0%, #d63031 100%);
     color: #fff;
     padding: 6px 14px;
-    border-radius: 4px;
-    font-size: 0.85rem;
+    border-radius: 8px;
     font-weight: 700;
     letter-spacing: 0.05em;
-    animation: pulse-subtle 2s ease-in-out infinite;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(214, 48, 49, 0.4);
+    animation: final-turn-pulse 1.5s ease-in-out infinite;
+}
+
+.final-turn-badge .final-turn-text {
+    font-size: 0.85rem;
 }
 
 .final-turn-badge.hidden {
     display: none;
 }
 
-@keyframes pulse-subtle {
+@keyframes final-turn-pulse {
     0%, 100% {
-        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+        box-shadow: 0 2px 12px rgba(214, 48, 49, 0.4);
     }
     50% {
-        box-shadow: 0 0 0 4px rgba(220, 38, 38, 0);
+        box-shadow: 0 2px 20px rgba(214, 48, 49, 0.6);
     }
 }
 
@@ -4152,4 +4171,474 @@ input::placeholder {
     .replay-actions .btn {
         width: 100%;
     }
+}
+
+/* ============================================================
+   V3 FEATURES
+   ============================================================ */
+
+/* --- V3_01: Dealer Indicator --- */
+.dealer-chip {
+    position: absolute;
+    bottom: -10px;
+    left: -10px;
+    width: 38px;
+    height: 38px;
+    background: linear-gradient(145deg, #ffc078 0%, #f4a460 40%, #d4884a 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #1a1a2e;
+    border: 3px solid rgba(255, 255, 255, 0.9);
+    box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.4),
+        0 2px 4px rgba(0, 0, 0, 0.3),
+        inset 0 2px 4px rgba(255, 255, 255, 0.4),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 10;
+    pointer-events: none;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+/* --- V3_03: Round End Reveal --- */
+.reveal-prompt {
+    position: fixed;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #f4a460 0%, #d4845a 100%);
+    color: white;
+    padding: 15px 30px;
+    border-radius: 12px;
+    text-align: center;
+    z-index: 200;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: prompt-entrance 0.3s ease-out;
+}
+
+.reveal-prompt.fading {
+    animation: prompt-fade 0.3s ease-out forwards;
+}
+
+@keyframes prompt-entrance {
+    0% { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+    100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+@keyframes prompt-fade {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.reveal-prompt-text {
+    font-size: 1.1em;
+    margin-bottom: 8px;
+}
+
+.reveal-prompt-countdown {
+    font-size: 2em;
+    font-weight: bold;
+}
+
+/* Cards clickable during voluntary reveal */
+.player-area.voluntary-flip .card.can-flip {
+    cursor: pointer;
+}
+
+/* Player area highlight during reveal */
+.player-area.revealing,
+.opponent-area.revealing {
+    box-shadow: 0 0 10px 5px rgba(244, 164, 96, 0.3);
+    transition: box-shadow 0.2s ease-out;
+}
+
+/* --- V3_05: Final Turn Urgency --- */
+.final-turn-icon {
+    font-size: 1.1em;
+}
+
+.final-turn-remaining {
+    font-size: 0.85em;
+    opacity: 0.9;
+}
+
+/* Game area border pulse during final turn */
+#game-screen.final-turn-active {
+    animation: game-area-urgency 2s ease-in-out infinite;
+}
+
+@keyframes game-area-urgency {
+    0%, 100% {
+        box-shadow: inset 0 0 0 0 rgba(255, 107, 53, 0);
+    }
+    50% {
+        box-shadow: inset 0 0 30px 0 rgba(255, 107, 53, 0.12);
+    }
+}
+
+/* Knocker highlight */
+.player-area.is-knocker,
+.opponent-area.is-knocker {
+    border: 2px solid #ff6b35;
+    border-radius: 8px;
+}
+
+.knocker-badge {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: #ff6b35;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.7em;
+    font-weight: bold;
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* --- V3_08: Card Hover Selection Preview --- */
+.player-area.can-swap .card {
+    cursor: pointer;
+}
+
+/* Swap card hover state - anime.js handles transform, CSS handles box-shadow only */
+@media (hover: hover) {
+    .player-area.can-swap .card:hover {
+        /* Transform handled by anime.js cardHover methods */
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .player-area.can-swap .card.card-back:hover {
+        box-shadow: 0 8px 20px rgba(244, 164, 96, 0.4);
+    }
+}
+
+/* --- V3_09: Knock Early Drama --- */
+.knock-confirm-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+    animation: modal-fade-in 0.2s ease-out;
+}
+
+@keyframes modal-fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+.knock-confirm-content {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    padding: 30px;
+    border-radius: 15px;
+    text-align: center;
+    max-width: 320px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    animation: modal-scale-in 0.2s ease-out;
+}
+
+@keyframes modal-scale-in {
+    0% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+}
+
+.knock-confirm-icon {
+    font-size: 3em;
+    margin-bottom: 10px;
+}
+
+.knock-confirm-content h3 {
+    margin: 0 0 15px;
+    color: #f4a460;
+}
+
+.knock-confirm-content p {
+    margin: 0 0 10px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.knock-warning {
+    color: #e74c3c !important;
+    font-size: 0.9em;
+}
+
+.knock-confirm-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.knock-confirm-buttons .btn {
+    flex: 1;
+}
+
+.knock-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 400;
+    pointer-events: none;
+    animation: knock-banner-in 0.3s ease-out forwards;
+}
+
+.knock-banner span {
+    display: block;
+    font-size: 4em;
+    font-weight: 900;
+    color: #ffe082;
+    background: rgba(20, 20, 36, 0.95);
+    padding: 20px 50px;
+    border-radius: 12px;
+    border: 3px solid rgba(255, 215, 0, 0.5);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    letter-spacing: 0.15em;
+}
+
+@keyframes knock-banner-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+.knock-banner span {
+    animation: knock-text-in 0.3s ease-out forwards;
+}
+
+@keyframes knock-text-in {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.knock-banner.fading {
+    animation: knock-banner-out 0.3s ease-out forwards;
+}
+
+@keyframes knock-banner-out {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+@keyframes screen-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-3px); }
+    40% { transform: translateX(3px); }
+    60% { transform: translateX(-2px); }
+    80% { transform: translateX(2px); }
+}
+
+body.screen-shake {
+    animation: screen-shake 0.3s ease-out;
+}
+
+.opponent-knock-banner {
+    position: fixed;
+    top: 30%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #ff6b35 0%, #d63031 100%);
+    color: white;
+    padding: 15px 30px;
+    border-radius: 12px;
+    font-size: 1.2em;
+    font-weight: bold;
+    z-index: 200;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: prompt-entrance 0.3s ease-out;
+}
+
+.opponent-knock-banner.fading {
+    animation: prompt-fade 0.3s ease-out forwards;
+}
+
+/* --- V3_07: Score Tallying Animation --- */
+.card-value-overlay {
+    position: fixed;
+    transform: translate(-50%, -50%) scale(0.5);
+    background: rgba(20, 20, 36, 0.95);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 1.3em;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    transition: transform 0.15s ease-out, opacity 0.12s ease-out;
+    z-index: 200;
+    pointer-events: none;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.card-value-overlay.visible {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+}
+.card-value-overlay.negative {
+    background: linear-gradient(135deg, #1b944f 0%, #166b3a 100%);
+    border-color: rgba(39, 174, 96, 0.5);
+}
+.card-value-overlay.zero {
+    background: linear-gradient(135deg, #8b6914 0%, #6b5010 100%);
+    border-color: rgba(180, 140, 40, 0.5);
+    color: #f5e6b8;
+}
+.card.tallying {
+    box-shadow: 0 0 15px rgba(244, 164, 96, 0.6) !important;
+    transform: scale(1.05);
+    /* No CSS transition - tallying effect handled by JS */
+}
+.pair-cancel-overlay {
+    position: fixed;
+    transform: translate(-50%, -50%);
+    font-size: 1.1em;
+    font-weight: 800;
+    color: #ffe082;
+    background: rgba(20, 20, 36, 0.92);
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 2px solid rgba(255, 215, 0, 0.4);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    animation: pair-cancel 0.5s ease-out forwards;
+    z-index: 200;
+    pointer-events: none;
+}
+@keyframes pair-cancel {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+    25% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+    100% { transform: translate(-50%, -60%) scale(1); opacity: 0; }
+}
+
+/* --- V3_10: Column Pair Indicator --- */
+.card.paired {
+    box-shadow: 0 0 8px rgba(244, 164, 96, 0.3);
+}
+.card.pair-top {
+    border-bottom: 2px solid rgba(244, 164, 96, 0.5);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.card.pair-bottom {
+    border-top: 2px solid rgba(244, 164, 96, 0.5);
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+.opponent-area .card.paired {
+    box-shadow: 0 0 5px rgba(244, 164, 96, 0.2);
+}
+.opponent-area .card.pair-top {
+    border-bottom-width: 1px;
+}
+.opponent-area .card.pair-bottom {
+    border-top-width: 1px;
+}
+
+/* --- V3_06: Opponent Thinking Indicator --- */
+.thinking-indicator {
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 0.9em;
+}
+.thinking-indicator.hidden {
+    display: none;
+}
+
+/* --- V3_15: Discard Pile History Depth --- */
+#discard[data-depth="2"] {
+    box-shadow:
+        2px 2px 0 0 rgba(255, 255, 255, 0.08),
+        0 4px 12px rgba(0, 0, 0, 0.3);
+}
+#discard[data-depth="3"] {
+    box-shadow:
+        2px 2px 0 0 rgba(255, 255, 255, 0.08),
+        4px 4px 0 0 rgba(255, 255, 255, 0.04),
+        0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* --- V3_14: Active Rules Context --- */
+.rule-tag.rule-highlighted {
+    background: rgba(244, 164, 96, 0.3);
+    box-shadow: 0 0 10px rgba(244, 164, 96, 0.4);
+    animation: rule-pulse 0.5s ease-out;
+}
+@keyframes rule-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+.rule-message {
+    margin-left: 8px;
+    padding-left: 8px;
+    border-left: 1px solid rgba(255, 255, 255, 0.3);
+    font-weight: bold;
+    color: #f4a460;
+    animation: rule-message-in 0.3s ease-out;
+}
+@keyframes rule-message-in {
+    0% { opacity: 0; transform: translateX(-5px); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+
+/* --- V3_13: Card Value Tooltips --- */
+.card-value-tooltip {
+    position: fixed;
+    transform: translateX(-50%);
+    background: rgba(26, 26, 46, 0.95);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.85em;
+    text-align: center;
+    z-index: 500;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: opacity 0.15s;
+}
+.card-value-tooltip.hidden {
+    opacity: 0;
+}
+.card-value-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-bottom-color: rgba(26, 26, 46, 0.95);
+}
+.tooltip-value {
+    display: block;
+    font-size: 1.2em;
+    font-weight: bold;
+}
+.tooltip-value.negative {
+    color: #27ae60;
+}
+.tooltip-note {
+    display: block;
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 2px;
+}
+
+/* --- V3_11: Swap Animation --- */
+.traveling-card {
+    position: fixed;
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
