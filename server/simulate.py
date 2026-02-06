@@ -6,15 +6,19 @@ No server/websocket needed - runs games directly.
 
 Usage:
     python simulate.py [num_games] [num_players]
+    python simulate.py 100 --rules use_jokers,eagle_eye
+    python simulate.py 100 --preset competitive
+    python simulate.py 100 --compare baseline eagle_eye negative_pairs
 
 Examples:
-    python simulate.py 10        # Run 10 games with 4 players each
-    python simulate.py 50 2      # Run 50 games with 2 players each
+    python simulate.py 10              # Run 10 games with 4 players each
+    python simulate.py 50 2            # Run 50 games with 2 players each
+    python simulate.py 100 --preset eagle_eye
+    python simulate.py detail --preset competitive
 """
 
-import asyncio
+import argparse
 import random
-import sys
 from typing import Optional
 
 from game import Game, Player, GamePhase, GameOptions
@@ -25,6 +29,78 @@ from ai import (
 )
 from game import Rank
 from game_log import GameLogger
+
+
+# Named rule presets for quick configuration
+RULE_PRESETS: dict[str, dict] = {
+    "baseline": {
+        # Default classic rules, no special options
+    },
+    "jokers": {
+        "use_jokers": True,
+    },
+    "eagle_eye": {
+        "use_jokers": True,
+        "eagle_eye": True,
+    },
+    "negative_pairs": {
+        "use_jokers": True,
+        "negative_pairs_keep_value": True,
+    },
+    "four_kind": {
+        "four_of_a_kind": True,
+    },
+    "wolfpack": {
+        "wolfpack": True,
+    },
+    "competitive": {
+        "knock_penalty": True,
+        "knock_bonus": True,
+    },
+    "wild": {
+        "use_jokers": True,
+        "lucky_swing": True,
+        "eagle_eye": True,
+        "negative_pairs_keep_value": True,
+    },
+    "all_bonuses": {
+        "knock_bonus": True,
+        "underdog_bonus": True,
+        "four_of_a_kind": True,
+        "wolfpack": True,
+    },
+}
+
+
+def get_preset_options(preset_name: str) -> GameOptions:
+    """Get GameOptions for a named preset."""
+    if preset_name not in RULE_PRESETS:
+        available = ", ".join(sorted(RULE_PRESETS.keys()))
+        raise ValueError(f"Unknown preset '{preset_name}'. Available: {available}")
+
+    rules = RULE_PRESETS[preset_name]
+    return GameOptions(
+        initial_flips=2,
+        flip_mode="never",
+        **rules
+    )
+
+
+def parse_rules_string(rules_str: str) -> GameOptions:
+    """Parse comma-separated rule names into GameOptions."""
+    if not rules_str:
+        return GameOptions(initial_flips=2, flip_mode="never")
+
+    rules = {}
+    for rule in rules_str.split(","):
+        rule = rule.strip()
+        if rule:
+            # Validate that it's a valid GameOptions field
+            if not hasattr(GameOptions, rule):
+                raise ValueError(f"Unknown rule '{rule}'. Check GameOptions for valid fields.")
+            rules[rule] = True
+
+    return GameOptions(initial_flips=2, flip_mode="never", **rules)
 
 
 class SimulationStats:
@@ -254,21 +330,32 @@ def run_cpu_turn(
 
     if swap_pos is not None:
         old_card = player.cards[swap_pos]
+        partner_pos = get_column_partner_position(swap_pos)
+        partner = player.cards[partner_pos]
 
         # Check for dumb moves: swapping good card for bad
         drawn_val = get_ai_card_value(drawn, game.options)
         old_val = get_ai_card_value(old_card, game.options)
+
+        # Only flag as dumb if:
+        # 1. Old card was face-up and good (value <= 1)
+        # 2. We're putting a worse card in
+        # 3. We're NOT creating a pair (pairing is a valid reason to replace a good card)
+        # 4. We're NOT in a forced-swap-from-discard situation
+        creates_pair = partner.face_up and partner.rank == drawn.rank
         if old_card.face_up and old_val < drawn_val and old_val <= 1:
-            stats.record_dumb_move("swapped_good_for_bad")
+            if not creates_pair:
+                stats.record_dumb_move("swapped_good_for_bad")
 
         # Check for dumb move: creating bad pair with negative card
-        partner_pos = get_column_partner_position(swap_pos)
-        partner = player.cards[partner_pos]
         if (partner.face_up and
             partner.rank == drawn.rank and
             drawn_val < 0 and
-            not (game.options.eagle_eye and drawn.rank == Rank.JOKER)):
+            not (game.options.eagle_eye and drawn.rank == Rank.JOKER) and
+            not game.options.negative_pairs_keep_value):
             stats.record_dumb_move("paired_negative")
+            print(f"  !!! PAIRED NEGATIVE: {player.name} paired {drawn.rank.value} "
+                  f"at pos {swap_pos} (partner at {partner_pos})")
 
         game.swap_card(player.id, swap_pos)
         action = "swap"
@@ -399,22 +486,30 @@ def run_game(
 def run_simulation(
     num_games: int = 10,
     num_players: int = 4,
+    options: Optional[GameOptions] = None,
     verbose: bool = True
-):
+) -> SimulationStats:
     """Run multiple games and report statistics."""
 
+    if options is None:
+        options = GameOptions(initial_flips=2, flip_mode="never")
+
+    # Build description of active rules
+    active_rules = []
+    for field_name in ["use_jokers", "eagle_eye", "negative_pairs_keep_value",
+                       "knock_penalty", "knock_bonus", "four_of_a_kind",
+                       "wolfpack", "lucky_swing", "underdog_bonus"]:
+        if getattr(options, field_name, False):
+            active_rules.append(field_name)
+
+    rules_desc = ", ".join(active_rules) if active_rules else "baseline (no special rules)"
+
     print(f"\nRunning {num_games} games with {num_players} players each...")
+    print(f"Rules: {rules_desc}")
     print("=" * 50)
 
     logger = GameLogger()
     stats = SimulationStats()
-
-    # Default options
-    options = GameOptions(
-        initial_flips=2,
-        flip_mode="never",
-        use_jokers=False,
-    )
 
     for i in range(num_games):
         players = create_cpu_players(num_players)
@@ -438,21 +533,31 @@ def run_simulation(
     print("  python game_analyzer.py blunders")
     print("  python game_analyzer.py summary")
 
+    return stats
 
-def run_detailed_game(num_players: int = 4):
+
+def run_detailed_game(num_players: int = 4, options: Optional[GameOptions] = None):
     """Run a single game with detailed output."""
 
+    if options is None:
+        options = GameOptions(initial_flips=2, flip_mode="never")
+
+    # Build description of active rules
+    active_rules = []
+    for field_name in ["use_jokers", "eagle_eye", "negative_pairs_keep_value",
+                       "knock_penalty", "knock_bonus", "four_of_a_kind",
+                       "wolfpack", "lucky_swing", "underdog_bonus"]:
+        if getattr(options, field_name, False):
+            active_rules.append(field_name)
+
+    rules_desc = ", ".join(active_rules) if active_rules else "baseline (no special rules)"
+
     print(f"\nRunning detailed game with {num_players} players...")
+    print(f"Rules: {rules_desc}")
     print("=" * 50)
 
     logger = GameLogger()
     stats = SimulationStats()
-
-    options = GameOptions(
-        initial_flips=2,
-        flip_mode="never",
-        use_jokers=False,
-    )
 
     players_with_profiles = create_cpu_players(num_players)
 
@@ -533,13 +638,155 @@ def run_detailed_game(num_players: int = 4):
     print("Run: python game_analyzer.py game", game_id, winner.name)
 
 
+def compare_rule_sets(presets: list[str], num_games: int = 100, num_players: int = 4):
+    """Run simulations with different rule sets and compare results."""
+    print(f"\nComparing {len(presets)} rule sets with {num_games} games each...")
+    print("=" * 60)
+
+    results: dict[str, SimulationStats] = {}
+
+    for preset in presets:
+        print(f"\n{'='*60}")
+        print(f"RUNNING PRESET: {preset}")
+        print(f"{'='*60}")
+        options = get_preset_options(preset)
+        stats = run_simulation(num_games, num_players, options, verbose=False)
+        results[preset] = stats
+
+    # Print comparison summary
+    print("\n")
+    print("=" * 70)
+    print("COMPARISON SUMMARY")
+    print("=" * 70)
+
+    # Header
+    print(f"\n{'Preset':<20} {'Avg Score':<12} {'Dumb %':<10} {'Swap %':<10} {'Discard %':<10}")
+    print("-" * 70)
+
+    for preset in presets:
+        stats = results[preset]
+
+        # Calculate average score across all players
+        all_scores = []
+        for scores in stats.player_scores.values():
+            all_scores.extend(scores)
+        avg_score = sum(all_scores) / len(all_scores) if all_scores else 0
+
+        # Calculate swap vs discard ratio
+        total_swaps = 0
+        total_discards = 0
+        for actions in stats.decisions.values():
+            total_swaps += actions.get("swap", 0)
+            total_discards += actions.get("discard", 0)
+
+        total_actions = total_swaps + total_discards
+        swap_pct = (total_swaps / total_actions * 100) if total_actions > 0 else 0
+        discard_pct = (total_discards / total_actions * 100) if total_actions > 0 else 0
+
+        print(f"{preset:<20} {avg_score:<12.1f} {stats.dumb_move_rate:<10.3f} {swap_pct:<10.1f} {discard_pct:<10.1f}")
+
+    # Detailed dumb move breakdown
+    print("\n\nDUMB MOVE BREAKDOWN BY PRESET:")
+    print("-" * 70)
+    print(f"{'Preset':<20} {'Jokers':<8} {'2s':<8} {'Kings':<8} {'BadTake':<8} {'NegPair':<8} {'BadSwap':<8}")
+    print("-" * 70)
+
+    for preset in presets:
+        stats = results[preset]
+        print(f"{preset:<20} {stats.discarded_jokers:<8} {stats.discarded_twos:<8} "
+              f"{stats.discarded_kings:<8} {stats.took_bad_card_without_pair:<8} "
+              f"{stats.paired_negative_cards:<8} {stats.swapped_good_for_bad:<8}")
+
+
+def main():
+    """Main entry point with argparse CLI."""
+    parser = argparse.ArgumentParser(
+        description="Golf AI Simulation Runner - test AI behavior under different rule sets",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python simulate.py 100                          # 100 games, baseline rules
+  python simulate.py 100 4                        # 100 games, 4 players
+  python simulate.py 100 --preset eagle_eye       # Use eagle_eye preset
+  python simulate.py 100 --rules use_jokers,knock_penalty
+  python simulate.py 100 --compare baseline eagle_eye negative_pairs
+  python simulate.py detail --preset competitive  # Single detailed game
+
+Available presets:
+  baseline       - Classic rules (no special options)
+  jokers         - Jokers enabled
+  eagle_eye      - Jokers + eagle_eye rule
+  negative_pairs - Jokers + negative pairs keep value
+  four_kind      - Four of a kind bonus
+  wolfpack       - Wolfpack bonus
+  competitive    - Knock penalty + knock bonus
+  wild           - Jokers + lucky_swing + eagle_eye + negative_pairs
+  all_bonuses    - All bonus rules enabled
+"""
+    )
+
+    parser.add_argument(
+        "num_games",
+        nargs="?",
+        default="10",
+        help="Number of games to run, or 'detail' for a single detailed game"
+    )
+    parser.add_argument(
+        "num_players",
+        nargs="?",
+        type=int,
+        default=4,
+        help="Number of players (default: 4)"
+    )
+    parser.add_argument(
+        "--preset",
+        type=str,
+        help="Use a named rule preset (e.g., eagle_eye, competitive)"
+    )
+    parser.add_argument(
+        "--rules",
+        type=str,
+        help="Comma-separated list of rules to enable (e.g., use_jokers,knock_penalty)"
+    )
+    parser.add_argument(
+        "--compare",
+        nargs="+",
+        metavar="PRESET",
+        help="Compare multiple presets side-by-side"
+    )
+    parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Reduce output verbosity"
+    )
+
+    args = parser.parse_args()
+
+    # Determine options
+    options = None
+    if args.preset and args.rules:
+        parser.error("Cannot use both --preset and --rules")
+
+    if args.preset:
+        options = get_preset_options(args.preset)
+    elif args.rules:
+        options = parse_rules_string(args.rules)
+
+    # Handle compare mode
+    if args.compare:
+        num_games = int(args.num_games) if args.num_games != "detail" else 100
+        compare_rule_sets(args.compare, num_games, args.num_players)
+        return
+
+    # Handle detail mode
+    if args.num_games == "detail":
+        run_detailed_game(args.num_players, options)
+        return
+
+    # Standard batch simulation
+    num_games = int(args.num_games)
+    run_simulation(num_games, args.num_players, options, verbose=not args.quiet)
+
+
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "detail":
-        # Detailed single game
-        num_players = int(sys.argv[2]) if len(sys.argv) > 2 else 4
-        run_detailed_game(num_players)
-    else:
-        # Batch simulation
-        num_games = int(sys.argv[1]) if len(sys.argv) > 1 else 10
-        num_players = int(sys.argv[2]) if len(sys.argv) > 2 else 4
-        run_simulation(num_games, num_players)
+    main()
