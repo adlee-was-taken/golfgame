@@ -342,9 +342,24 @@ def run_cpu_turn(
         # 2. We're putting a worse card in
         # 3. We're NOT creating a pair (pairing is a valid reason to replace a good card)
         # 4. We're NOT in a forced-swap-from-discard situation
+        # 5. We're NOT denying the next opponent a pair (strategic denial)
         creates_pair = partner.face_up and partner.rank == drawn.rank
+
+        # Check if this was a denial move (next player has unpaired visible card of drawn rank)
+        is_denial_move = False
+        current_idx = next((i for i, p in enumerate(game.players) if p.id == player.id), 0)
+        next_idx = (current_idx + 1) % len(game.players)
+        next_player = game.players[next_idx]
+        for i, opp_card in enumerate(next_player.cards):
+            if opp_card.face_up and opp_card.rank == drawn.rank:
+                opp_partner_pos = get_column_partner_position(i)
+                opp_partner = next_player.cards[opp_partner_pos]
+                if not (opp_partner.face_up and opp_partner.rank == drawn.rank):
+                    is_denial_move = True
+                    break
+
         if old_card.face_up and old_val < drawn_val and old_val <= 1:
-            if not creates_pair:
+            if not creates_pair and not is_denial_move:
                 stats.record_dumb_move("swapped_good_for_bad")
 
         # Check for dumb move: creating bad pair with negative card
