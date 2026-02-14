@@ -196,10 +196,12 @@ class TestDrawDiscardMechanics:
         self.game.add_player(Player(id="p2", name="Player 2"))
         # Skip initial flip phase to test draw/discard mechanics directly
         self.game.start_game(options=GameOptions(initial_flips=0))
+        # Get the actual current player (after dealer rotation, it's p2)
+        self.current_player_id = self.game.current_player().id
 
     def test_can_draw_from_deck(self):
         """Player can draw from deck."""
-        card = self.game.draw_card("p1", "deck")
+        card = self.game.draw_card(self.current_player_id, "deck")
         assert card is not None
         assert self.game.drawn_card == card
         assert self.game.drawn_from_discard is False
@@ -207,7 +209,7 @@ class TestDrawDiscardMechanics:
     def test_can_draw_from_discard(self):
         """Player can draw from discard pile."""
         discard_top = self.game.discard_top()
-        card = self.game.draw_card("p1", "discard")
+        card = self.game.draw_card(self.current_player_id, "discard")
         assert card is not None
         assert card == discard_top
         assert self.game.drawn_card == card
@@ -215,40 +217,40 @@ class TestDrawDiscardMechanics:
 
     def test_can_discard_deck_draw(self):
         """Card drawn from deck CAN be discarded."""
-        self.game.draw_card("p1", "deck")
+        self.game.draw_card(self.current_player_id, "deck")
         assert self.game.can_discard_drawn() is True
-        result = self.game.discard_drawn("p1")
+        result = self.game.discard_drawn(self.current_player_id)
         assert result is True
 
     def test_cannot_discard_discard_draw(self):
         """Card drawn from discard pile CANNOT be re-discarded."""
-        self.game.draw_card("p1", "discard")
+        self.game.draw_card(self.current_player_id, "discard")
         assert self.game.can_discard_drawn() is False
-        result = self.game.discard_drawn("p1")
+        result = self.game.discard_drawn(self.current_player_id)
         assert result is False
 
     def test_must_swap_discard_draw(self):
         """When drawing from discard, must swap with a hand card."""
-        self.game.draw_card("p1", "discard")
+        self.game.draw_card(self.current_player_id, "discard")
         # Can't discard, must swap
         assert self.game.can_discard_drawn() is False
         # Swap works
-        old_card = self.game.swap_card("p1", 0)
+        old_card = self.game.swap_card(self.current_player_id, 0)
         assert old_card is not None
         assert self.game.drawn_card is None
 
     def test_swap_makes_card_face_up(self):
         """Swapped card is placed face up."""
-        player = self.game.get_player("p1")
+        player = self.game.get_player(self.current_player_id)
         assert player.cards[0].face_up is False  # Initially face down
 
-        self.game.draw_card("p1", "deck")
-        self.game.swap_card("p1", 0)
+        self.game.draw_card(self.current_player_id, "deck")
+        self.game.swap_card(self.current_player_id, 0)
         assert player.cards[0].face_up is True
 
     def test_cannot_peek_before_swap(self):
         """Face-down cards stay hidden until swapped/revealed."""
-        player = self.game.get_player("p1")
+        player = self.game.get_player(self.current_player_id)
         # Card is face down
         assert player.cards[0].face_up is False
         # to_client_dict hides face-down card details from clients
@@ -274,38 +276,42 @@ class TestTurnFlow:
         self.game.add_player(Player(id="p3", name="Player 3"))
         # Skip initial flip phase
         self.game.start_game(options=GameOptions(initial_flips=0))
+        # With dealer rotation (V3_01): dealer=p1(idx 0), first player=p2(idx 1)
 
     def test_turn_advances_after_discard(self):
         """Turn advances to next player after discarding."""
-        assert self.game.current_player().id == "p1"
-        self.game.draw_card("p1", "deck")
-        self.game.discard_drawn("p1")
+        # First player after dealer is p2
         assert self.game.current_player().id == "p2"
-
-    def test_turn_advances_after_swap(self):
-        """Turn advances to next player after swapping."""
-        assert self.game.current_player().id == "p1"
-        self.game.draw_card("p1", "deck")
-        self.game.swap_card("p1", 0)
-        assert self.game.current_player().id == "p2"
-
-    def test_turn_wraps_around(self):
-        """Turn wraps from last player to first."""
-        # Complete turns for p1 and p2
-        self.game.draw_card("p1", "deck")
-        self.game.discard_drawn("p1")
         self.game.draw_card("p2", "deck")
         self.game.discard_drawn("p2")
         assert self.game.current_player().id == "p3"
 
+    def test_turn_advances_after_swap(self):
+        """Turn advances to next player after swapping."""
+        assert self.game.current_player().id == "p2"
+        self.game.draw_card("p2", "deck")
+        self.game.swap_card("p2", 0)
+        assert self.game.current_player().id == "p3"
+
+    def test_turn_wraps_around(self):
+        """Turn wraps from last player to first."""
+        # Order is: p2 -> p3 -> p1 -> p2 (wraps)
+        # Complete turns for p2 and p3
+        self.game.draw_card("p2", "deck")
+        self.game.discard_drawn("p2")
         self.game.draw_card("p3", "deck")
         self.game.discard_drawn("p3")
-        assert self.game.current_player().id == "p1"  # Wrapped
+        assert self.game.current_player().id == "p1"
+
+        self.game.draw_card("p1", "deck")
+        self.game.discard_drawn("p1")
+        assert self.game.current_player().id == "p2"  # Wrapped
 
     def test_only_current_player_can_act(self):
         """Only current player can draw."""
-        assert self.game.current_player().id == "p1"
-        card = self.game.draw_card("p2", "deck")  # Wrong player
+        # First player is p2 (after dealer p1)
+        assert self.game.current_player().id == "p2"
+        card = self.game.draw_card("p1", "deck")  # Wrong player (dealer can't go first)
         assert card is None
 
 
@@ -321,6 +327,7 @@ class TestRoundEnd:
         self.game.add_player(Player(id="p1", name="Player 1"))
         self.game.add_player(Player(id="p2", name="Player 2"))
         self.game.start_game(options=GameOptions(initial_flips=0))
+        # With dealer rotation: dealer=p1(idx 0), first player=p2(idx 1)
 
     def reveal_all_cards(self, player_id: str):
         """Helper to flip all cards for a player."""
@@ -330,60 +337,63 @@ class TestRoundEnd:
 
     def test_revealing_all_triggers_final_turn(self):
         """When a player reveals all cards, final turn phase begins."""
-        # Reveal 5 cards for p1
-        player = self.game.get_player("p1")
+        # First player is p2 (after dealer p1)
+        # Reveal 5 cards for p2
+        player = self.game.get_player("p2")
         for i in range(5):
             player.cards[i].face_up = True
 
         assert self.game.phase == GamePhase.PLAYING
 
         # Draw and swap into last face-down position
-        self.game.draw_card("p1", "deck")
-        self.game.swap_card("p1", 5)  # Last card
+        self.game.draw_card("p2", "deck")
+        self.game.swap_card("p2", 5)  # Last card
 
         assert self.game.phase == GamePhase.FINAL_TURN
-        assert self.game.finisher_id == "p1"
+        assert self.game.finisher_id == "p2"
 
     def test_other_players_get_final_turn(self):
         """After one player finishes, others each get one more turn."""
-        # P1 reveals all
-        self.reveal_all_cards("p1")
-        self.game.draw_card("p1", "deck")
-        self.game.discard_drawn("p1")
-
-        assert self.game.phase == GamePhase.FINAL_TURN
-        assert self.game.current_player().id == "p2"
-
-        # P2 takes final turn
+        # First player is p2, they reveal all
+        self.reveal_all_cards("p2")
         self.game.draw_card("p2", "deck")
         self.game.discard_drawn("p2")
+
+        assert self.game.phase == GamePhase.FINAL_TURN
+        assert self.game.current_player().id == "p1"
+
+        # P1 takes final turn
+        self.game.draw_card("p1", "deck")
+        self.game.discard_drawn("p1")
 
         # Round should be over
         assert self.game.phase == GamePhase.ROUND_OVER
 
     def test_finisher_does_not_get_extra_turn(self):
         """The player who went out doesn't get another turn."""
-        # P1 reveals all and triggers final turn
-        self.reveal_all_cards("p1")
-        self.game.draw_card("p1", "deck")
-        self.game.discard_drawn("p1")
-
-        # P2's turn
-        assert self.game.current_player().id == "p2"
+        # p2 goes first, reveals all and triggers final turn
+        self.reveal_all_cards("p2")
         self.game.draw_card("p2", "deck")
         self.game.discard_drawn("p2")
 
-        # Should be round over, not p1's turn again
+        # P1's turn (the other player)
+        assert self.game.current_player().id == "p1"
+        self.game.draw_card("p1", "deck")
+        self.game.discard_drawn("p1")
+
+        # Should be round over, not p2's turn again
         assert self.game.phase == GamePhase.ROUND_OVER
 
     def test_all_cards_revealed_at_round_end(self):
         """At round end, all cards are revealed."""
-        self.reveal_all_cards("p1")
-        self.game.draw_card("p1", "deck")
-        self.game.discard_drawn("p1")
-
+        # p2 goes first, reveals all
+        self.reveal_all_cards("p2")
         self.game.draw_card("p2", "deck")
         self.game.discard_drawn("p2")
+
+        # p1 takes final turn
+        self.game.draw_card("p1", "deck")
+        self.game.discard_drawn("p1")
 
         assert self.game.phase == GamePhase.ROUND_OVER
 
@@ -536,9 +546,11 @@ class TestEdgeCases:
         game.add_player(Player(id="p1", name="Player 1"))
         game.add_player(Player(id="p2", name="Player 2"))
         game.start_game(options=GameOptions(initial_flips=0))
+        # First player is p2 after dealer rotation
+        current_id = game.current_player().id
 
-        game.draw_card("p1", "deck")
-        second_draw = game.draw_card("p1", "deck")
+        game.draw_card(current_id, "deck")
+        second_draw = game.draw_card(current_id, "deck")
         assert second_draw is None
 
     def test_swap_position_bounds(self):
@@ -547,16 +559,17 @@ class TestEdgeCases:
         game.add_player(Player(id="p1", name="Player 1"))
         game.add_player(Player(id="p2", name="Player 2"))
         game.start_game(options=GameOptions(initial_flips=0))
+        current_id = game.current_player().id
 
-        game.draw_card("p1", "deck")
+        game.draw_card(current_id, "deck")
 
-        result = game.swap_card("p1", -1)
+        result = game.swap_card(current_id, -1)
         assert result is None
 
-        result = game.swap_card("p1", 6)
+        result = game.swap_card(current_id, 6)
         assert result is None
 
-        result = game.swap_card("p1", 3)  # Valid
+        result = game.swap_card(current_id, 3)  # Valid
         assert result is not None
 
     def test_empty_discard_pile(self):
@@ -565,11 +578,12 @@ class TestEdgeCases:
         game.add_player(Player(id="p1", name="Player 1"))
         game.add_player(Player(id="p2", name="Player 2"))
         game.start_game(options=GameOptions(initial_flips=0))
+        current_id = game.current_player().id
 
         # Clear discard pile (normally has 1 card)
         game.discard_pile = []
 
-        card = game.draw_card("p1", "discard")
+        card = game.draw_card(current_id, "discard")
         assert card is None
 
 

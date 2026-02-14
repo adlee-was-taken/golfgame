@@ -114,7 +114,8 @@ class StateDiffer {
 
             movements.push({
                 type: drewFromDiscard ? 'draw-discard' : 'draw-deck',
-                playerId: currentPlayerId
+                playerId: currentPlayerId,
+                card: drewFromDiscard ? oldState.discard_top : null  // Include card for discard draw animation
             });
         }
 

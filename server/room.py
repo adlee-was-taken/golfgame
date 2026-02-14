@@ -254,12 +254,13 @@ class RoomManager:
         """Initialize an empty room manager."""
         self.rooms: dict[str, Room] = {}
 
-    def _generate_code(self) -> str:
+    def _generate_code(self, max_attempts: int = 100) -> str:
         """Generate a unique 4-letter room code."""
-        while True:
+        for _ in range(max_attempts):
             code = "".join(random.choices(string.ascii_uppercase, k=4))
             if code not in self.rooms:
                 return code
+        raise RuntimeError("Could not generate unique room code")
 
     def create_room(self) -> Room:
         """

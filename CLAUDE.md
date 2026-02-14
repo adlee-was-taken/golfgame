@@ -11,37 +11,85 @@ pip install -r server/requirements.txt
 # Run the server
 python server/main.py
 
-# Visit http://localhost:5000
+# Visit http://localhost:8000
 ```
+
+For full installation (Docker, PostgreSQL, Redis, production), see [INSTALL.md](INSTALL.md).
 
 ## Architecture
 
 ```
 golfgame/
-├── server/                    # Python FastAPI backend
-│   ├── main.py                # HTTP routes, WebSocket handling
-│   ├── game.py                # Game logic, state machine
-│   ├── ai.py                  # CPU opponent AI with timing/personality
-│   ├── simulate.py            # AI simulation runner with stats
-│   ├── game_analyzer.py       # Query tools for game analysis
-│   ├── stores/
-│   │   └── event_store.py     # PostgreSQL event sourcing
-│   └── services/
-│       └── game_logger.py     # Game move logging to PostgreSQL
+├── server/                        # Python FastAPI backend
+│   ├── main.py                    # HTTP routes, WebSocket server, lifespan
+│   ├── game.py                    # Core game logic, state machine
+│   ├── ai.py                      # CPU opponent AI with timing/personality
+│   ├── handlers.py                # WebSocket message handlers
+│   ├── room.py                    # Room/lobby management
+│   ├── config.py                  # Environment configuration (pydantic)
+│   ├── constants.py               # Card values, game constants
+│   ├── auth.py                    # Authentication (JWT, passwords)
+│   ├── logging_config.py          # Structured logging setup
+│   ├── simulate.py                # AI simulation runner with stats
+│   ├── game_analyzer.py           # Query tools for game analysis
+│   ├── score_analysis.py          # Score distribution analysis
+│   ├── routers/                   # FastAPI route modules
+│   │   ├── auth.py                # Login, signup, verify endpoints
+│   │   ├── admin.py               # Admin management endpoints
+│   │   ├── stats.py               # Statistics & leaderboard endpoints
+│   │   ├── replay.py              # Game replay endpoints
+│   │   └── health.py              # Health check endpoints
+│   ├── services/                  # Business logic layer
+│   │   ├── auth_service.py        # User authentication
+│   │   ├── admin_service.py       # Admin tools
+│   │   ├── stats_service.py       # Player statistics & leaderboards
+│   │   ├── replay_service.py      # Game replay functionality
+│   │   ├── game_logger.py         # PostgreSQL game move logging
+│   │   ├── spectator.py           # Spectator mode
+│   │   ├── email_service.py       # Email notifications (Resend)
+│   │   ├── recovery_service.py    # Account recovery
+│   │   └── ratelimit.py           # Rate limiting
+│   ├── stores/                    # Data persistence layer
+│   │   ├── event_store.py         # PostgreSQL event sourcing
+│   │   ├── user_store.py          # User persistence
+│   │   ├── state_cache.py         # Redis state caching
+│   │   └── pubsub.py              # Pub/sub messaging
+│   ├── models/                    # Data models
+│   │   ├── events.py              # Event types for event sourcing
+│   │   ├── game_state.py          # Game state representation
+│   │   └── user.py                # User data model
+│   └── middleware/                 # Request middleware
+│       ├── security.py            # CORS, CSP, security headers
+│       ├── request_id.py          # Request ID tracking
+│       └── ratelimit.py           # Rate limiting middleware
 │
-├── client/                    # Vanilla JS frontend
-│   ├── app.js                 # Main game controller
-│   ├── card-animations.js     # Unified anime.js animation system
-│   ├── card-manager.js        # DOM management for cards
-│   ├── animation-queue.js     # Animation sequencing
-│   ├── timing-config.js       # Centralized timing configuration
-│   ├── state-differ.js        # Diff game state for animations
-│   ├── style.css              # Styles (NO card transitions)
-│   └── ANIMATIONS.md          # Animation system documentation
+├── client/                        # Vanilla JS frontend
+│   ├── index.html                 # Main game page
+│   ├── app.js                     # Main game controller
+│   ├── card-animations.js         # Unified anime.js animation system
+│   ├── card-manager.js            # DOM management for cards
+│   ├── animation-queue.js         # Animation sequencing
+│   ├── timing-config.js           # Centralized timing configuration
+│   ├── state-differ.js            # Diff game state for animations
+│   ├── style.css                  # Styles (NO card transitions)
+│   ├── admin.html                 # Admin panel
+│   ├── admin.js                   # Admin panel interface
+│   ├── admin.css                  # Admin panel styles
+│   ├── replay.js                  # Game replay viewer
+│   ├── leaderboard.js             # Leaderboard display
+│   └── ANIMATIONS.md              # Animation system documentation
 │
-└── docs/
-    ├── v2/                    # V2 feature docs (event sourcing, auth, etc.)
-    └── v3/                    # V3 feature planning documents
+├── docs/
+│   ├── ANIMATION-FLOWS.md         # Animation flow diagrams
+│   ├── v2/                        # V2 architecture docs (event sourcing, auth, etc.)
+│   └── v3/                        # V3 feature & refactoring docs
+│
+├── scripts/                       # Helper scripts
+│   ├── install.sh                 # Interactive installer
+│   ├── dev-server.sh              # Development server launcher
+│   └── docker-build.sh            # Docker image builder
+│
+└── tests/e2e/                     # End-to-end tests (Playwright)
 ```
 
 ## Key Technical Decisions
@@ -55,6 +103,7 @@ golfgame/
 **General rule:** If it moves a card, use anime.js. If it's UI chrome, CSS is fine.
 
 - See `client/ANIMATIONS.md` for full documentation
+- See `docs/ANIMATION-FLOWS.md` for flow diagrams
 - `CardAnimations` class in `card-animations.js` handles everything
 - Timing configured in `timing-config.js`
 
@@ -108,6 +157,15 @@ python server/simulate.py 1 --detailed
 python server/simulate.py 100 --compare
 ```
 
+### Server Architecture
+
+- **Routers** (`server/routers/`): FastAPI route modules for auth, admin, stats, replay, health
+- **Services** (`server/services/`): Business logic layer (auth, admin, stats, replay, email, rate limiting)
+- **Stores** (`server/stores/`): Data persistence (PostgreSQL event store, user store, Redis state cache, pub/sub)
+- **Models** (`server/models/`): Data models (events, game state, user)
+- **Middleware** (`server/middleware/`): Security headers, request ID tracking, rate limiting
+- **Handlers** (`server/handlers.py`): WebSocket message dispatch (extracted from main.py)
+
 ## Common Development Tasks
 
 ### Adjusting Animation Speed
@@ -137,6 +195,16 @@ console.log(window.TIMING);
 ### Testing CPU Behavior
 
 Adjust delays in `server/ai.py` `CPU_TIMING` dict.
+
+### Running Tests
+
+```bash
+# All server tests
+cd server && pytest -v
+
+# AI simulation
+python server/simulate.py 500
+```
 
 ## Important Patterns
 
@@ -190,15 +258,22 @@ cardAnimations.animateOpponentFlip(cardElement, cardData);
 ## Dependencies
 
 ### Server
-- FastAPI
-- uvicorn
-- websockets
+- FastAPI + uvicorn (web framework & ASGI server)
+- websockets (WebSocket support)
 - asyncpg (PostgreSQL async driver)
-- PostgreSQL database
+- redis (state caching, pub/sub)
+- bcrypt (password hashing)
+- resend (email service)
+- python-dotenv (environment management)
+- sentry-sdk (error tracking, optional)
 
 ### Client
 - anime.js (animations)
 - No other frameworks
+
+### Infrastructure
+- PostgreSQL (event sourcing, auth, stats, game logs)
+- Redis (state caching, pub/sub)
 
 ## Game Rules Reference
 

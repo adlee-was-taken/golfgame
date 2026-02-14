@@ -194,9 +194,10 @@ class CardAnimations {
         this.startDrawPulse(document.getElementById('deck'));
 
         // Delay card animation to let pulse be visible
+        const pulseDelay = window.TIMING?.draw?.pulseDelay || 200;
         setTimeout(() => {
             this._animateDrawDeckCard(cardData, deckRect, holdingRect, onComplete);
-        }, 250);
+        }, pulseDelay);
     }
 
     _animateDrawDeckCard(cardData, deckRect, holdingRect, onComplete) {
@@ -204,6 +205,7 @@ class CardAnimations {
         const animCard = this.createAnimCard(deckRect, true, deckColor);
         animCard.dataset.animating = 'true'; // Mark as actively animating
         const inner = animCard.querySelector('.draw-anim-inner');
+        const D = window.TIMING?.draw || {};
 
         if (cardData) {
             this.setCardContent(animCard, cardData);
@@ -231,36 +233,36 @@ class CardAnimations {
                 targets: animCard,
                 translateY: -15,
                 rotate: [-2, 0],
-                duration: 63,
+                duration: D.deckLift || 120,
                 easing: this.getEasing('lift')
             });
 
-            // Move to holding position
+            // Move to holding position with smooth deceleration
             timeline.add({
                 targets: animCard,
                 left: holdingRect.left,
                 top: holdingRect.top,
                 translateY: 0,
-                duration: 105,
+                duration: D.deckMove || 250,
                 easing: this.getEasing('move')
             });
 
-            // Suspense pause
-            timeline.add({ duration: 200 });
+            // Brief pause before flip (easing handles the deceleration feel)
+            timeline.add({ duration: D.deckRevealPause || 80 });
 
             // Flip to reveal
             if (cardData) {
                 timeline.add({
                     targets: inner,
                     rotateY: 0,
-                    duration: 245,
+                    duration: D.deckFlip || 320,
                     easing: this.getEasing('flip'),
                     begin: () => this.playSound('flip')
                 });
             }
 
             // Brief pause to see card
-            timeline.add({ duration: 150 });
+            timeline.add({ duration: D.deckViewPause || 120 });
 
             this.activeAnimations.set('drawDeck', timeline);
         } catch (e) {
@@ -286,15 +288,17 @@ class CardAnimations {
         // Pulse discard pile
         this.startDrawPulse(document.getElementById('discard'));
 
+        const pulseDelay = window.TIMING?.draw?.pulseDelay || 200;
         setTimeout(() => {
             this._animateDrawDiscardCard(cardData, discardRect, holdingRect, onComplete);
-        }, 200);
+        }, pulseDelay);
     }
 
     _animateDrawDiscardCard(cardData, discardRect, holdingRect, onComplete) {
         const animCard = this.createAnimCard(discardRect, false);
         animCard.dataset.animating = 'true'; // Mark as actively animating
         this.setCardContent(animCard, cardData);
+        const D = window.TIMING?.draw || {};
 
         // Hide actual discard pile during animation to prevent visual conflict
         const discardPile = document.getElementById('discard');
@@ -326,21 +330,23 @@ class CardAnimations {
                 targets: animCard,
                 translateY: -12,
                 scale: 1.05,
-                duration: 25
+                duration: D.discardLift || 80,
+                easing: this.getEasing('lift')
             });
 
-            // Direct move to holding
+            // Direct move to holding with smooth deceleration
             timeline.add({
                 targets: animCard,
                 left: holdingRect.left,
                 top: holdingRect.top,
                 translateY: 0,
                 scale: 1,
-                duration: 76
+                duration: D.discardMove || 200,
+                easing: this.getEasing('move')
             });
 
-            // Minimal pause
-            timeline.add({ duration: 80 });
+            // Brief settle
+            timeline.add({ duration: D.discardViewPause || 60 });
 
             this.activeAnimations.set('drawDiscard', timeline);
         } catch (e) {
@@ -365,7 +371,7 @@ class CardAnimations {
             return;
         }
 
-        const duration = 245; // 30% faster flip
+        const duration = window.TIMING?.card?.flip || 320;
 
         try {
             const anim = anime({
@@ -408,7 +414,7 @@ class CardAnimations {
         cardElement.style.opacity = '0';
 
         const inner = animCard.querySelector('.draw-anim-inner');
-        const duration = 245; // 30% faster flip
+        const duration = window.TIMING?.card?.flip || 320;
 
         try {
             // Simple smooth flip - no lift/settle
@@ -452,7 +458,7 @@ class CardAnimations {
         cardElement.classList.add('swap-out');
 
         const inner = animCard.querySelector('.draw-anim-inner');
-        const duration = 245; // 30% faster flip
+        const duration = window.TIMING?.card?.flip || 320;
 
         // Helper to restore card to face-up state
         const restoreCard = () => {
@@ -551,7 +557,7 @@ class CardAnimations {
         handCardElement.classList.add('swap-out');
 
         const inner = animCard.querySelector('.draw-anim-inner');
-        const flipDuration = 245; // 30% faster flip
+        const flipDuration = window.TIMING?.card?.flip || 320;
 
         try {
             const timeline = anime.timeline({
@@ -572,7 +578,7 @@ class CardAnimations {
             });
 
             // Brief pause to see the card
-            timeline.add({ duration: 100 });
+            timeline.add({ duration: 50 });
 
             this.activeAnimations.set(`swap-${Date.now()}`, timeline);
         } catch (e) {
@@ -606,7 +612,7 @@ class CardAnimations {
         sourceCardElement.classList.add('swap-out');
 
         const inner = animCard.querySelector('.draw-anim-inner');
-        const flipDuration = 245; // 30% faster flip
+        const flipDuration = window.TIMING?.card?.flip || 320;
 
         try {
             anime.timeline({
@@ -661,8 +667,8 @@ class CardAnimations {
                 width: discardRect.width,
                 height: discardRect.height,
                 scale: 1,
-                duration: 350,
-                easing: 'cubicBezier(0.25, 0.1, 0.25, 1)'
+                duration: window.TIMING?.card?.move || 300,
+                easing: this.getEasing('arc')
             });
 
             this.activeAnimations.set(`discard-${Date.now()}`, timeline);
@@ -686,7 +692,7 @@ class CardAnimations {
         this.setCardContent(animCard, card);
 
         const inner = animCard.querySelector('.draw-anim-inner');
-        const moveDuration = window.TIMING?.card?.move || 270;
+        const moveDuration = window.TIMING?.card?.move || 300;
 
         try {
             const timeline = anime.timeline({
@@ -943,7 +949,7 @@ class CardAnimations {
             return;
         }
 
-        const T = window.TIMING?.swap || { lift: 80, arc: 280, settle: 60 };
+        const T = window.TIMING?.swap || { lift: 100, arc: 320, settle: 100 };
         const handRect = handCardEl.getBoundingClientRect();
         const heldRect = heldCardEl.getBoundingClientRect();
         const discardRect = this.getDiscardRect();
@@ -1005,6 +1011,7 @@ class CardAnimations {
                 ],
                 rotate: [0, -3, 0],
                 duration: T.arc,
+                easing: this.getEasing('arc'),
             }, `-=${T.lift / 2}`);
 
             // Held card arcs to hand slot (parallel)
@@ -1017,14 +1024,16 @@ class CardAnimations {
                 ],
                 rotate: [0, 3, 0],
                 duration: T.arc,
+                easing: this.getEasing('arc'),
             }, `-=${T.arc + T.lift / 2}`);
 
-            // Settle
+            // Settle with gentle overshoot
             timeline.add({
                 targets: [travelingHand, travelingHeld],
                 translateY: 0,
-                scale: 1,
+                scale: [1.02, 1],
                 duration: T.settle,
+                easing: this.getEasing('settle'),
             });
 
             this.activeAnimations.set('physicalSwap', timeline);
@@ -1046,7 +1055,7 @@ class CardAnimations {
     // options: { rotation, wasHandFaceDown, onComplete }
     animateUnifiedSwap(handCardData, heldCardData, handRect, heldRect, options = {}) {
         const { rotation = 0, wasHandFaceDown = false, onComplete } = options;
-        const T = window.TIMING?.swap || { lift: 80, arc: 280, settle: 60 };
+        const T = window.TIMING?.swap || { lift: 100, arc: 320, settle: 100 };
         const discardRect = this.getDiscardRect();
 
         // Safety checks
@@ -1105,10 +1114,11 @@ class CardAnimations {
 
                 // Flip to reveal, then do the swap
                 this.playSound('flip');
+                const flipDuration = window.TIMING?.card?.flip || 320;
                 anime({
                     targets: inner,
                     rotateY: 0,
-                    duration: 245,
+                    duration: flipDuration,
                     easing: this.getEasing('flip'),
                     complete: () => {
                         this._doArcSwap(travelingHand, travelingHeld, handRect, heldRect, discardRect, T, rotation, onComplete);
@@ -1157,6 +1167,7 @@ class CardAnimations {
                 height: discardRect.height,
                 rotate: [rotation, rotation - 3, 0],
                 duration: T.arc,
+                easing: this.getEasing('arc'),
             }, `-=${T.lift / 2}`);
 
             // Held card arcs to hand slot (apply rotation to match hand position)
@@ -1171,14 +1182,16 @@ class CardAnimations {
                 height: handRect.height,
                 rotate: [0, 3, rotation],
                 duration: T.arc,
+                easing: this.getEasing('arc'),
             }, `-=${T.arc + T.lift / 2}`);
 
-            // Settle
+            // Settle with gentle overshoot
             timeline.add({
                 targets: [travelingHand, travelingHeld],
                 translateY: 0,
-                scale: 1,
+                scale: [1.02, 1],
                 duration: T.settle,
+                easing: this.getEasing('settle'),
             });
 
             this.activeAnimations.set('unifiedSwap', timeline);
@@ -1199,7 +1212,7 @@ class CardAnimations {
             return;
         }
 
-        const T = window.TIMING?.swap || { lift: 80, arc: 280, settle: 60 };
+        const T = window.TIMING?.swap || { lift: 100, arc: 320, settle: 100 };
 
         // Create a traveling card showing the face at the held card's actual position
         const travelingCard = this.createCardFromData(cardData, heldRect, 0);
@@ -1242,14 +1255,16 @@ class CardAnimations {
                 height: discardRect.height,
                 rotate: [0, -2, 0],
                 duration: T.arc,
+                easing: this.getEasing('arc'),
             }, `-=${T.lift / 2}`);
 
-            // Settle
+            // Settle with gentle overshoot
             timeline.add({
                 targets: travelingCard,
                 translateY: 0,
-                scale: 1,
+                scale: [1.02, 1],
                 duration: T.settle,
+                easing: this.getEasing('settle'),
             });
 
             this.activeAnimations.set('heldToDiscard', timeline);
@@ -1291,7 +1306,7 @@ class CardAnimations {
     }
 
     _runOpponentDiscard(cardData, holdingRect, discardRect, onComplete) {
-        const T = window.TIMING?.swap || { lift: 80, arc: 280, settle: 60 };
+        const T = window.TIMING?.swap || { lift: 100, arc: 320, settle: 100 };
 
         // Create card at holding position, face-up (already revealed by draw animation)
         const travelingCard = this.createAnimCard(holdingRect, false);
@@ -1336,14 +1351,16 @@ class CardAnimations {
                 scale: 1,
                 rotate: [0, -2, 0],
                 duration: T.arc,
+                easing: this.getEasing('arc'),
             });
 
-            // Settle
+            // Settle with gentle overshoot
             timeline.add({
                 targets: travelingCard,
                 translateY: 0,
-                scale: 1,
+                scale: [1.02, 1],
                 duration: T.settle,
+                easing: this.getEasing('settle'),
             });
 
             this.activeAnimations.set('opponentDiscard', timeline);

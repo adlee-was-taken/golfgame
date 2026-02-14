@@ -188,6 +188,19 @@ cython_debug/
 #  you could uncomment the following to ignore the entire vscode folder
 # .vscode/
 
+# Claude Code
+.claude/
+
+# Virtualenv in project root
+bin/
+pyvenv.cfg
+
+# Database files
+*.db
+
+# Personal notes
+lookfah.md
+
 # Ruff stuff:
 .ruff_cache/
 

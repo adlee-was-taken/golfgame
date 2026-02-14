@@ -2,17 +2,26 @@
 
 This document describes the unified animation system for the Golf card game client.
 
+For detailed animation flow diagrams (what triggers what, in what order, with what flags), see [`docs/ANIMATION-FLOWS.md`](../docs/ANIMATION-FLOWS.md).
+
 ## Architecture
 
-**All card animations use anime.js.** There are no CSS transitions on card elements.
+**When to use anime.js vs CSS:**
+- **Anime.js (CardAnimations)**: Card movements, flips, swaps, draws - anything involving card elements
+- **CSS keyframes/transitions**: Simple UI feedback (button hover, badge entrance, status message fades) - non-card elements
+
+**General rule:** If it moves a card, use anime.js. If it's UI chrome, CSS is fine.
 
 | What | How |
 |------|-----|
 | Card movements | anime.js |
 | Card flips | anime.js |
 | Swap animations | anime.js |
-| Pulse/glow effects | anime.js |
-| Hover states | CSS `:hover` only |
+| Pulse/glow effects on cards | anime.js |
+| Button hover/active states | CSS transitions |
+| Badge entrance/exit | CSS transitions |
+| Status message fades | CSS transitions |
+| Card hover states | anime.js `hoverIn()`/`hoverOut()` |
 | Show/hide | CSS `.hidden` class only |
 
 ### Why anime.js?
@@ -130,6 +139,27 @@ cardAnimations.cleanup()
 
 ---
 
+## Animation Coordination
+
+### Server-Client Timing
+
+Server CPU timing (in `server/ai.py` `CPU_TIMING`) must account for client animation durations:
+- `post_draw_settle`: Must be >= draw animation duration (~1.1s for deck draw)
+- `post_action_pause`: Must be >= swap/discard animation duration (~0.5s)
+
+### Preventing Animation Overlap
+
+Animation overlay cards are marked with `data-animating="true"` while active.
+Methods like `animateUnifiedSwap` and `animateOpponentDiscard` check for active
+animations and wait before starting new ones.
+
+### Card Hover Initialization
+
+Call `cardAnimations.initHoverListeners(container)` after dynamically creating cards.
+This is done automatically in `renderGame()` for player and opponent card areas.
+
+---
+
 ## Animation Overlay Pattern
 
 For complex animations (flips, swaps), the system:
@@ -150,24 +180,34 @@ All timing values are in `timing-config.js` and exposed as `window.TIMING`.
 
 ### Key Durations
 
-| Animation | Duration | Notes |
-|-----------|----------|-------|
-| Flip | 245ms | 3D rotateY animation |
-| Deck lift | 63ms | Before moving to hold |
-| Deck move | 105ms | To hold position |
-| Discard lift | 25ms | Quick grab |
-| Discard move | 76ms | To hold position |
-| Swap pulse | 400ms | Scale + brightness |
-| Turn shake | 400ms | Every 3 seconds |
+All durations are configured in `timing-config.js` and read via `window.TIMING`.
+
+| Animation | Duration | Config Key | Notes |
+|-----------|----------|------------|-------|
+| Flip | 320ms | `card.flip` | 3D rotateY with slight overshoot |
+| Deck lift | 120ms | `draw.deckLift` | Visible lift before travel |
+| Deck move | 250ms | `draw.deckMove` | Smooth travel to hold position |
+| Deck flip | 320ms | `draw.deckFlip` | Reveal drawn card |
+| Discard lift | 80ms | `draw.discardLift` | Quick decisive grab |
+| Discard move | 200ms | `draw.discardMove` | Travel to hold position |
+| Swap lift | 100ms | `swap.lift` | Pickup before arc travel |
+| Swap arc | 320ms | `swap.arc` | Arc travel between positions |
+| Swap settle | 100ms | `swap.settle` | Landing with gentle overshoot |
+| Swap pulse | 400ms | — | Scale + brightness (face-up swap) |
+| Turn shake | 400ms | — | Every 3 seconds |
 
 ### Easing Functions
 
+Custom cubic bezier curves give cards natural weight and momentum:
+
 ```javascript
 window.TIMING.anime.easing = {
-    flip: 'easeInOutQuad',   // Smooth acceleration/deceleration
-    move: 'easeOutCubic',    // Fast start, gentle settle
-    lift: 'easeOutQuad',     // Quick lift
-    pulse: 'easeInOutSine',  // Smooth oscillation
+    flip: 'cubicBezier(0.34, 1.2, 0.64, 1)',    // Slight overshoot snap
+    move: 'cubicBezier(0.22, 0.68, 0.35, 1.0)',  // Smooth deceleration
+    lift: 'cubicBezier(0.0, 0.0, 0.2, 1)',       // Quick out, soft stop
+    settle: 'cubicBezier(0.34, 1.05, 0.64, 1)',  // Tiny overshoot on landing
+    arc: 'cubicBezier(0.45, 0, 0.15, 1)',        // Smooth S-curve for arcs
+    pulse: 'easeInOutSine',                        // Smooth oscillation (loops)
 }
 ```
 
@@ -179,14 +219,19 @@ window.TIMING.anime.easing = {
 
 - Static card appearance (colors, borders, sizing)
 - Layout and positioning
-- Hover states (`:hover` scale/shadow)
+- Card hover states (`:hover` scale/shadow - no movement)
 - Show/hide via `.hidden` class
+- **UI chrome animations** (buttons, badges, status messages):
+  - Button hover/active transitions
+  - Badge entrance/exit animations
+  - Status message fade in/out
+  - Modal transitions
 
-### What CSS Does NOT Do
+### What CSS Does NOT Do (on card elements)
 
-- No `transition` on any card element
-- No `@keyframes` for card animations
-- No `.flipped`, `.moving`, `.flipping` transition triggers
+- No `transition` on any card element (`.card`, `.card-inner`, `.real-card`, `.swap-card`, `.held-card-floating`)
+- No `@keyframes` for card movements or flips
+- No `.flipped`, `.moving`, `.flipping` transition triggers for cards
 
 ### Important Classes
 
@@ -218,14 +263,15 @@ if (!this.isDrawAnimating && /* other conditions */) {
 Use anime.js timelines for coordinated sequences:
 
 ```javascript
+const T = window.TIMING;
 const timeline = anime.timeline({
-    easing: 'easeOutQuad',
+    easing: T.anime.easing.move,
     complete: () => { /* cleanup */ }
 });
 
-timeline.add({ targets: el, translateY: -15, duration: 100 });
-timeline.add({ targets: el, left: x, top: y, duration: 200 });
-timeline.add({ targets: inner, rotateY: 0, duration: 245 });
+timeline.add({ targets: el, translateY: -15, duration: T.card.lift, easing: T.anime.easing.lift });
+timeline.add({ targets: el, left: x, top: y, duration: T.card.move });
+timeline.add({ targets: inner, rotateY: 0, duration: T.card.flip, easing: T.anime.easing.flip });
 ```
 
 ### Fire-and-Forget Animations

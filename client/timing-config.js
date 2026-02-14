@@ -2,12 +2,12 @@
 // Edit these values to tune the feel of card animations and CPU gameplay
 
 const TIMING = {
-    // Card animations (milliseconds) - smooth, unhurried
+    // Card animations (milliseconds)
     card: {
-        flip: 400,              // Card flip duration (must match CSS transition)
-        move: 400,              // Card movement - slower = smoother
-        lift: 0,                // No lift pause
-        moving: 400,            // Card moving class duration
+        flip: 320,              // Card flip duration — readable but snappy
+        move: 300,              // General card movement
+        lift: 100,              // Perceptible lift before travel
+        settle: 80,             // Gentle landing cushion
     },
 
     // Pauses - minimal, let animations flow
@@ -46,10 +46,12 @@ const TIMING = {
     // Anime.js animation configuration
     anime: {
         easing: {
-            flip: 'easeInOutQuad',
-            move: 'easeOutCubic',
-            lift: 'easeOutQuad',
-            pulse: 'easeInOutSine',
+            flip: 'cubicBezier(0.34, 1.2, 0.64, 1)',      // Slight overshoot snap
+            move: 'cubicBezier(0.22, 0.68, 0.35, 1.0)',    // Smooth deceleration
+            lift: 'cubicBezier(0.0, 0.0, 0.2, 1)',         // Quick out, soft stop
+            settle: 'cubicBezier(0.34, 1.05, 0.64, 1)',    // Tiny overshoot on landing
+            arc: 'cubicBezier(0.45, 0, 0.15, 1)',          // Smooth S-curve for arcs
+            pulse: 'easeInOutSine',                          // Keep for loops
         },
         loop: {
             turnPulse: { duration: 2000 },
@@ -60,8 +62,8 @@ const TIMING = {
 
     // Card manager specific
     cardManager: {
-        flipDuration: 400,      // Card flip animation
-        moveDuration: 400,      // Card move animation
+        flipDuration: 320,      // Card flip animation
+        moveDuration: 300,      // Card move animation
     },
 
     // V3_02: Dealing animation
@@ -108,9 +110,22 @@ const TIMING = {
 
     // V3_11: Physical swap animation
     swap: {
-        lift: 80,             // Time to lift cards
-        arc: 280,             // Time for arc travel
-        settle: 60,           // Time to settle into place
+        lift: 100,            // Time to lift cards — visible pickup
+        arc: 320,             // Time for arc travel
+        settle: 100,          // Time to settle into place — with overshoot easing
+    },
+
+    // Draw animation durations (replaces hardcoded values in card-animations.js)
+    draw: {
+        deckLift: 120,          // Lift off deck before travel
+        deckMove: 250,          // Travel to holding position
+        deckRevealPause: 80,    // Brief pause before flip (easing does the rest)
+        deckFlip: 320,          // Flip to reveal drawn card
+        deckViewPause: 120,     // Time to see revealed card
+        discardLift: 80,        // Quick grab from discard
+        discardMove: 200,       // Travel to holding position
+        discardViewPause: 60,   // Brief settle after arrival
+        pulseDelay: 200,        // Delay before card appears (pulse visible first)
     },
 
     // Player swap animation steps - smooth continuous motion

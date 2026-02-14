@@ -124,6 +124,13 @@ export const SELECTORS = {
     hasCard: 'has-card',
     pickedUp: 'picked-up',
     disabled: 'disabled',
+    // V3 classes
+    canSwap: 'can-swap',
+    paired: 'paired',
+    pairTop: 'pair-top',
+    pairBottom: 'pair-bottom',
+    ruleHighlighted: 'rule-highlighted',
+    thinkingHidden: 'hidden',
   },
 
   // Animation-related
@@ -132,6 +139,23 @@ export const SELECTORS = {
     swapCardFromHand: '#swap-card-from-hand',
     animCard: '.anim-card',
     realCard: '.real-card',
+  },
+
+  // V3 feature selectors
+  v3: {
+    thinkingIndicator: '.thinking-indicator',
+    cardTooltip: '.card-value-tooltip',
+    tooltipValue: '.tooltip-value',
+    tooltipNote: '.tooltip-note',
+    ruleTag: '.rule-tag',
+    ruleHighlighted: '.rule-tag.rule-highlighted',
+    ruleMessage: '.rule-message',
+    pairIndicator: '.paired',
+    dealerBadge: '.dealer-badge',
+    knockBanner: '#knock-banner',
+    knockConfirmDialog: '#knock-confirm-dialog',
+    cardValueOverlay: '.card-value-overlay',
+    pairCancelOverlay: '.pair-cancel-overlay',
   },
 };
 

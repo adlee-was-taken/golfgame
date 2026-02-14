@@ -52,7 +52,7 @@ class CardManager {
         card.innerHTML = `
             <div class="card-inner">
                 <div class="card-face card-face-front"></div>
-                <div class="card-face card-face-back"><span>?</span></div>
+                <div class="card-face card-face-back"></div>
             </div>
         `;
 
@@ -64,9 +64,21 @@ class CardManager {
     updateCardAppearance(cardEl, cardData) {
         const inner = cardEl.querySelector('.card-inner');
         const front = cardEl.querySelector('.card-face-front');
+        const back = cardEl.querySelector('.card-face-back');
 
         // Reset front classes
         front.className = 'card-face card-face-front';
+
+        // Apply deck color to card back
+        if (back) {
+            // Remove any existing deck color classes
+            back.className = back.className.replace(/\bdeck-\w+/g, '').trim();
+            back.className = 'card-face card-face-back';
+            const deckColor = this.getDeckColorClass(cardData);
+            if (deckColor) {
+                back.classList.add(deckColor);
+            }
+        }
 
         if (!cardData || !cardData.face_up || !cardData.rank) {
             // Face down or no data
@@ -88,6 +100,17 @@ class CardManager {
         }
     }
 
+    // Get the deck color class for a card based on its deck_id
+    getDeckColorClass(cardData) {
+        if (!cardData || cardData.deck_id === undefined || cardData.deck_id === null) {
+            return null;
+        }
+        // Get deck colors from game state (set by app.js)
+        const deckColors = window.currentDeckColors || ['red', 'blue', 'gold'];
+        const colorName = deckColors[cardData.deck_id] || deckColors[0] || 'red';
+        return `deck-${colorName}`;
+    }
+
     getSuitSymbol(suit) {
         return { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' }[suit] || '';
     }
@@ -104,7 +127,8 @@ class CardManager {
         cardEl.style.height = `${rect.height}px`;
 
         if (animate) {
-            setTimeout(() => cardEl.classList.remove('moving'), 350);
+            const moveDuration = window.TIMING?.card?.moving || 350;
+            setTimeout(() => cardEl.classList.remove('moving'), moveDuration);
         }
     }
 
@@ -130,7 +154,11 @@ class CardManager {
     }
 
     // Animate a card flip
-    async flipCard(playerId, position, newCardData, duration = 400) {
+    async flipCard(playerId, position, newCardData, duration = null) {
+        // Use centralized timing if not specified
+        if (duration === null) {
+            duration = window.TIMING?.cardManager?.flipDuration || 400;
+        }
         const cardInfo = this.getHandCard(playerId, position);
         if (!cardInfo) return;
 
@@ -158,7 +186,11 @@ class CardManager {
     }
 
     // Animate a swap: hand card goes to discard, new card comes to hand
-    async animateSwap(playerId, position, oldCardData, newCardData, getSlotRect, getDiscardRect, duration = 300) {
+    async animateSwap(playerId, position, oldCardData, newCardData, getSlotRect, getDiscardRect, duration = null) {
+        // Use centralized timing if not specified
+        if (duration === null) {
+            duration = window.TIMING?.cardManager?.moveDuration || 250;
+        }
         const cardInfo = this.getHandCard(playerId, position);
         if (!cardInfo) return;
 
@@ -192,7 +224,8 @@ class CardManager {
             }
 
             inner.classList.remove('flipped');
-            await this.delay(400);
+            const flipDuration = window.TIMING?.cardManager?.flipDuration || 400;
+            await this.delay(flipDuration);
         }
 
         // Step 2: Move card to discard
@@ -202,7 +235,8 @@ class CardManager {
         cardEl.classList.remove('moving');
 
         // Pause to show the discarded card
-        await this.delay(250);
+        const pauseDuration = window.TIMING?.cardManager?.moveDuration || 250;
+        await this.delay(pauseDuration);
 
         // Step 3: Update card to show new card and move back to hand
         front.className = 'card-face card-face-front';
