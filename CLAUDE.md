@@ -18,29 +18,41 @@ python server/main.py
 
 ```
 golfgame/
-├── server/           # Python FastAPI backend
-│   ├── main.py       # HTTP routes, WebSocket handling
-│   ├── game.py       # Game logic, state machine
-│   └── ai.py         # CPU opponent AI with timing/personality
+├── server/                    # Python FastAPI backend
+│   ├── main.py                # HTTP routes, WebSocket handling
+│   ├── game.py                # Game logic, state machine
+│   ├── ai.py                  # CPU opponent AI with timing/personality
+│   ├── simulate.py            # AI simulation runner with stats
+│   ├── game_analyzer.py       # Query tools for game analysis
+│   ├── stores/
+│   │   └── event_store.py     # PostgreSQL event sourcing
+│   └── services/
+│       └── game_logger.py     # Game move logging to PostgreSQL
 │
-├── client/           # Vanilla JS frontend
-│   ├── app.js        # Main game controller
-│   ├── card-animations.js  # Unified anime.js animation system
-│   ├── card-manager.js     # DOM management for cards
-│   ├── animation-queue.js  # Animation sequencing
-│   ├── timing-config.js    # Centralized timing configuration
-│   ├── state-differ.js     # Diff game state for animations
-│   ├── style.css           # Styles (NO card transitions)
-│   └── ANIMATIONS.md       # Animation system documentation
+├── client/                    # Vanilla JS frontend
+│   ├── app.js                 # Main game controller
+│   ├── card-animations.js     # Unified anime.js animation system
+│   ├── card-manager.js        # DOM management for cards
+│   ├── animation-queue.js     # Animation sequencing
+│   ├── timing-config.js       # Centralized timing configuration
+│   ├── state-differ.js        # Diff game state for animations
+│   ├── style.css              # Styles (NO card transitions)
+│   └── ANIMATIONS.md          # Animation system documentation
 │
-└── docs/v3/          # Feature planning documents
+└── docs/
+    ├── v2/                    # V2 feature docs (event sourcing, auth, etc.)
+    └── v3/                    # V3 feature planning documents
 ```
 
 ## Key Technical Decisions
 
 ### Animation System
 
-**All card animations use anime.js.** No CSS transitions on card elements.
+**When to use anime.js vs CSS:**
+- **Anime.js (CardAnimations)**: Card movements, flips, swaps, draws - anything involving card elements
+- **CSS keyframes/transitions**: Simple UI feedback (button hover, badge entrance, status message fades) - non-card elements
+
+**General rule:** If it moves a card, use anime.js. If it's UI chrome, CSS is fine.
 
 - See `client/ANIMATIONS.md` for full documentation
 - `CardAnimations` class in `card-animations.js` handles everything
@@ -51,13 +63,50 @@ golfgame/
 - Server is source of truth
 - Client receives full game state on each update
 - `state-differ.js` computes diffs to trigger appropriate animations
-- `isDrawAnimating` flag prevents UI updates during animations
+
+### Animation Race Condition Flags
+
+Several flags in `app.js` prevent `renderGame()` from updating the discard pile during animations:
+
+| Flag | Purpose |
+|------|---------|
+| `isDrawAnimating` | Local or opponent draw animation in progress |
+| `localDiscardAnimating` | Local player discarding drawn card |
+| `opponentDiscardAnimating` | Opponent discarding without swap |
+| `opponentSwapAnimation` | Opponent swap animation in progress |
+| `dealAnimationInProgress` | Deal animation running (suppresses flip prompts) |
+
+**Critical:** These flags must be cleared in ALL code paths (success, error, fallback). Failure to clear causes UI to freeze.
+
+**Clear flags when:**
+- Animation completes (callback)
+- New animation starts (clear stale flags)
+- `your_turn` message received (safety clear)
+- Error/fallback paths
 
 ### CPU Players
 
 - AI logic in `server/ai.py`
 - Configurable timing delays for natural feel
-- Multiple personality types affect decision-making
+- Multiple personality types affect decision-making (pair hunters, aggressive, conservative, etc.)
+
+**AI Decision Safety Checks:**
+- Never swap high cards (8+) into unknown positions (expected value ~4.5)
+- Unpredictability has value threshold (7) to prevent obviously bad random plays
+- Comeback bonus only applies to cards < 8
+- Denial logic skips hidden positions for 8+ cards
+
+**Testing AI with simulations:**
+```bash
+# Run 500 games and check dumb move rate
+python server/simulate.py 500
+
+# Detailed single game output
+python server/simulate.py 1 --detailed
+
+# Compare rule presets
+python server/simulate.py 100 --compare
+```
 
 ## Common Development Tasks
 
@@ -93,18 +142,35 @@ Adjust delays in `server/ai.py` `CPU_TIMING` dict.
 
 ### No CSS Transitions on Cards
 
-Cards animate via anime.js only. The following should NOT have `transition`:
+Cards animate via anime.js only. The following should NOT have `transition` (especially on `transform`):
 - `.card`, `.card-inner`
 - `.real-card`, `.swap-card`
 - `.held-card-floating`
+
+Card hover effects are handled by `CardAnimations.hoverIn()/hoverOut()` methods.
+CSS may still use box-shadow transitions for hover glow effects.
+
+### State Differ Logic (triggerAnimationsForStateChange)
+
+The state differ in `app.js` detects what changed between game states:
+
+**STEP 1: Draw Detection**
+- Detects when `drawn_card` goes from null to something
+- Triggers draw animation (from deck or discard)
+- Sets `isDrawAnimating` flag
+
+**STEP 2: Discard/Swap Detection**
+- Detects when `discard_top` changes and it was another player's turn
+- Triggers swap or discard animation
+- **Important:** Skip STEP 2 if STEP 1 detected a draw from discard (the discard change was from REMOVING a card, not adding one)
 
 ### Animation Overlays
 
 Complex animations create temporary overlay elements:
 1. Create `.draw-anim-card` positioned over source
-2. Hide original card
+2. Hide original card (or set `opacity: 0` on discard pile during draw-from-discard)
 3. Animate overlay
-4. Remove overlay, reveal updated card
+4. Remove overlay, reveal updated card, restore visibility
 
 ### Fire-and-Forget for Opponents
 
@@ -113,12 +179,22 @@ Opponent animations don't block - no callbacks needed:
 cardAnimations.animateOpponentFlip(cardElement, cardData);
 ```
 
+### Common Animation Pitfalls
+
+**Card position before append:** Always set `left`/`top` styles BEFORE appending overlay cards to body, otherwise they flash at (0,0).
+
+**Deal animation source:** Use `getDeckRect()` for deal animations, not `getDealerRect()`. The dealer rect returns the whole player area, causing cards to animate at wrong size.
+
+**Element rects during hidden:** `visibility: hidden` still allows `getBoundingClientRect()` to work. `display: none` does not.
+
 ## Dependencies
 
 ### Server
 - FastAPI
 - uvicorn
 - websockets
+- asyncpg (PostgreSQL async driver)
+- PostgreSQL database
 
 ### Client
 - anime.js (animations)
