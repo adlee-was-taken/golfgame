@@ -837,6 +837,28 @@ input::placeholder {
     color: rgba(255, 255, 255, 0.9);
 }
 
+.active-rules-bar .rule-tag.unranked {
+    background: rgba(220, 80, 80, 0.3);
+    color: #f08080;
+    border: 1px solid rgba(220, 80, 80, 0.4);
+}
+
+/* Unranked notice in waiting room */
+.unranked-notice {
+    background: rgba(220, 80, 80, 0.15);
+    border: 1px solid rgba(220, 80, 80, 0.3);
+    color: #f0a0a0;
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    border-radius: 6px;
+    margin: 8px 0;
+    text-align: center;
+}
+
+.unranked-notice.hidden {
+    display: none;
+}
+
 /* Card Styles */
 .card {
     width: clamp(65px, 5.5vw, 100px);

@@ -512,6 +512,20 @@ class GameOptions:
     deck_colors: list[str] = field(default_factory=lambda: ["red", "blue", "gold"])
     """Colors for card backs from different decks (in order by deck_id)."""
 
+    def is_standard_rules(self) -> bool:
+        """Check if all rules are standard (no house rules active)."""
+        return not any([
+            self.flip_mode != "never",
+            self.initial_flips != 2,
+            self.knock_penalty,
+            self.use_jokers,
+            self.lucky_swing, self.super_kings, self.ten_penny,
+            self.knock_bonus, self.underdog_bonus, self.tied_shame,
+            self.blackjack, self.wolfpack, self.eagle_eye,
+            self.flip_as_action, self.four_of_a_kind,
+            self.negative_pairs_keep_value, self.one_eyed_jacks, self.knock_early,
+        ])
+
     _ALLOWED_COLORS = {
         "red", "blue", "gold", "teal", "purple", "orange", "yellow",
         "green", "pink", "cyan", "brown", "slate",
@@ -1638,4 +1652,5 @@ class Game:
                 "one_eyed_jacks": self.options.one_eyed_jacks,
             },
             "deck_colors": self.options.deck_colors,
+            "is_standard_rules": self.options.is_standard_rules(),
         }

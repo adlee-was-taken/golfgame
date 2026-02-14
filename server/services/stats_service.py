@@ -14,6 +14,7 @@ import asyncpg
 
 from stores.event_store import EventStore
 from models.events import EventType
+from game import GameOptions
 
 logger = logging.getLogger(__name__)
 
@@ -584,6 +585,47 @@ class StatsService:
 
         return data if data["num_rounds"] > 0 else None
 
+    @staticmethod
+    def _check_win_milestones(stats_row, earned_ids: set) -> List[str]:
+        """Check win/streak achievement milestones. Shared by event and legacy paths."""
+        new = []
+        wins = stats_row["games_won"]
+        for threshold, achievement_id in [(1, "first_win"), (10, "win_10"), (50, "win_50"), (100, "win_100")]:
+            if wins >= threshold and achievement_id not in earned_ids:
+                new.append(achievement_id)
+        streak = stats_row["current_win_streak"]
+        for threshold, achievement_id in [(5, "streak_5"), (10, "streak_10")]:
+            if streak >= threshold and achievement_id not in earned_ids:
+                new.append(achievement_id)
+        return new
+
+    @staticmethod
+    async def _get_earned_ids(conn: asyncpg.Connection, user_id: str) -> set:
+        """Get set of already-earned achievement IDs for a user."""
+        earned = await conn.fetch(
+            "SELECT achievement_id FROM user_achievements WHERE user_id = $1",
+            user_id,
+        )
+        return {e["achievement_id"] for e in earned}
+
+    @staticmethod
+    async def _award_achievements(
+        conn: asyncpg.Connection,
+        user_id: str,
+        achievement_ids: List[str],
+        game_id: Optional[str] = None,
+    ) -> None:
+        """Insert achievement records for a user."""
+        for achievement_id in achievement_ids:
+            try:
+                await conn.execute("""
+                    INSERT INTO user_achievements (user_id, achievement_id, game_id)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT DO NOTHING
+                """, user_id, achievement_id, game_id)
+            except Exception as e:
+                logger.error(f"Failed to award achievement {achievement_id}: {e}")
+
     async def _check_achievements(
         self,
         conn: asyncpg.Connection,
@@ -605,8 +647,6 @@ class StatsService:
         Returns:
             List of newly awarded achievement IDs.
         """
-        new_achievements = []
-
         # Get current stats (after update)
         stats = await conn.fetchrow("""
             SELECT games_won, knockouts, best_win_streak, current_win_streak, perfect_rounds, wolfpacks
@@ -617,35 +657,15 @@ class StatsService:
         if not stats:
             return []
 
-        # Get already earned achievements
-        earned = await conn.fetch("""
-            SELECT achievement_id FROM user_achievements WHERE user_id = $1
-        """, user_id)
-        earned_ids = {e["achievement_id"] for e in earned}
+        earned_ids = await self._get_earned_ids(conn, user_id)
 
-        # Check win milestones
-        wins = stats["games_won"]
-        if wins >= 1 and "first_win" not in earned_ids:
-            new_achievements.append("first_win")
-        if wins >= 10 and "win_10" not in earned_ids:
-            new_achievements.append("win_10")
-        if wins >= 50 and "win_50" not in earned_ids:
-            new_achievements.append("win_50")
-        if wins >= 100 and "win_100" not in earned_ids:
-            new_achievements.append("win_100")
+        # Win/streak milestones (shared logic)
+        new_achievements = self._check_win_milestones(stats, earned_ids)
 
-        # Check streak achievements
-        streak = stats["current_win_streak"]
-        if streak >= 5 and "streak_5" not in earned_ids:
-            new_achievements.append("streak_5")
-        if streak >= 10 and "streak_10" not in earned_ids:
-            new_achievements.append("streak_10")
-
-        # Check knockout achievements
+        # Game-specific achievements (event path only)
         if stats["knockouts"] >= 10 and "knockout_10" not in earned_ids:
             new_achievements.append("knockout_10")
 
-        # Check round-specific achievements from this game
         best_round = player_data.get("best_round")
         if best_round is not None:
             if best_round <= 0 and "perfect_round" not in earned_ids:
@@ -653,21 +673,10 @@ class StatsService:
             if best_round < 0 and "negative_round" not in earned_ids:
                 new_achievements.append("negative_round")
 
-        # Check wolfpack
         if player_data.get("wolfpacks", 0) > 0 and "wolfpack" not in earned_ids:
             new_achievements.append("wolfpack")
 
-        # Award new achievements
-        for achievement_id in new_achievements:
-            try:
-                await conn.execute("""
-                    INSERT INTO user_achievements (user_id, achievement_id, game_id)
-                    VALUES ($1, $2, $3)
-                    ON CONFLICT DO NOTHING
-                """, user_id, achievement_id, game_id)
-            except Exception as e:
-                logger.error(f"Failed to award achievement {achievement_id}: {e}")
-
+        await self._award_achievements(conn, user_id, new_achievements, game_id)
         return new_achievements
 
     # -------------------------------------------------------------------------
@@ -680,23 +689,31 @@ class StatsService:
         winner_id: Optional[str],
         num_rounds: int,
         player_user_ids: dict[str, str] = None,
+        game_options: Optional[GameOptions] = None,
     ) -> List[str]:
         """
         Process game stats directly from game state (for legacy games).
 
         This is used when games don't have event sourcing. Stats are updated
-        based on final game state.
+        based on final game state. Only standard-rules games count toward
+        leaderboard stats.
 
         Args:
             players: List of game.Player objects with final scores.
             winner_id: Player ID of the winner.
             num_rounds: Total rounds played.
             player_user_ids: Optional mapping of player_id to user_id (for authenticated players).
+            game_options: Optional game options to check for standard rules.
 
         Returns:
             List of newly awarded achievement IDs.
         """
         if not players:
+            return []
+
+        # Only track stats for standard-rules games
+        if game_options and not game_options.is_standard_rules():
+            logger.debug("Skipping stats for non-standard rules game")
             return []
 
         # Count human players for has_human_opponents calculation
@@ -800,9 +817,6 @@ class StatsService:
 
         Only checks win-based achievements since we don't have round-level data.
         """
-        new_achievements = []
-
-        # Get current stats
         stats = await conn.fetchrow("""
             SELECT games_won, current_win_streak FROM player_stats
             WHERE user_id = $1
@@ -811,41 +825,9 @@ class StatsService:
         if not stats:
             return []
 
-        # Get already earned achievements
-        earned = await conn.fetch("""
-            SELECT achievement_id FROM user_achievements WHERE user_id = $1
-        """, user_id)
-        earned_ids = {e["achievement_id"] for e in earned}
-
-        # Check win milestones
-        wins = stats["games_won"]
-        if wins >= 1 and "first_win" not in earned_ids:
-            new_achievements.append("first_win")
-        if wins >= 10 and "win_10" not in earned_ids:
-            new_achievements.append("win_10")
-        if wins >= 50 and "win_50" not in earned_ids:
-            new_achievements.append("win_50")
-        if wins >= 100 and "win_100" not in earned_ids:
-            new_achievements.append("win_100")
-
-        # Check streak achievements
-        streak = stats["current_win_streak"]
-        if streak >= 5 and "streak_5" not in earned_ids:
-            new_achievements.append("streak_5")
-        if streak >= 10 and "streak_10" not in earned_ids:
-            new_achievements.append("streak_10")
-
-        # Award new achievements
-        for achievement_id in new_achievements:
-            try:
-                await conn.execute("""
-                    INSERT INTO user_achievements (user_id, achievement_id)
-                    VALUES ($1, $2)
-                    ON CONFLICT DO NOTHING
-                """, user_id, achievement_id)
-            except Exception as e:
-                logger.error(f"Failed to award achievement {achievement_id}: {e}")
-
+        earned_ids = await self._get_earned_ids(conn, user_id)
+        new_achievements = self._check_win_milestones(stats, earned_ids)
+        await self._award_achievements(conn, user_id, new_achievements)
         return new_achievements
 
     # -------------------------------------------------------------------------

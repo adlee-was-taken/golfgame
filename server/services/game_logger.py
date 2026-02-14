@@ -17,6 +17,7 @@ Usage:
         logger.log_move(game_id, player, is_cpu=False, action="swap", ...)
 """
 
+from dataclasses import asdict
 from typing import Optional, TYPE_CHECKING
 import asyncio
 import uuid
@@ -46,6 +47,13 @@ class GameLogger:
         """
         self.event_store = event_store
 
+    @staticmethod
+    def _options_to_dict(options: "GameOptions") -> dict:
+        """Convert GameOptions to dict for storage, excluding non-rule fields."""
+        d = asdict(options)
+        d.pop("deck_colors", None)
+        return d
+
     # -------------------------------------------------------------------------
     # Game Lifecycle
     # -------------------------------------------------------------------------
@@ -71,30 +79,12 @@ class GameLogger:
         """
         game_id = str(uuid.uuid4())
 
-        options_dict = {
-            "flip_mode": options.flip_mode,
-            "initial_flips": options.initial_flips,
-            "knock_penalty": options.knock_penalty,
-            "use_jokers": options.use_jokers,
-            "lucky_swing": options.lucky_swing,
-            "super_kings": options.super_kings,
-            "ten_penny": options.ten_penny,
-            "knock_bonus": options.knock_bonus,
-            "underdog_bonus": options.underdog_bonus,
-            "tied_shame": options.tied_shame,
-            "blackjack": options.blackjack,
-            "eagle_eye": options.eagle_eye,
-            "negative_pairs_keep_value": getattr(options, "negative_pairs_keep_value", False),
-            "four_of_a_kind": getattr(options, "four_of_a_kind", False),
-            "wolfpack": getattr(options, "wolfpack", False),
-        }
-
         try:
             await self.event_store.create_game(
                 game_id=game_id,
                 room_code=room_code,
                 host_id="system",
-                options=options_dict,
+                options=self._options_to_dict(options),
             )
             log.debug(f"Logged game start: {game_id} room={room_code}")
         except Exception as e:
@@ -133,30 +123,12 @@ class GameLogger:
         options: "GameOptions",
     ) -> None:
         """Helper to log game start with pre-generated ID."""
-        options_dict = {
-            "flip_mode": options.flip_mode,
-            "initial_flips": options.initial_flips,
-            "knock_penalty": options.knock_penalty,
-            "use_jokers": options.use_jokers,
-            "lucky_swing": options.lucky_swing,
-            "super_kings": options.super_kings,
-            "ten_penny": options.ten_penny,
-            "knock_bonus": options.knock_bonus,
-            "underdog_bonus": options.underdog_bonus,
-            "tied_shame": options.tied_shame,
-            "blackjack": options.blackjack,
-            "eagle_eye": options.eagle_eye,
-            "negative_pairs_keep_value": getattr(options, "negative_pairs_keep_value", False),
-            "four_of_a_kind": getattr(options, "four_of_a_kind", False),
-            "wolfpack": getattr(options, "wolfpack", False),
-        }
-
         try:
             await self.event_store.create_game(
                 game_id=game_id,
                 room_code=room_code,
                 host_id="system",
-                options=options_dict,
+                options=self._options_to_dict(options),
             )
             log.debug(f"Logged game start: {game_id} room={room_code}")
         except Exception as e:

@@ -417,6 +417,7 @@ class GolfGame {
         this.oneEyedJacksCheckbox = document.getElementById('one-eyed-jacks');
         this.knockEarlyCheckbox = document.getElementById('knock-early');
         this.wolfpackComboNote = document.getElementById('wolfpack-combo-note');
+        this.unrankedNotice = document.getElementById('unranked-notice');
         this.startGameBtn = document.getElementById('start-game-btn');
         this.leaveRoomBtn = document.getElementById('leave-room-btn');
         this.addCpuBtn = document.getElementById('add-cpu-btn');
@@ -544,6 +545,34 @@ class GolfGame {
         };
         this.wolfpackCheckbox.addEventListener('change', updateWolfpackCombo);
         this.fourOfAKindCheckbox.addEventListener('change', updateWolfpackCombo);
+
+        // Show/hide unranked notice when house rules change
+        const houseRuleInputs = [
+            this.flipModeSelect, this.knockPenaltyCheckbox,
+            this.superKingsCheckbox, this.tenPennyCheckbox,
+            this.knockBonusCheckbox, this.underdogBonusCheckbox,
+            this.tiedShameCheckbox, this.blackjackCheckbox,
+            this.wolfpackCheckbox, this.flipAsActionCheckbox,
+            this.fourOfAKindCheckbox, this.negativePairsCheckbox,
+            this.oneEyedJacksCheckbox, this.knockEarlyCheckbox,
+        ];
+        const jokerRadios = document.querySelectorAll('input[name="joker-mode"]');
+        const updateUnrankedNotice = () => {
+            const hasHouseRules = (
+                (this.flipModeSelect?.value && this.flipModeSelect.value !== 'never') ||
+                this.knockPenaltyCheckbox?.checked ||
+                (document.querySelector('input[name="joker-mode"]:checked')?.value !== 'none') ||
+                this.superKingsCheckbox?.checked || this.tenPennyCheckbox?.checked ||
+                this.knockBonusCheckbox?.checked || this.underdogBonusCheckbox?.checked ||
+                this.tiedShameCheckbox?.checked || this.blackjackCheckbox?.checked ||
+                this.wolfpackCheckbox?.checked || this.flipAsActionCheckbox?.checked ||
+                this.fourOfAKindCheckbox?.checked || this.negativePairsCheckbox?.checked ||
+                this.oneEyedJacksCheckbox?.checked || this.knockEarlyCheckbox?.checked
+            );
+            this.unrankedNotice?.classList.toggle('hidden', !hasHouseRules);
+        };
+        houseRuleInputs.forEach(el => el?.addEventListener('change', updateUnrankedNotice));
+        jokerRadios.forEach(el => el.addEventListener('change', updateUnrankedNotice));
 
         // Toggle scoreboard collapse on mobile
         const scoreboardTitle = this.scoreboard.querySelector('h4');
@@ -2637,17 +2666,20 @@ class GolfGame {
             return `<span class="rule-tag" data-rule="${key}">${rule}</span>`;
         };
 
+        const unrankedTag = this.gameState.is_standard_rules === false
+            ? '<span class="rule-tag unranked">Unranked</span>' : '';
+
         if (rules.length === 0) {
             this.activeRulesList.innerHTML = '<span class="rule-tag standard">Standard</span>';
         } else if (rules.length <= 2) {
-            this.activeRulesList.innerHTML = rules.map(renderTag).join('');
+            this.activeRulesList.innerHTML = unrankedTag + rules.map(renderTag).join('');
         } else {
             const displayed = rules.slice(0, 2);
             const hidden = rules.slice(2);
             const moreCount = hidden.length;
             const tooltip = hidden.join(', ');
 
-            this.activeRulesList.innerHTML = displayed.map(renderTag).join('') +
+            this.activeRulesList.innerHTML = unrankedTag + displayed.map(renderTag).join('') +
                 `<span class="rule-tag rule-more" title="${tooltip}">+${moreCount} more</span>`;
         }
         this.activeRulesBar.classList.remove('hidden');

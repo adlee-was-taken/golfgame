@@ -531,6 +531,7 @@ async def _process_stats_safe(room: Room):
             winner_id=winner_id,
             num_rounds=room.game.num_rounds,
             player_user_ids=player_user_ids,
+            game_options=room.game.options,
         )
         logger.debug(f"Stats processed for room {room.code}")
     except Exception as e:
