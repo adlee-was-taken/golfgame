@@ -448,6 +448,10 @@ class CardAnimations {
         const deckColor = this.getDeckColor();
 
         const animCard = this.createAnimCard(rect, true, deckColor);
+        // Match source card's font-size (opponent cards are smaller than default)
+        const srcFontSize = getComputedStyle(cardElement).fontSize;
+        const front = animCard.querySelector('.draw-anim-front');
+        if (front) front.style.fontSize = srcFontSize;
         this.setCardContent(animCard, cardData);
 
         // Apply rotation to match arch layout
@@ -603,6 +607,10 @@ class CardAnimations {
         const deckColor = this.getDeckColor();
 
         const animCard = this.createAnimCard(rect, true, deckColor);
+        // Match source card's font-size (opponent cards are smaller than default)
+        const srcFontSize = getComputedStyle(sourceCardElement).fontSize;
+        const front = animCard.querySelector('.draw-anim-front');
+        if (front) front.style.fontSize = srcFontSize;
         this.setCardContent(animCard, discardCard);
 
         if (rotation) {

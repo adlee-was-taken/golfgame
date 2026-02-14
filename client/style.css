@@ -4522,6 +4522,10 @@ body.screen-shake {
     25% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
     100% { transform: translate(-50%, -60%) scale(1); opacity: 0; }
 }
+.pair-cancel-overlay.negative {
+    color: #81d4fa;
+    border-color: rgba(100, 181, 246, 0.4);
+}
 
 /* --- V3_10: Column Pair Indicator --- */
 .card.paired {

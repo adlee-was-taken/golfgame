@@ -1630,5 +1630,12 @@ class Game:
             "finisher_id": self.finisher_id,
             "card_values": self.get_card_values(),
             "active_rules": active_rules,
+            "scoring_rules": {
+                "negative_pairs_keep_value": self.options.negative_pairs_keep_value,
+                "eagle_eye": self.options.eagle_eye,
+                "wolfpack": self.options.wolfpack,
+                "four_of_a_kind": self.options.four_of_a_kind,
+                "one_eyed_jacks": self.options.one_eyed_jacks,
+            },
             "deck_colors": self.options.deck_colors,
         }

@@ -1758,6 +1758,7 @@ class GolfGame {
         await this.delay(T.initialPause || 300);
 
         const cardValues = this.gameState?.card_values || this.getDefaultCardValues();
+        const scoringRules = this.gameState?.scoring_rules || {};
 
         // Order: knocker first, then others
         const ordered = [...players].sort((a, b) => {
@@ -1767,41 +1768,38 @@ class GolfGame {
         });
 
         for (const player of ordered) {
-            const cards = this.getCardElements(player.id, 0, 1, 2, 3, 4, 5);
-            if (cards.length < 6) continue;
+            const cardEls = this.getCardElements(player.id, 0, 1, 2, 3, 4, 5);
+            if (cardEls.length < 6) continue;
+
+            // Use shared scoring logic (all cards revealed at round end)
+            const result = this.calculateColumnScores(player.cards, cardValues, scoringRules, false);
 
             // Highlight player area
             this.highlightPlayerArea(player.id, true);
 
-            let total = 0;
-            const columns = [[0, 3], [1, 4], [2, 5]];
+            const colIndices = [[0, 3], [1, 4], [2, 5]];
 
-            for (const [topIdx, bottomIdx] of columns) {
-                const topData = player.cards[topIdx];
-                const bottomData = player.cards[bottomIdx];
-                const topCard = cards[topIdx];
-                const bottomCard = cards[bottomIdx];
-                const isPair = topData?.rank && bottomData?.rank && topData.rank === bottomData.rank;
+            for (let c = 0; c < 3; c++) {
+                const [topIdx, bottomIdx] = colIndices[c];
+                const col = result.columns[c];
+                const topCard = cardEls[topIdx];
+                const bottomCard = cardEls[bottomIdx];
 
-                if (isPair) {
-                    // Just show pair cancel — no individual card values
+                if (col.isPair) {
                     topCard?.classList.add('tallying');
                     bottomCard?.classList.add('tallying');
-                    this.showPairCancel(topCard, bottomCard);
+                    this.showPairCancel(topCard, bottomCard, col.pairValue);
                     await this.delay(T.pairCelebration || 400);
                 } else {
                     // Show individual card values
                     topCard?.classList.add('tallying');
-                    const topValue = cardValues[topData?.rank] ?? 0;
-                    const topOverlay = this.showCardValue(topCard, topValue, topValue < 0);
+                    const topOverlay = this.showCardValue(topCard, col.topValue, col.topValue < 0);
                     await this.delay(T.cardHighlight || 200);
 
                     bottomCard?.classList.add('tallying');
-                    const bottomValue = cardValues[bottomData?.rank] ?? 0;
-                    const bottomOverlay = this.showCardValue(bottomCard, bottomValue, bottomValue < 0);
+                    const bottomOverlay = this.showCardValue(bottomCard, col.bottomValue, col.bottomValue < 0);
                     await this.delay(T.cardHighlight || 200);
 
-                    total += topValue + bottomValue;
                     this.hideCardValue(topOverlay);
                     this.hideCardValue(bottomOverlay);
                 }
@@ -1809,6 +1807,15 @@ class GolfGame {
                 topCard?.classList.remove('tallying');
                 bottomCard?.classList.remove('tallying');
                 await this.delay(T.columnPause || 150);
+            }
+
+            // Show bonuses (wolfpack, four-of-a-kind)
+            if (result.bonuses.length > 0) {
+                for (const bonus of result.bonuses) {
+                    const label = bonus.type === 'wolfpack' ? 'WOLFPACK!' : 'FOUR OF A KIND!';
+                    this.showBonusOverlay(player.id, label, bonus.value);
+                    await this.delay(T.pairCelebration || 400);
+                }
             }
 
             this.highlightPlayerArea(player.id, false);
@@ -1843,16 +1850,18 @@ class GolfGame {
         setTimeout(() => overlay.remove(), 200);
     }
 
-    showPairCancel(card1, card2) {
+    showPairCancel(card1, card2, pairValue = 0) {
         if (!card1 || !card2) return;
         const rect1 = card1.getBoundingClientRect();
         const rect2 = card2.getBoundingClientRect();
         const centerX = (rect1.left + rect1.right + rect2.left + rect2.right) / 4;
         const centerY = (rect1.top + rect1.bottom + rect2.top + rect2.bottom) / 4;
 
+        const sign = pairValue > 0 ? '+' : '';
         const overlay = document.createElement('div');
         overlay.className = 'pair-cancel-overlay';
-        overlay.textContent = 'PAIR! +0';
+        if (pairValue < 0) overlay.classList.add('negative');
+        overlay.textContent = `PAIR! ${sign}${pairValue}`;
         overlay.style.left = `${centerX}px`;
         overlay.style.top = `${centerY}px`;
         document.body.appendChild(overlay);
@@ -1867,6 +1876,25 @@ class GolfGame {
             card1.classList.remove('pair-matched');
             card2.classList.remove('pair-matched');
         }, 600);
+    }
+
+    showBonusOverlay(playerId, label, value) {
+        const area = playerId === this.playerId
+            ? this.playerArea
+            : this.opponentsRow.querySelector(`.opponent-area[data-player-id="${playerId}"]`);
+        if (!area) return;
+
+        const rect = area.getBoundingClientRect();
+        const overlay = document.createElement('div');
+        overlay.className = 'pair-cancel-overlay negative';
+        overlay.textContent = `${label} ${value}`;
+        overlay.style.left = `${rect.left + rect.width / 2}px`;
+        overlay.style.top = `${rect.top + rect.height / 2}px`;
+        document.body.appendChild(overlay);
+
+        this.playSound('pair');
+
+        setTimeout(() => overlay.remove(), 600);
     }
 
     getDefaultCardValues() {
@@ -3130,41 +3158,99 @@ class GolfGame {
         return suit === 'hearts' || suit === 'diamonds';
     }
 
-    calculateShowingScore(cards) {
-        if (!cards || cards.length !== 6) return 0;
+    /**
+     * Get the point value for a single card, respecting house rules.
+     * Handles one_eyed_jacks (J♥/J♠ = 0) which can't be in the card_values map.
+     */
+    getCardPointValue(card, cardValues, scoringRules) {
+        if (!card.rank) return 0;
+        if (scoringRules?.one_eyed_jacks && card.rank === 'J' &&
+            (card.suit === 'hearts' || card.suit === 'spades')) {
+            return 0;
+        }
+        return cardValues[card.rank] ?? 0;
+    }
 
-        // Use card values from server (includes house rules) or defaults
-        const cardValues = this.gameState?.card_values || {
-            'A': 1, '2': -2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
-            '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 0, '★': -2
-        };
-
-        const getCardValue = (card) => {
-            if (!card.face_up) return 0;
-            return cardValues[card.rank] ?? 0;
-        };
-
-        // Check for column pairs (cards in same column cancel out if matching)
+    /**
+     * Calculate structured scoring results for a 6-card hand.
+     * Single source of truth for client-side scoring logic.
+     *
+     * @param {Array} cards - 6-element array of card data objects ({rank, suit, face_up})
+     * @param {Object} cardValues - rank→point map from server (includes lucky_swing, super_kings, etc.)
+     * @param {Object} scoringRules - house rule flags from server (eagle_eye, negative_pairs_keep_value, etc.)
+     * @param {boolean} onlyFaceUp - if true, only count face-up cards (for live score badge)
+     * @returns {{ columns: Array<{isPair, pairValue, topValue, bottomValue}>, bonuses: Array<{type, value}>, total: number }}
+     */
+    calculateColumnScores(cards, cardValues, scoringRules, onlyFaceUp = false) {
+        const rules = scoringRules || {};
+        const columns = [];
         let total = 0;
+        let jackPairs = 0;
+        const pairedRanks = [];
+
         for (let col = 0; col < 3; col++) {
             const topCard = cards[col];
             const bottomCard = cards[col + 3];
-
             const topUp = topCard.face_up;
             const bottomUp = bottomCard.face_up;
 
-            // If both face up and matching rank, they cancel (score 0)
-            if (topUp && bottomUp && topCard.rank === bottomCard.rank) {
-                // Matching pair = 0 points for both
-                continue;
-            }
+            const topValue = (topUp || !onlyFaceUp) ? this.getCardPointValue(topCard, cardValues, rules) : 0;
+            const bottomValue = (bottomUp || !onlyFaceUp) ? this.getCardPointValue(bottomCard, cardValues, rules) : 0;
 
-            // Otherwise add individual values
-            total += getCardValue(topCard);
-            total += getCardValue(bottomCard);
+            const bothVisible = onlyFaceUp ? (topUp && bottomUp) : true;
+            const isPair = bothVisible && topCard.rank && bottomCard.rank && topCard.rank === bottomCard.rank;
+
+            if (isPair) {
+                pairedRanks.push(topCard.rank);
+                if (topCard.rank === 'J') jackPairs++;
+
+                let pairValue = 0;
+
+                // Eagle Eye: paired jokers score -4
+                if (rules.eagle_eye && topCard.rank === '★') {
+                    pairValue = -4;
+                }
+                // Negative Pairs Keep Value: negative-value pairs keep their score
+                else if (rules.negative_pairs_keep_value && (topValue < 0 || bottomValue < 0)) {
+                    pairValue = topValue + bottomValue;
+                }
+                // Normal pair: 0
+
+                total += pairValue;
+                columns.push({ isPair: true, pairValue, topValue, bottomValue });
+            } else {
+                total += topValue + bottomValue;
+                columns.push({ isPair: false, pairValue: 0, topValue, bottomValue });
+            }
         }
 
-        return total;
+        // Bonuses
+        const bonuses = [];
+        if (rules.wolfpack && jackPairs >= 2) {
+            bonuses.push({ type: 'wolfpack', value: -20 });
+            total += -20;
+        }
+        if (rules.four_of_a_kind) {
+            const rankCounts = {};
+            for (const r of pairedRanks) {
+                rankCounts[r] = (rankCounts[r] || 0) + 1;
+            }
+            for (const [rank, count] of Object.entries(rankCounts)) {
+                if (count >= 2) {
+                    bonuses.push({ type: 'four_of_a_kind', value: -20, rank });
+                    total += -20;
+                }
+            }
+        }
+
+        return { columns, bonuses, total };
+    }
+
+    calculateShowingScore(cards) {
+        if (!cards || cards.length !== 6) return 0;
+        const cardValues = this.gameState?.card_values || this.getDefaultCardValues();
+        const scoringRules = this.gameState?.scoring_rules || {};
+        return this.calculateColumnScores(cards, cardValues, scoringRules, true).total;
     }
 
     getSuitSymbol(suit) {
