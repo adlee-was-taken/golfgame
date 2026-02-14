@@ -16,7 +16,7 @@ from config import config
 from room import RoomManager, Room
 from game import GamePhase, GameOptions
 from ai import GolfAI, process_cpu_turn, get_all_profiles, reset_all_profiles, cleanup_room_profiles
-from game_log import get_logger
+from services.game_logger import GameLogger, get_logger, set_logger
 
 # Import production components
 from logging_config import setup_logging
@@ -141,6 +141,12 @@ async def lifespan(app: FastAPI):
             set_stats_router_service(_stats_service)
             set_stats_auth_service(_auth_service)
             logger.info("Stats services initialized successfully")
+
+            # Initialize game logger (uses event_store for move logging)
+            logger.info("Initializing game logger...")
+            _game_logger = GameLogger(_event_store)
+            set_logger(_game_logger)
+            logger.info("Game logger initialized with PostgreSQL backend")
 
             # Initialize replay service
             logger.info("Initializing replay services...")
@@ -343,9 +349,8 @@ app.add_middleware(LazyRateLimitMiddleware)
 
 room_manager = RoomManager()
 
-# Initialize game logger database at startup
-_game_logger = get_logger()
-logger.info(f"Game analytics database initialized at: {_game_logger.db_path}")
+# Game logger is initialized in lifespan after event_store is available
+# The get_logger() function returns None until set_logger() is called
 
 
 # =============================================================================
@@ -692,11 +697,12 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     # Log game start for AI analysis
                     game_logger = get_logger()
-                    current_room.game_log_id = game_logger.log_game_start(
-                        room_code=current_room.code,
-                        num_players=len(current_room.players),
-                        options=options,
-                    )
+                    if game_logger:
+                        current_room.game_log_id = game_logger.log_game_start(
+                            room_code=current_room.code,
+                            num_players=len(current_room.players),
+                            options=options,
+                        )
 
                     # CPU players do their initial flips immediately (if required)
                     if options.initial_flips > 0:
@@ -740,8 +746,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     if card:
                         # Log draw decision for human player
-                        if current_room.game_log_id:
-                            game_logger = get_logger()
+                        game_logger = get_logger()
+                        if game_logger and current_room.game_log_id:
                             player = current_room.game.get_player(player_id)
                             if player:
                                 reason = f"took {discard_before_draw.rank.value} from discard" if source == "discard" else "drew from deck"
@@ -779,8 +785,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     if discarded:
                         # Log swap decision for human player
-                        if current_room.game_log_id and drawn_card and player:
-                            game_logger = get_logger()
+                        game_logger = get_logger()
+                        if game_logger and current_room.game_log_id and drawn_card and player:
                             old_rank = old_card.rank.value if old_card else "?"
                             game_logger.log_move(
                                 game_id=current_room.game_log_id,
@@ -810,8 +816,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     if current_room.game.discard_drawn(player_id):
                         # Log discard decision for human player
-                        if current_room.game_log_id and drawn_card and player:
-                            game_logger = get_logger()
+                        game_logger = get_logger()
+                        if game_logger and current_room.game_log_id and drawn_card and player:
                             game_logger.log_move(
                                 game_id=current_room.game_log_id,
                                 player=player,
@@ -864,8 +870,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     current_room.game.flip_and_end_turn(player_id, position)
 
                     # Log flip decision for human player
-                    if current_room.game_log_id and player and 0 <= position < len(player.cards):
-                        game_logger = get_logger()
+                    game_logger = get_logger()
+                    if game_logger and current_room.game_log_id and player and 0 <= position < len(player.cards):
                         flipped_card = player.cards[position]
                         game_logger.log_move(
                             game_id=current_room.game_log_id,
@@ -889,8 +895,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     player = current_room.game.get_player(player_id)
                     if current_room.game.skip_flip_and_end_turn(player_id):
                         # Log skip flip decision for human player
-                        if current_room.game_log_id and player:
-                            game_logger = get_logger()
+                        game_logger = get_logger()
+                        if game_logger and current_room.game_log_id and player:
                             game_logger.log_move(
                                 game_id=current_room.game_log_id,
                                 player=player,
@@ -913,8 +919,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     player = current_room.game.get_player(player_id)
                     if current_room.game.flip_card_as_action(player_id, position):
                         # Log flip-as-action for human player
-                        if current_room.game_log_id and player and 0 <= position < len(player.cards):
-                            game_logger = get_logger()
+                        game_logger = get_logger()
+                        if game_logger and current_room.game_log_id and player and 0 <= position < len(player.cards):
                             flipped_card = player.cards[position]
                             game_logger.log_move(
                                 game_id=current_room.game_log_id,
@@ -938,8 +944,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     player = current_room.game.get_player(player_id)
                     if current_room.game.knock_early(player_id):
                         # Log knock early for human player
-                        if current_room.game_log_id and player:
-                            game_logger = get_logger()
+                        game_logger = get_logger()
+                        if game_logger and current_room.game_log_id and player:
                             face_down_count = sum(1 for c in player.cards if not c.face_up)
                             game_logger.log_move(
                                 game_id=current_room.game_log_id,
@@ -1098,8 +1104,8 @@ async def broadcast_game_state(room: Room):
         # Check for game over
         elif room.game.phase == GamePhase.GAME_OVER:
             # Log game end
-            if room.game_log_id:
-                game_logger = get_logger()
+            game_logger = get_logger()
+            if game_logger and room.game_log_id:
                 game_logger.log_game_end(room.game_log_id)
                 room.game_log_id = None  # Clear to avoid duplicate logging
 

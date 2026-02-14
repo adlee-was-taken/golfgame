@@ -3,10 +3,20 @@ Game Analyzer for 6-Card Golf AI decisions.
 
 Evaluates AI decisions against optimal play baselines and generates
 reports on decision quality, mistake rates, and areas for improvement.
+
+NOTE: This analyzer has been updated to use PostgreSQL. It requires
+POSTGRES_URL to be configured. For quick analysis during simulations,
+use the SimulationStats class in simulate.py instead.
+
+Usage:
+    python game_analyzer.py blunders [limit]
+    python game_analyzer.py recent [limit]
 """
 
+import asyncio
 import json
-import sqlite3
+import os
+import sqlite3  # For legacy GameAnalyzer class (deprecated)
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -339,7 +349,12 @@ class DecisionEvaluator:
 # =============================================================================
 
 class GameAnalyzer:
-    """Analyzes logged games for decision quality."""
+    """Analyzes logged games for decision quality.
+
+    DEPRECATED: This class uses SQLite which has been replaced by PostgreSQL.
+    Use the CLI commands (blunders, recent) instead, or query the moves table
+    in PostgreSQL directly.
+    """
 
     def __init__(self, db_path: str = "games.db"):
         self.db_path = Path(db_path)
@@ -579,59 +594,76 @@ def print_blunder_report(blunders: list[dict]):
 
 
 # =============================================================================
-# CLI Interface
+# CLI Interface (PostgreSQL version)
 # =============================================================================
 
-if __name__ == "__main__":
+async def run_cli():
+    """Async CLI entry point."""
     import sys
 
     if len(sys.argv) < 2:
         print("Usage:")
         print("  python game_analyzer.py blunders [limit]")
-        print("  python game_analyzer.py game <game_id> <player_name>")
-        print("  python game_analyzer.py summary")
+        print("  python game_analyzer.py recent [limit]")
+        print("")
+        print("Requires POSTGRES_URL environment variable.")
+        sys.exit(1)
+
+    postgres_url = os.environ.get("POSTGRES_URL")
+    if not postgres_url:
+        print("Error: POSTGRES_URL environment variable not set.")
+        print("")
+        print("Set it like: export POSTGRES_URL=postgresql://golf:devpassword@localhost:5432/golf")
+        print("")
+        print("For simulation analysis without PostgreSQL, use:")
+        print("  python simulate.py 100 --preset baseline")
+        sys.exit(1)
+
+    from stores.event_store import EventStore
+
+    try:
+        event_store = await EventStore.create(postgres_url)
+    except Exception as e:
+        print(f"Error connecting to PostgreSQL: {e}")
         sys.exit(1)
 
     command = sys.argv[1]
 
     try:
-        analyzer = GameAnalyzer()
-    except FileNotFoundError:
-        print("No games.db found. Play some games first!")
-        sys.exit(1)
+        if command == "blunders":
+            limit = int(sys.argv[2]) if len(sys.argv) > 2 else 20
+            blunders = await event_store.find_suspicious_discards(limit)
 
-    if command == "blunders":
-        limit = int(sys.argv[2]) if len(sys.argv) > 2 else 20
-        blunders = analyzer.find_blunders(limit)
-        print_blunder_report(blunders)
+            print(f"\n=== Suspicious Discards ({len(blunders)} found) ===\n")
+            for b in blunders:
+                print(f"Player: {b.get('player_name', 'Unknown')}")
+                print(f"Action: discard {b.get('card_rank', '?')}")
+                print(f"Room: {b.get('room_code', 'N/A')}")
+                print(f"Reason: {b.get('decision_reason', 'N/A')}")
+                print("-" * 40)
 
-    elif command == "game" and len(sys.argv) >= 4:
-        game_id = sys.argv[2]
-        player_name = sys.argv[3]
-        summary = analyzer.analyze_player_game(game_id, player_name)
-        print(generate_player_report(summary))
-
-    elif command == "summary":
-        # Quick summary of recent games
-        with sqlite3.connect("games.db") as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute("""
-                SELECT g.id, g.room_code, g.started_at, g.num_players,
-                       COUNT(m.id) as move_count
-                FROM games g
-                LEFT JOIN moves m ON g.id = m.game_id
-                GROUP BY g.id
-                ORDER BY g.started_at DESC
-                LIMIT 10
-            """)
+        elif command == "recent":
+            limit = int(sys.argv[2]) if len(sys.argv) > 2 else 10
+            games = await event_store.get_recent_games_with_stats(limit)
 
             print("\n=== Recent Games ===\n")
-            for row in cursor:
-                print(f"Game: {row['id'][:8]}... Room: {row['room_code']}")
-                print(f"  Players: {row['num_players']}, Moves: {row['move_count']}")
-                print(f"  Started: {row['started_at']}")
-                print()
+            for game in games:
+                game_id = str(game.get('id', ''))[:8]
+                room_code = game.get('room_code', 'N/A')
+                status = game.get('status', 'unknown')
+                moves = game.get('total_moves', 0)
+                print(f"{game_id}... | Room: {room_code} | Status: {status} | Moves: {moves}")
 
-    else:
-        print(f"Unknown command: {command}")
-        sys.exit(1)
+        else:
+            print(f"Unknown command: {command}")
+            print("Available: blunders, recent")
+
+    finally:
+        await event_store.close()
+
+
+if __name__ == "__main__":
+    # Note: The detailed analysis (GameAnalyzer class) still uses the old SQLite
+    # schema format. For now, use the CLI commands above for PostgreSQL queries.
+    # Full migration of the analysis logic is TODO.
+    asyncio.run(run_cli())

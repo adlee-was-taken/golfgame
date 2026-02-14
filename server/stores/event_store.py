@@ -62,6 +62,32 @@ CREATE TABLE IF NOT EXISTS games_v2 (
     player_ids VARCHAR(50)[] DEFAULT '{}'
 );
 
+-- Moves table (denormalized for AI decision analysis)
+-- Replaces SQLite game_log.py - provides efficient queries for move-level analysis
+CREATE TABLE IF NOT EXISTS moves (
+    id BIGSERIAL PRIMARY KEY,
+    game_id UUID NOT NULL,
+    sequence_num INT NOT NULL,
+    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    player_id VARCHAR(50) NOT NULL,
+    player_name VARCHAR(100),
+    is_cpu BOOLEAN DEFAULT FALSE,
+
+    -- Action details
+    action VARCHAR(30) NOT NULL,  -- draw_deck, take_discard, swap, discard, flip, etc.
+    card_rank VARCHAR(5),
+    card_suit VARCHAR(10),
+    position INT,
+
+    -- AI context (JSONB for flexibility)
+    hand_state JSONB,           -- Player's hand at decision time
+    discard_top JSONB,          -- Top of discard pile
+    visible_opponents JSONB,    -- Face-up cards of opponents
+    decision_reason TEXT,       -- AI reasoning
+
+    UNIQUE(game_id, sequence_num)
+);
+
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_events_game_seq ON events(game_id, sequence_num);
 CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
@@ -72,6 +98,11 @@ CREATE INDEX IF NOT EXISTS idx_games_status ON games_v2(status);
 CREATE INDEX IF NOT EXISTS idx_games_room ON games_v2(room_code) WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_games_players ON games_v2 USING GIN(player_ids);
 CREATE INDEX IF NOT EXISTS idx_games_completed ON games_v2(completed_at) WHERE status = 'completed';
+
+CREATE INDEX IF NOT EXISTS idx_moves_game ON moves(game_id);
+CREATE INDEX IF NOT EXISTS idx_moves_action ON moves(action);
+CREATE INDEX IF NOT EXISTS idx_moves_is_cpu ON moves(is_cpu);
+CREATE INDEX IF NOT EXISTS idx_moves_player ON moves(player_id);
 """
 
 
@@ -440,6 +471,230 @@ class EventStore:
                 game_id,
             )
             return dict(row) if row else None
+
+    # -------------------------------------------------------------------------
+    # Move Logging (for AI decision analysis)
+    # -------------------------------------------------------------------------
+
+    async def append_move(
+        self,
+        game_id: str,
+        player_id: str,
+        player_name: str,
+        is_cpu: bool,
+        action: str,
+        card_rank: Optional[str] = None,
+        card_suit: Optional[str] = None,
+        position: Optional[int] = None,
+        hand_state: Optional[list] = None,
+        discard_top: Optional[dict] = None,
+        visible_opponents: Optional[dict] = None,
+        decision_reason: Optional[str] = None,
+    ) -> int:
+        """
+        Append a move to the moves table for AI decision analysis.
+
+        Args:
+            game_id: Game UUID.
+            player_id: Player who made the move.
+            player_name: Display name of the player.
+            is_cpu: Whether this is a CPU player.
+            action: Action type (draw_deck, take_discard, swap, discard, flip, etc.).
+            card_rank: Rank of the card involved.
+            card_suit: Suit of the card involved.
+            position: Hand position (0-5) for swaps/flips.
+            hand_state: Player's hand at decision time.
+            discard_top: Top of discard pile at decision time.
+            visible_opponents: Face-up cards of opponents.
+            decision_reason: AI reasoning for the decision.
+
+        Returns:
+            The database ID of the inserted move.
+        """
+        async with self.pool.acquire() as conn:
+            # Get next sequence number for this game
+            seq_row = await conn.fetchrow(
+                "SELECT COALESCE(MAX(sequence_num), 0) + 1 as seq FROM moves WHERE game_id = $1",
+                game_id,
+            )
+            sequence_num = seq_row["seq"]
+
+            row = await conn.fetchrow(
+                """
+                INSERT INTO moves (
+                    game_id, sequence_num, player_id, player_name, is_cpu,
+                    action, card_rank, card_suit, position,
+                    hand_state, discard_top, visible_opponents, decision_reason
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                RETURNING id
+                """,
+                game_id,
+                sequence_num,
+                player_id,
+                player_name,
+                is_cpu,
+                action,
+                card_rank,
+                card_suit,
+                position,
+                json.dumps(hand_state) if hand_state else None,
+                json.dumps(discard_top) if discard_top else None,
+                json.dumps(visible_opponents) if visible_opponents else None,
+                decision_reason,
+            )
+            return row["id"]
+
+    async def get_moves(
+        self,
+        game_id: str,
+        player_id: Optional[str] = None,
+        is_cpu: Optional[bool] = None,
+        action: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        """
+        Get moves for a game with optional filters.
+
+        Args:
+            game_id: Game UUID.
+            player_id: Filter by player ID.
+            is_cpu: Filter by CPU status.
+            action: Filter by action type.
+            limit: Maximum number of moves to return.
+
+        Returns:
+            List of move dicts.
+        """
+        conditions = ["game_id = $1"]
+        params = [game_id]
+        param_idx = 2
+
+        if player_id is not None:
+            conditions.append(f"player_id = ${param_idx}")
+            params.append(player_id)
+            param_idx += 1
+
+        if is_cpu is not None:
+            conditions.append(f"is_cpu = ${param_idx}")
+            params.append(is_cpu)
+            param_idx += 1
+
+        if action is not None:
+            conditions.append(f"action = ${param_idx}")
+            params.append(action)
+            param_idx += 1
+
+        params.append(limit)
+        where_clause = " AND ".join(conditions)
+
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                f"""
+                SELECT id, game_id, sequence_num, timestamp, player_id, player_name, is_cpu,
+                       action, card_rank, card_suit, position,
+                       hand_state, discard_top, visible_opponents, decision_reason
+                FROM moves
+                WHERE {where_clause}
+                ORDER BY sequence_num
+                LIMIT ${param_idx}
+                """,
+                *params,
+            )
+            return [self._row_to_move(row) for row in rows]
+
+    async def get_player_decisions(
+        self,
+        game_id: str,
+        player_name: str,
+    ) -> list[dict]:
+        """
+        Get all decisions made by a specific player in a game.
+
+        Args:
+            game_id: Game UUID.
+            player_name: Display name of the player.
+
+        Returns:
+            List of move dicts.
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id, game_id, sequence_num, timestamp, player_id, player_name, is_cpu,
+                       action, card_rank, card_suit, position,
+                       hand_state, discard_top, visible_opponents, decision_reason
+                FROM moves
+                WHERE game_id = $1 AND player_name = $2
+                ORDER BY sequence_num
+                """,
+                game_id,
+                player_name,
+            )
+            return [self._row_to_move(row) for row in rows]
+
+    async def find_suspicious_discards(self, limit: int = 50) -> list[dict]:
+        """
+        Find cases where CPU discarded good cards (Ace, 2, King).
+
+        Used for AI decision quality analysis.
+
+        Args:
+            limit: Maximum number of results.
+
+        Returns:
+            List of suspicious move dicts with game room_code.
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT m.*, g.room_code
+                FROM moves m
+                JOIN games_v2 g ON m.game_id = g.id
+                WHERE m.action = 'discard'
+                AND m.card_rank IN ('A', '2', 'K')
+                AND m.is_cpu = TRUE
+                ORDER BY m.timestamp DESC
+                LIMIT $1
+                """,
+                limit,
+            )
+            return [self._row_to_move(row) for row in rows]
+
+    async def get_recent_games_with_stats(self, limit: int = 10) -> list[dict]:
+        """
+        Get recent games with move counts.
+
+        Args:
+            limit: Maximum number of games.
+
+        Returns:
+            List of game dicts with total_moves count.
+        """
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT g.*, COUNT(m.id) as total_moves
+                FROM games_v2 g
+                LEFT JOIN moves m ON g.id = m.game_id
+                GROUP BY g.id
+                ORDER BY g.created_at DESC
+                LIMIT $1
+                """,
+                limit,
+            )
+            return [dict(row) for row in rows]
+
+    def _row_to_move(self, row: asyncpg.Record) -> dict:
+        """Convert a database row to a move dict."""
+        result = dict(row)
+        # Parse JSON fields
+        if result.get("hand_state"):
+            result["hand_state"] = json.loads(result["hand_state"])
+        if result.get("discard_top"):
+            result["discard_top"] = json.loads(result["discard_top"])
+        if result.get("visible_opponents"):
+            result["visible_opponents"] = json.loads(result["visible_opponents"])
+        return result
 
     # -------------------------------------------------------------------------
     # Helpers
