@@ -125,8 +125,9 @@ class TestEventEmission:
         game, collector = create_test_game(num_players=2)
         game.start_game(num_decks=1, num_rounds=1, options=GameOptions(initial_flips=0))
 
+        current = game.current_player()
         initial_count = len(collector.events)
-        card = game.draw_card("p1", "deck")
+        card = game.draw_card(current.id, "deck")
 
         assert card is not None
         new_events = collector.events[initial_count:]
@@ -134,7 +135,7 @@ class TestEventEmission:
 
         assert len(draw_events) == 1
         event = draw_events[0]
-        assert event.player_id == "p1"
+        assert event.player_id == current.id
         assert event.data["source"] == "deck"
         assert event.data["card"]["rank"] == card.rank.value
 
@@ -142,10 +143,12 @@ class TestEventEmission:
         """Swapping a card should emit card_swapped event."""
         game, collector = create_test_game(num_players=2)
         game.start_game(num_decks=1, num_rounds=1, options=GameOptions(initial_flips=0))
-        game.draw_card("p1", "deck")
+
+        current = game.current_player()
+        game.draw_card(current.id, "deck")
 
         initial_count = len(collector.events)
-        old_card = game.swap_card("p1", 0)
+        old_card = game.swap_card(current.id, 0)
 
         assert old_card is not None
         new_events = collector.events[initial_count:]
@@ -153,24 +156,26 @@ class TestEventEmission:
 
         assert len(swap_events) == 1
         event = swap_events[0]
-        assert event.player_id == "p1"
+        assert event.player_id == current.id
         assert event.data["position"] == 0
 
     def test_discard_card_event(self):
         """Discarding drawn card should emit card_discarded event."""
         game, collector = create_test_game(num_players=2)
         game.start_game(num_decks=1, num_rounds=1, options=GameOptions(initial_flips=0))
-        drawn = game.draw_card("p1", "deck")
+
+        current = game.current_player()
+        drawn = game.draw_card(current.id, "deck")
 
         initial_count = len(collector.events)
-        game.discard_drawn("p1")
+        game.discard_drawn(current.id)
 
         new_events = collector.events[initial_count:]
         discard_events = [e for e in new_events if e.event_type == EventType.CARD_DISCARDED]
 
         assert len(discard_events) == 1
         event = discard_events[0]
-        assert event.player_id == "p1"
+        assert event.player_id == current.id
         assert event.data["card"]["rank"] == drawn.rank.value
 
 
@@ -383,13 +388,14 @@ class TestFullGameReplay:
         game.start_game(num_decks=1, num_rounds=1, options=GameOptions(initial_flips=0))
 
         # Do a swap
-        drawn = game.draw_card("p1", "deck")
-        old_card = game.get_player("p1").cards[0]
-        game.swap_card("p1", 0)
+        current = game.current_player()
+        drawn = game.draw_card(current.id, "deck")
+        old_card = game.get_player(current.id).cards[0]
+        game.swap_card(current.id, 0)
 
         # Rebuild and verify
         state = rebuild_state(collector.events)
-        rebuilt_player = state.get_player("p1")
+        rebuilt_player = state.get_player(current.id)
 
         # The swapped card should be in the hand
         assert rebuilt_player.cards[0].rank == drawn.rank.value

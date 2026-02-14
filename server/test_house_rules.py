@@ -138,7 +138,7 @@ def run_game_with_options(options: GameOptions, num_players: int = 4) -> tuple[l
         return [], 0, f"Exception: {str(e)}"
 
 
-def test_rule_config(name: str, options: GameOptions, num_games: int = 50) -> RuleTestResult:
+def run_rule_config(name: str, options: GameOptions, num_games: int = 50) -> RuleTestResult:
     """Test a specific rule configuration."""
 
     all_scores = []
@@ -516,7 +516,7 @@ def main():
 
     for i, (name, options) in enumerate(configs):
         print(f"[{i+1}/{len(configs)}] Testing: {name}...")
-        result = test_rule_config(name, options, num_games)
+        result = run_rule_config(name, options, num_games)
         results.append(result)
 
         # Quick status

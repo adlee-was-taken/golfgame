@@ -237,7 +237,7 @@ class RebuiltGameState:
         self.initial_flips_done = set()
         self.drawn_card = None
         self.drawn_from_discard = False
-        self.current_player_idx = 0
+        self.current_player_idx = event.data.get("current_player_idx", 0)
         self.discard_pile = []
 
         # Deal cards to players (all face-down)

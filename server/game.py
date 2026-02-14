@@ -21,7 +21,7 @@ Card Layout:
 import random
 import uuid
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Callable, Any
@@ -130,11 +130,13 @@ class Card:
         suit: The card's suit (hearts, diamonds, clubs, spades).
         rank: The card's rank (A, 2-10, J, Q, K, or Joker).
         face_up: Whether the card is visible to all players.
+        deck_id: Which deck this card came from (0-indexed, for multi-deck games).
     """
 
     suit: Suit
     rank: Rank
     face_up: bool = False
+    deck_id: int = 0
 
     def to_dict(self, reveal: bool = False) -> dict:
         """
@@ -154,24 +156,27 @@ class Card:
             "suit": self.suit.value,
             "rank": self.rank.value,
             "face_up": self.face_up,
+            "deck_id": self.deck_id,
         }
 
     def to_client_dict(self) -> dict:
         """
         Convert card to dictionary for client display.
 
-        Hides card details if face-down to prevent cheating.
+        Hides card details if face-down to prevent cheating, but always
+        includes deck_id so the client can show the correct back color.
 
         Returns:
-            Dict with card info, or just {face_up: False} if hidden.
+            Dict with card info, or just {face_up: False, deck_id} if hidden.
         """
         if self.face_up:
             return {
                 "suit": self.suit.value,
                 "rank": self.rank.value,
                 "face_up": True,
+                "deck_id": self.deck_id,
             }
-        return {"face_up": False}
+        return {"face_up": False, "deck_id": self.deck_id}
 
     def value(self) -> int:
         """Get base point value (without house rule modifications)."""
@@ -210,20 +215,20 @@ class Deck:
         self.seed: int = seed if seed is not None else random.randint(0, 2**31 - 1)
 
         # Build deck(s) with standard cards
-        for _ in range(num_decks):
+        for deck_idx in range(num_decks):
             for suit in Suit:
                 for rank in Rank:
                     if rank != Rank.JOKER:
-                        self.cards.append(Card(suit, rank))
+                        self.cards.append(Card(suit, rank, deck_id=deck_idx))
 
             # Standard jokers: 2 per deck, worth -2 each
             if use_jokers and not lucky_swing:
-                self.cards.append(Card(Suit.HEARTS, Rank.JOKER))
-                self.cards.append(Card(Suit.SPADES, Rank.JOKER))
+                self.cards.append(Card(Suit.HEARTS, Rank.JOKER, deck_id=deck_idx))
+                self.cards.append(Card(Suit.SPADES, Rank.JOKER, deck_id=deck_idx))
 
         # Lucky Swing: Single joker total, worth -5
         if use_jokers and lucky_swing:
-            self.cards.append(Card(Suit.HEARTS, Rank.JOKER))
+            self.cards.append(Card(Suit.HEARTS, Rank.JOKER, deck_id=0))
 
         self.shuffle()
 
@@ -255,6 +260,12 @@ class Deck:
     def cards_remaining(self) -> int:
         """Return the number of cards left in the deck."""
         return len(self.cards)
+
+    def top_card_deck_id(self) -> Optional[int]:
+        """Return the deck_id of the top card (for showing correct back color)."""
+        if self.cards:
+            return self.cards[-1].deck_id
+        return None
 
     def add_cards(self, cards: list[Card]) -> None:
         """
@@ -498,6 +509,44 @@ class GameOptions:
     knock_early: bool = False
     """Allow going out early by flipping all remaining cards (max 2 face-down)."""
 
+    deck_colors: list[str] = field(default_factory=lambda: ["red", "blue", "gold"])
+    """Colors for card backs from different decks (in order by deck_id)."""
+
+    _ALLOWED_COLORS = {
+        "red", "blue", "gold", "teal", "purple", "orange", "yellow",
+        "green", "pink", "cyan", "brown", "slate",
+    }
+
+    @classmethod
+    def from_client_data(cls, data: dict) -> "GameOptions":
+        """Build GameOptions from client WebSocket message data."""
+        raw_deck_colors = data.get("deck_colors", ["red", "blue", "gold"])
+        deck_colors = [c for c in raw_deck_colors if c in cls._ALLOWED_COLORS]
+        if not deck_colors:
+            deck_colors = ["red", "blue", "gold"]
+
+        return cls(
+            flip_mode=data.get("flip_mode", "never"),
+            initial_flips=max(0, min(2, data.get("initial_flips", 2))),
+            knock_penalty=data.get("knock_penalty", False),
+            use_jokers=data.get("use_jokers", False),
+            lucky_swing=data.get("lucky_swing", False),
+            super_kings=data.get("super_kings", False),
+            ten_penny=data.get("ten_penny", False),
+            knock_bonus=data.get("knock_bonus", False),
+            underdog_bonus=data.get("underdog_bonus", False),
+            tied_shame=data.get("tied_shame", False),
+            blackjack=data.get("blackjack", False),
+            eagle_eye=data.get("eagle_eye", False),
+            wolfpack=data.get("wolfpack", False),
+            flip_as_action=data.get("flip_as_action", False),
+            four_of_a_kind=data.get("four_of_a_kind", False),
+            negative_pairs_keep_value=data.get("negative_pairs_keep_value", False),
+            one_eyed_jacks=data.get("one_eyed_jacks", False),
+            knock_early=data.get("knock_early", False),
+            deck_colors=deck_colors,
+        )
+
 
 @dataclass
 class Game:
@@ -543,6 +592,7 @@ class Game:
     players_with_final_turn: set = field(default_factory=set)
     initial_flips_done: set = field(default_factory=set)
     options: GameOptions = field(default_factory=GameOptions)
+    dealer_idx: int = 0
 
     # Event sourcing support
     game_id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -711,6 +761,9 @@ class Game:
         for i, player in enumerate(self.players):
             if player.id == player_id:
                 removed = self.players.pop(i)
+                # Adjust dealer_idx if needed after removal
+                if self.players and self.dealer_idx >= len(self.players):
+                    self.dealer_idx = 0
                 self._emit("player_left", player_id=player_id, reason=reason)
                 return removed
         return None
@@ -772,26 +825,49 @@ class Game:
 
     def _options_to_dict(self) -> dict:
         """Convert GameOptions to dictionary for event storage."""
-        return {
-            "flip_mode": self.options.flip_mode,
-            "initial_flips": self.options.initial_flips,
-            "knock_penalty": self.options.knock_penalty,
-            "use_jokers": self.options.use_jokers,
-            "lucky_swing": self.options.lucky_swing,
-            "super_kings": self.options.super_kings,
-            "ten_penny": self.options.ten_penny,
-            "knock_bonus": self.options.knock_bonus,
-            "underdog_bonus": self.options.underdog_bonus,
-            "tied_shame": self.options.tied_shame,
-            "blackjack": self.options.blackjack,
-            "eagle_eye": self.options.eagle_eye,
-            "wolfpack": self.options.wolfpack,
-            "flip_as_action": self.options.flip_as_action,
-            "four_of_a_kind": self.options.four_of_a_kind,
-            "negative_pairs_keep_value": self.options.negative_pairs_keep_value,
-            "one_eyed_jacks": self.options.one_eyed_jacks,
-            "knock_early": self.options.knock_early,
-        }
+        return asdict(self.options)
+
+    # Boolean rules that map directly to display names
+    _RULE_DISPLAY = [
+        ("knock_penalty", "Knock Penalty"),
+        ("lucky_swing", "Lucky Swing"),
+        ("eagle_eye", "Eagle-Eye"),
+        ("super_kings", "Super Kings"),
+        ("ten_penny", "Ten Penny"),
+        ("knock_bonus", "Knock Bonus"),
+        ("underdog_bonus", "Underdog"),
+        ("tied_shame", "Tied Shame"),
+        ("blackjack", "Blackjack"),
+        ("wolfpack", "Wolfpack"),
+        ("flip_as_action", "Flip as Action"),
+        ("four_of_a_kind", "Four of a Kind"),
+        ("negative_pairs_keep_value", "Negative Pairs Keep Value"),
+        ("one_eyed_jacks", "One-Eyed Jacks"),
+        ("knock_early", "Early Knock"),
+    ]
+
+    def _get_active_rules(self) -> list[str]:
+        """Build list of active house rule display names."""
+        rules = []
+        if not self.options:
+            return rules
+
+        # Special: flip mode
+        if self.options.flip_mode == FlipMode.ALWAYS.value:
+            rules.append("Speed Golf")
+        elif self.options.flip_mode == FlipMode.ENDGAME.value:
+            rules.append("Endgame Flip")
+
+        # Special: jokers (only if not overridden by lucky_swing/eagle_eye)
+        if self.options.use_jokers and not self.options.lucky_swing and not self.options.eagle_eye:
+            rules.append("Jokers")
+
+        # Boolean rules
+        for attr, display_name in self._RULE_DISPLAY:
+            if getattr(self.options, attr):
+                rules.append(display_name)
+
+        return rules
 
     def start_round(self) -> None:
         """
@@ -838,7 +914,12 @@ class Game:
                 "suit": first_discard.suit.value,
             }
 
-        self.current_player_index = 0
+        # Rotate dealer clockwise each round (first round: host deals)
+        if self.current_round > 1:
+            self.dealer_idx = (self.dealer_idx + 1) % len(self.players)
+
+        # First player is to the left of dealer (next in order)
+        self.current_player_index = (self.dealer_idx + 1) % len(self.players)
 
         # Emit round_started event with deck seed and all dealt cards
         self._emit(
@@ -847,6 +928,7 @@ class Game:
             deck_seed=self.deck.seed,
             dealt_cards=dealt_cards,
             first_discard=first_discard_dict,
+            current_player_idx=self.current_player_index,
         )
 
         # Skip initial flip phase if 0 flips required
@@ -1518,56 +1600,22 @@ class Game:
 
         discard_top = self.discard_top()
 
-        # Build active rules list for display
-        active_rules = []
-        if self.options:
-            if self.options.flip_mode == FlipMode.ALWAYS.value:
-                active_rules.append("Speed Golf")
-            elif self.options.flip_mode == FlipMode.ENDGAME.value:
-                active_rules.append("Endgame Flip")
-            if self.options.knock_penalty:
-                active_rules.append("Knock Penalty")
-            if self.options.use_jokers and not self.options.lucky_swing and not self.options.eagle_eye:
-                active_rules.append("Jokers")
-            if self.options.lucky_swing:
-                active_rules.append("Lucky Swing")
-            if self.options.eagle_eye:
-                active_rules.append("Eagle-Eye")
-            if self.options.super_kings:
-                active_rules.append("Super Kings")
-            if self.options.ten_penny:
-                active_rules.append("Ten Penny")
-            if self.options.knock_bonus:
-                active_rules.append("Knock Bonus")
-            if self.options.underdog_bonus:
-                active_rules.append("Underdog")
-            if self.options.tied_shame:
-                active_rules.append("Tied Shame")
-            if self.options.blackjack:
-                active_rules.append("Blackjack")
-            if self.options.wolfpack:
-                active_rules.append("Wolfpack")
-            # New house rules
-            if self.options.flip_as_action:
-                active_rules.append("Flip as Action")
-            if self.options.four_of_a_kind:
-                active_rules.append("Four of a Kind")
-            if self.options.negative_pairs_keep_value:
-                active_rules.append("Negative Pairs Keep Value")
-            if self.options.one_eyed_jacks:
-                active_rules.append("One-Eyed Jacks")
-            if self.options.knock_early:
-                active_rules.append("Early Knock")
+        active_rules = self._get_active_rules()
 
         return {
             "phase": self.phase.value,
             "players": players_data,
             "current_player_id": current.id if current else None,
+            "dealer_id": self.players[self.dealer_idx].id if self.players else None,
+            "dealer_idx": self.dealer_idx,
             "discard_top": discard_top.to_dict(reveal=True) if discard_top else None,
             "deck_remaining": self.deck.cards_remaining() if self.deck else 0,
+            "deck_top_deck_id": self.deck.top_card_deck_id() if self.deck else None,
             "current_round": self.current_round,
             "total_rounds": self.num_rounds,
             "has_drawn_card": self.drawn_card is not None,
+            "drawn_card": self.drawn_card.to_dict(reveal=True) if self.drawn_card else None,
+            "drawn_player_id": current.id if current and self.drawn_card else None,
             "can_discard": self.can_discard_drawn() if self.drawn_card else True,
             "waiting_for_initial_flip": (
                 self.phase == GamePhase.INITIAL_FLIP and
@@ -1579,6 +1627,8 @@ class Game:
             "flip_is_optional": self.flip_is_optional,
             "flip_as_action": self.options.flip_as_action,
             "knock_early": self.options.knock_early,
+            "finisher_id": self.finisher_id,
             "card_values": self.get_card_values(),
             "active_rules": active_rules,
+            "deck_colors": self.options.deck_colors,
         }

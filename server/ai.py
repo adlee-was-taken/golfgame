@@ -747,42 +747,21 @@ class GolfAI:
         return random.choice(options)
 
     @staticmethod
-    def should_take_discard(discard_card: Optional[Card], player: Player,
-                            profile: CPUProfile, game: Game) -> bool:
-        """Decide whether to take from discard pile or deck."""
-        if not discard_card:
-            return False
+    def _check_auto_take(
+        discard_card: Card,
+        discard_value: int,
+        player: Player,
+        options: GameOptions,
+        profile: CPUProfile
+    ) -> Optional[bool]:
+        """Check auto-take rules for the discard card.
 
-        options = game.options
-        discard_value = get_ai_card_value(discard_card, options)
-
-        ai_log(f"--- {profile.name} considering discard: {discard_card.rank.value}{discard_card.suit.value} (value={discard_value}) ---")
-
-        # SAFEGUARD: If we have only 1 face-down card, taking from discard
-        # forces us to swap and go out. Check if that would be acceptable.
-        face_down = hidden_positions(player)
-        if len(face_down) == 1:
-            projected_score = project_score(player, face_down[0], discard_card, options)
-
-            # Don't take if score would be terrible
-            max_acceptable = 18 if profile.aggression > 0.6 else (16 if profile.aggression > 0.3 else 14)
-            ai_log(f"  Go-out check: projected={projected_score}, max_acceptable={max_acceptable}")
-            if projected_score > max_acceptable:
-                # Exception: still take if it's an excellent card (Joker, 2, King, Ace)
-                # and we have a visible bad card to replace instead
-                if discard_value >= 0 and discard_card.rank not in (Rank.ACE, Rank.TWO, Rank.KING, Rank.JOKER):
-                    ai_log(f"  >> REJECT: would force go-out with {projected_score} pts")
-                    return False  # Don't take - would force bad go-out
-
-        # Unpredictable players occasionally make random choice
-        # BUT only for reasonable cards (value <= 5) - never randomly take bad cards
-        if random.random() < profile.unpredictability:
-            if discard_value <= 5:
-                return random.choice([True, False])
-
+        Returns True (take), or None (no auto-take triggered, continue evaluation).
+        Covers: Jokers, Kings, one-eyed Jacks, wolfpack Jacks, ten_penny 10s,
+        four-of-a-kind pursuit, and pair potential.
+        """
         # Always take Jokers and Kings (even better with house rules)
         if discard_card.rank == Rank.JOKER:
-            # Eagle Eye: If we have a visible Joker, take to pair them (doubled negative!)
             if options.eagle_eye:
                 for card in player.cards:
                     if card.face_up and card.rank == Rank.JOKER:
@@ -817,24 +796,75 @@ class GolfAI:
         if options.four_of_a_kind and profile.aggression > 0.5:
             rank_count = sum(1 for c in player.cards if c.face_up and c.rank == discard_card.rank)
             if rank_count >= 2:
-                # Already have 2+ of this rank, take to pursue four-of-a-kind!
                 ai_log(f"  >> TAKE: {discard_card.rank.value} for four-of-a-kind ({rank_count} visible)")
                 return True
 
         # Take card if it could make a column pair (but NOT for negative value cards)
-        # Pairing negative cards is bad - you lose the negative benefit
         if discard_value > 0:
             for i, card in enumerate(player.cards):
                 pair_pos = (i + 3) % 6 if i < 3 else i - 3
                 pair_card = player.cards[pair_pos]
 
-                # Direct rank match
                 if card.face_up and card.rank == discard_card.rank and not pair_card.face_up:
                     ai_log(f"  >> TAKE: can pair with visible {card.rank.value} at pos {i}")
                     return True
 
-        # Take low cards (using house rule adjusted values)
-        # Threshold adjusts by game phase - early game be picky, late game less so
+        return None  # No auto-take triggered
+
+    @staticmethod
+    def _has_good_swap_option(
+        discard_card: Card,
+        discard_value: int,
+        player: Player,
+        options: GameOptions,
+        game: Game,
+        profile: CPUProfile
+    ) -> bool:
+        """Preview swap scores to check if any position is worth swapping into."""
+        for pos in range(6):
+            score = GolfAI.calculate_swap_score(
+                pos, discard_card, discard_value, player, options, game, profile
+            )
+            if score > 0:
+                return True
+        return False
+
+    @staticmethod
+    def should_take_discard(discard_card: Optional[Card], player: Player,
+                            profile: CPUProfile, game: Game) -> bool:
+        """Decide whether to take from discard pile or deck."""
+        if not discard_card:
+            return False
+
+        options = game.options
+        discard_value = get_ai_card_value(discard_card, options)
+
+        ai_log(f"--- {profile.name} considering discard: {discard_card.rank.value}{discard_card.suit.value} (value={discard_value}) ---")
+
+        # SAFEGUARD: If we have only 1 face-down card, taking from discard
+        # forces us to swap and go out. Check if that would be acceptable.
+        face_down = hidden_positions(player)
+        if len(face_down) == 1:
+            projected_score = project_score(player, face_down[0], discard_card, options)
+
+            max_acceptable = 18 if profile.aggression > 0.6 else (16 if profile.aggression > 0.3 else 14)
+            ai_log(f"  Go-out check: projected={projected_score}, max_acceptable={max_acceptable}")
+            if projected_score > max_acceptable:
+                if discard_value >= 0 and discard_card.rank not in (Rank.ACE, Rank.TWO, Rank.KING, Rank.JOKER):
+                    ai_log(f"  >> REJECT: would force go-out with {projected_score} pts")
+                    return False
+
+        # Unpredictable players occasionally make random choice
+        if random.random() < profile.unpredictability:
+            if discard_value <= 5:
+                return random.choice([True, False])
+
+        # Auto-take rules (Jokers, Kings, one-eyed Jacks, wolfpack, etc.)
+        auto_take = GolfAI._check_auto_take(discard_card, discard_value, player, options, profile)
+        if auto_take is not None:
+            return auto_take
+
+        # Take low cards (threshold adjusts by game phase)
         phase = get_game_phase(game)
         base_threshold = {'early': 2, 'mid': 3, 'late': 4}.get(phase, 2)
 
@@ -842,33 +872,19 @@ class GolfAI:
             ai_log(f"  >> TAKE: low card (value {discard_value} <= {base_threshold} threshold for {phase} game)")
             return True
 
-        # For marginal cards (not auto-take), preview swap scores before committing.
+        # For marginal cards, preview swap scores before committing.
         # Taking from discard FORCES a swap - don't take if no good swap exists.
-        def has_good_swap_option() -> bool:
-            """Preview swap scores to check if any position is worth swapping into."""
-            for pos in range(6):
-                score = GolfAI.calculate_swap_score(
-                    pos, discard_card, discard_value, player, options, game, profile
-                )
-                if score > 0:
-                    return True
-            return False
 
         # Calculate end-game pressure from opponents close to going out
         pressure = get_end_game_pressure(player, game)
 
         # Under pressure, expand what we consider "worth taking"
-        # When opponents are close to going out, take decent cards to avoid
-        # getting stuck with unknown bad cards when the round ends
         if pressure > 0.2:
-            # Scale threshold: at pressure 0.2 take 4s, at 0.5+ take 6s
             pressure_threshold = 3 + int(pressure * 6)  # 4 to 9 based on pressure
             pressure_threshold = min(pressure_threshold, 7)  # Cap at 7
             if discard_value <= pressure_threshold:
-                # Only take if we have hidden cards that could be worse
                 if count_hidden(player) > 0:
-                    # CRITICAL: Verify there's actually a good swap position
-                    if has_good_swap_option():
+                    if GolfAI._has_good_swap_option(discard_card, discard_value, player, options, game, profile):
                         ai_log(f"  >> TAKE: pressure={pressure:.2f}, threshold={pressure_threshold}")
                         return True
                     else:
@@ -881,11 +897,8 @@ class GolfAI:
                 worst_visible = max(worst_visible, get_ai_card_value(card, options))
 
         if worst_visible > discard_value + 1:
-            # Sanity check: only take if we actually have something worse to replace
-            # This prevents taking a bad card when all visible cards are better
             if has_worse_visible_card(player, discard_value, options):
-                # CRITICAL: Verify there's actually a good swap position
-                if has_good_swap_option():
+                if GolfAI._has_good_swap_option(discard_card, discard_value, player, options, game, profile):
                     ai_log(f"  >> TAKE: have worse visible card ({worst_visible})")
                     return True
                 else:
@@ -893,6 +906,222 @@ class GolfAI:
 
         ai_log(f"  >> PASS: drawing from deck instead")
         return False
+
+    @staticmethod
+    def _pair_improvement(
+        pos: int,
+        drawn_card: Card,
+        drawn_value: int,
+        player: Player,
+        options: GameOptions,
+        profile: CPUProfile
+    ) -> float:
+        """Calculate pair bonus and spread bonus score components.
+
+        Section 1: Pair creation scoring (positive/negative/eagle_eye/negative_pairs_keep_value)
+        Section 1b: Spread bonus for non-pairing excellent cards
+        """
+        partner_pos = get_column_partner_position(pos)
+        partner_card = player.cards[partner_pos]
+
+        score = 0.0
+
+        # Personality-based weight modifiers
+        pair_weight = 1.0 + profile.pair_hope  # Range: 1.0 to 2.0
+        spread_weight = 2.0 - profile.pair_hope  # Range: 1.0 to 2.0 (inverse)
+
+        # 1. PAIR BONUS - Creating a pair
+        if partner_card.face_up and partner_card.rank == drawn_card.rank:
+            partner_value = get_ai_card_value(partner_card, options)
+
+            if drawn_value >= 0:
+                # Good pair! Both cards cancel to 0
+                pair_bonus = drawn_value + partner_value
+                score += pair_bonus * pair_weight
+            else:
+                # Pairing negative cards
+                if options.eagle_eye and drawn_card.rank == Rank.JOKER:
+                    score += 8 * pair_weight  # Eagle Eye Joker pairs = -4
+                elif options.negative_pairs_keep_value:
+                    pair_benefit = abs(drawn_value + partner_value)
+                    score += pair_benefit * pair_weight
+                    ai_log(f"    Negative pair keep value bonus: +{pair_benefit * pair_weight:.1f}")
+                else:
+                    # Standard rules: penalty for wasting negative cards
+                    penalty = abs(drawn_value) * 2 * (2.0 - profile.pair_hope)
+                    score -= penalty
+                    ai_log(f"    Negative pair penalty at pos {pos}: -{penalty:.1f} (score now={score:.2f})")
+
+        # 1b. SPREAD BONUS - Not pairing good cards (spreading them out)
+        if not partner_card.face_up or partner_card.rank != drawn_card.rank:
+            if drawn_value <= 1:  # Excellent cards (K, 2, A, Joker)
+                score += spread_weight * 0.5
+
+        return score
+
+    @staticmethod
+    def _point_gain(
+        pos: int,
+        drawn_card: Card,
+        drawn_value: int,
+        player: Player,
+        options: GameOptions,
+        profile: CPUProfile
+    ) -> float:
+        """Calculate point gain score component from replacing a card.
+
+        Handles face-up replacement (breaking pair, creating pair, normal swap)
+        and hidden card expected-value calculation with discount.
+        """
+        current_card = player.cards[pos]
+        partner_pos = get_column_partner_position(pos)
+        partner_card = player.cards[partner_pos]
+
+        if current_card.face_up:
+            current_value = get_ai_card_value(current_card, options)
+
+            # CRITICAL: Check if current card is part of an existing column pair
+            if partner_card.face_up and partner_card.rank == current_card.rank:
+                partner_value = get_ai_card_value(partner_card, options)
+
+                if options.eagle_eye and current_card.rank == Rank.JOKER:
+                    old_column_value = -4
+                    new_column_value = drawn_value + 2
+                    point_gain = old_column_value - new_column_value
+                    ai_log(f"    Breaking Eagle Eye joker pair at pos {pos}: column {old_column_value} -> {new_column_value}, gain={point_gain}")
+                elif options.negative_pairs_keep_value and (current_value < 0 or partner_value < 0):
+                    old_column_value = current_value + partner_value
+                    new_column_value = drawn_value + partner_value
+                    point_gain = old_column_value - new_column_value
+                    ai_log(f"    Breaking negative-keep pair at pos {pos}: column {old_column_value} -> {new_column_value}, gain={point_gain}")
+                else:
+                    old_column_value = 0
+                    new_column_value = drawn_value + partner_value
+                    point_gain = old_column_value - new_column_value
+                    ai_log(f"    Breaking standard pair at pos {pos}: column 0 -> {new_column_value}, gain={point_gain}")
+            elif partner_card.face_up and partner_card.rank == drawn_card.rank:
+                # CREATING a new pair (drawn matches partner, but current doesn't)
+                partner_value = get_ai_card_value(partner_card, options)
+                old_column_value = current_value + partner_value
+                if drawn_value < 0 and not options.negative_pairs_keep_value:
+                    if options.eagle_eye and drawn_card.rank == Rank.JOKER:
+                        new_column_value = -4
+                    else:
+                        new_column_value = 0
+                elif options.negative_pairs_keep_value and (drawn_value < 0 or partner_value < 0):
+                    new_column_value = drawn_value + partner_value
+                else:
+                    new_column_value = 0
+                point_gain = old_column_value - new_column_value
+                ai_log(f"    Creating pair at pos {pos}: column {old_column_value} -> {new_column_value}, gain={point_gain}")
+            else:
+                point_gain = current_value - drawn_value
+
+            return float(point_gain)
+        else:
+            # Hidden card - expected value ~4.5
+            creates_negative_pair = (
+                partner_card.face_up and
+                partner_card.rank == drawn_card.rank and
+                drawn_value < 0 and
+                not options.negative_pairs_keep_value and
+                not (options.eagle_eye and drawn_card.rank == Rank.JOKER)
+            )
+            if not creates_negative_pair:
+                expected_hidden = EXPECTED_HIDDEN_VALUE
+                point_gain = expected_hidden - drawn_value
+                discount = 0.5 + (profile.swap_threshold / 16)  # Range: 0.5 to 1.0
+                return point_gain * discount
+            return 0.0
+
+    @staticmethod
+    def _reveal_and_bonus_score(
+        pos: int,
+        drawn_card: Card,
+        drawn_value: int,
+        player: Player,
+        options: GameOptions,
+        game: Game,
+        profile: CPUProfile
+    ) -> float:
+        """Calculate reveal bonus and strategic bonus score components.
+
+        Sections 3-4d: reveal bonus, future pair potential, four-of-a-kind pursuit,
+        wolfpack pursuit, and comeback aggression.
+        """
+        current_card = player.cards[pos]
+        partner_pos = get_column_partner_position(pos)
+        partner_card = player.cards[partner_pos]
+
+        score = 0.0
+        pair_weight = 1.0 + profile.pair_hope
+
+        # 3. REVEAL BONUS - Value of revealing hidden cards
+        if not current_card.face_up:
+            reveal_bonus = min(count_hidden(player), 4)
+            aggression_multiplier = 0.8 + profile.aggression * 0.4  # Range: 0.8 to 1.2
+
+            if drawn_value <= 0:
+                score += reveal_bonus * 1.2 * aggression_multiplier
+            elif drawn_value == 1:
+                score += reveal_bonus * 1.0 * aggression_multiplier
+            elif drawn_value <= 4:
+                score += reveal_bonus * 0.6 * aggression_multiplier
+            elif drawn_value <= 6:
+                score += reveal_bonus * 0.3 * aggression_multiplier
+
+        # 4. FUTURE PAIR POTENTIAL
+        if not current_card.face_up and not partner_card.face_up:
+            pair_viability = get_pair_viability(drawn_card.rank, game)
+            score += pair_viability * pair_weight * 0.5
+
+        # 4b. FOUR OF A KIND PURSUIT
+        if options.four_of_a_kind:
+            rank_count = sum(
+                1 for i, c in enumerate(player.cards)
+                if c.face_up and c.rank == drawn_card.rank and i != pos
+            )
+            if rank_count >= 2:
+                four_kind_bonus = rank_count * 4
+                standings_pressure = get_standings_pressure(player, game)
+                if standings_pressure > 0.3:
+                    four_kind_bonus *= (1 + standings_pressure * 0.5)
+                score += four_kind_bonus
+                ai_log(f"    Four-of-a-kind pursuit bonus: +{four_kind_bonus:.1f}")
+
+        # 4c. WOLFPACK PURSUIT
+        if options.wolfpack and profile.aggression > 0.5:
+            jack_pair_count = 0
+            for col in range(3):
+                top, bot = player.cards[col], player.cards[col + 3]
+                if top.face_up and bot.face_up and top.rank == Rank.JACK and bot.rank == Rank.JACK:
+                    jack_pair_count += 1
+
+            visible_jacks = sum(1 for c in player.cards if c.face_up and c.rank == Rank.JACK)
+
+            if drawn_card.rank == Rank.JACK:
+                if jack_pair_count == 1:
+                    if partner_card.face_up and partner_card.rank == Rank.JACK:
+                        wolfpack_bonus = 15 * profile.aggression
+                        score += wolfpack_bonus
+                        ai_log(f"    Wolfpack pursuit: completing 2nd Jack pair! +{wolfpack_bonus:.1f}")
+                    elif not partner_card.face_up:
+                        wolfpack_bonus = 2 * profile.aggression
+                        score += wolfpack_bonus
+                        ai_log(f"    Wolfpack pursuit (speculative): +{wolfpack_bonus:.1f}")
+                elif visible_jacks >= 1 and partner_card.face_up and partner_card.rank == Rank.JACK:
+                    wolfpack_bonus = 8 * profile.aggression
+                    score += wolfpack_bonus
+                    ai_log(f"    Wolfpack pursuit: first Jack pair +{wolfpack_bonus:.1f}")
+
+        # 4d. COMEBACK AGGRESSION
+        standings_pressure = get_standings_pressure(player, game)
+        if standings_pressure > 0.3 and not current_card.face_up and drawn_value < HIGH_CARD_THRESHOLD:
+            comeback_bonus = standings_pressure * 3 * profile.aggression
+            score += comeback_bonus
+            ai_log(f"    Comeback aggression bonus: +{comeback_bonus:.1f} (pressure={standings_pressure:.2f})")
+
+        return score
 
     @staticmethod
     def calculate_swap_score(
@@ -917,213 +1146,22 @@ class GolfAI:
         - aggression: higher = more willing to go out, take risks
         - swap_threshold: affects how picky about card values
         """
-        current_card = player.cards[pos]
-        partner_pos = get_column_partner_position(pos)
-        partner_card = player.cards[partner_pos]
-
         score = 0.0
 
-        # Personality-based weight modifiers
-        # pair_hope: 0.0-1.0, affects how much we value pairing vs spreading
-        pair_weight = 1.0 + profile.pair_hope  # Range: 1.0 to 2.0
-        spread_weight = 2.0 - profile.pair_hope  # Range: 1.0 to 2.0 (inverse)
+        # 1/1b. Pair creation + spread bonus
+        score += GolfAI._pair_improvement(pos, drawn_card, drawn_value, player, options, profile)
 
-        # 1. PAIR BONUS - Creating a pair
-        #    pair_hope affects how much we value this
-        if partner_card.face_up and partner_card.rank == drawn_card.rank:
-            partner_value = get_ai_card_value(partner_card, options)
+        # 2. Point gain from replacement
+        score += GolfAI._point_gain(pos, drawn_card, drawn_value, player, options, profile)
 
-            if drawn_value >= 0:
-                # Good pair! Both cards cancel to 0
-                pair_bonus = drawn_value + partner_value
-                score += pair_bonus * pair_weight  # Pair hunters value this more
-            else:
-                # Pairing negative cards
-                if options.eagle_eye and drawn_card.rank == Rank.JOKER:
-                    score += 8 * pair_weight  # Eagle Eye Joker pairs = -4
-                elif options.negative_pairs_keep_value:
-                    # Negative Pairs Keep Value: pairing 2s/Jokers is NOW good!
-                    # Pair of 2s = -4, pair of Jokers = -4 (instead of 0)
-                    pair_benefit = abs(drawn_value + partner_value)
-                    score += pair_benefit * pair_weight
-                    ai_log(f"    Negative pair keep value bonus: +{pair_benefit * pair_weight:.1f}")
-                else:
-                    # Standard rules: penalty for wasting negative cards
-                    penalty = abs(drawn_value) * 2 * (2.0 - profile.pair_hope)
-                    score -= penalty
-                    ai_log(f"    Negative pair penalty at pos {pos}: -{penalty:.1f} (score now={score:.2f})")
-
-        # 1b. SPREAD BONUS - Not pairing good cards (spreading them out)
-        #     Players with low pair_hope prefer spreading aces/2s across columns
-        if not partner_card.face_up or partner_card.rank != drawn_card.rank:
-            if drawn_value <= 1:  # Excellent cards (K, 2, A, Joker)
-                # Small bonus for spreading - scales with spread preference
-                score += spread_weight * 0.5
-
-        # 2. POINT GAIN - Direct value improvement
-        if current_card.face_up:
-            current_value = get_ai_card_value(current_card, options)
-
-            # CRITICAL: Check if current card is part of an existing column pair
-            # If so, breaking the pair is usually terrible - the paired column is worth 0,
-            # but after breaking it becomes (drawn_value + orphaned_partner_value)
-            if partner_card.face_up and partner_card.rank == current_card.rank:
-                partner_value = get_ai_card_value(partner_card, options)
-
-                # Determine the current column value (what the pair contributes)
-                if options.eagle_eye and current_card.rank == Rank.JOKER:
-                    # Eagle Eye: paired jokers contribute -4 total
-                    old_column_value = -4
-                    # After swap: orphan joker becomes +2 (unpaired eagle_eye value)
-                    new_column_value = drawn_value + 2
-                    point_gain = old_column_value - new_column_value
-                    ai_log(f"    Breaking Eagle Eye joker pair at pos {pos}: column {old_column_value} -> {new_column_value}, gain={point_gain}")
-                elif options.negative_pairs_keep_value and (current_value < 0 or partner_value < 0):
-                    # Negative pairs keep value: column is worth sum of both values
-                    old_column_value = current_value + partner_value
-                    new_column_value = drawn_value + partner_value
-                    point_gain = old_column_value - new_column_value
-                    ai_log(f"    Breaking negative-keep pair at pos {pos}: column {old_column_value} -> {new_column_value}, gain={point_gain}")
-                else:
-                    # Standard pair - column is worth 0
-                    # After swap: column becomes drawn_value + partner_value
-                    old_column_value = 0
-                    new_column_value = drawn_value + partner_value
-                    point_gain = old_column_value - new_column_value
-                    ai_log(f"    Breaking standard pair at pos {pos}: column 0 -> {new_column_value}, gain={point_gain}")
-            elif partner_card.face_up and partner_card.rank == drawn_card.rank:
-                # CREATING a new pair (drawn matches partner, but current doesn't)
-                # Calculate column change properly
-                old_column_value = current_value + partner_value
-                # Determine new column value based on rules
-                if drawn_value < 0 and not options.negative_pairs_keep_value:
-                    if options.eagle_eye and drawn_card.rank == Rank.JOKER:
-                        new_column_value = -4
-                    else:
-                        new_column_value = 0  # Negative pair under standard rules
-                elif options.negative_pairs_keep_value and (drawn_value < 0 or partner_value < 0):
-                    new_column_value = drawn_value + partner_value
-                else:
-                    new_column_value = 0  # Standard positive pair
-                point_gain = old_column_value - new_column_value
-                ai_log(f"    Creating pair at pos {pos}: column {old_column_value} -> {new_column_value}, gain={point_gain}")
-            else:
-                # No existing pair, not creating pair - normal calculation
-                point_gain = current_value - drawn_value
-
-            score += point_gain
-        else:
-            # Hidden card - expected value ~4.5
-            # BUT: Don't add this bonus if we're creating a negative pair
-            # (the pair penalty already accounts for the bad outcome)
-            creates_negative_pair = (
-                partner_card.face_up and
-                partner_card.rank == drawn_card.rank and
-                drawn_value < 0 and
-                not options.negative_pairs_keep_value and
-                not (options.eagle_eye and drawn_card.rank == Rank.JOKER)
-            )
-            if not creates_negative_pair:
-                expected_hidden = EXPECTED_HIDDEN_VALUE
-                point_gain = expected_hidden - drawn_value
-                # Conservative players (low swap_threshold) discount uncertain gains more
-                discount = 0.5 + (profile.swap_threshold / 16)  # Range: 0.5 to 1.0
-                score += point_gain * discount
-
-        # 3. REVEAL BONUS - Value of revealing hidden cards
-        #    More aggressive players want to reveal faster to go out
-        if not current_card.face_up:
-            reveal_bonus = min(count_hidden(player), 4)
-
-            # Aggressive players get bigger reveal bonus (want to go out faster)
-            aggression_multiplier = 0.8 + profile.aggression * 0.4  # Range: 0.8 to 1.2
-
-            # Scale by card quality
-            if drawn_value <= 0:  # Excellent
-                score += reveal_bonus * 1.2 * aggression_multiplier
-            elif drawn_value == 1:  # Great
-                score += reveal_bonus * 1.0 * aggression_multiplier
-            elif drawn_value <= 4:  # Good
-                score += reveal_bonus * 0.6 * aggression_multiplier
-            elif drawn_value <= 6:  # Medium
-                score += reveal_bonus * 0.3 * aggression_multiplier
-            # Bad cards: no reveal bonus
-
-        # 4. FUTURE PAIR POTENTIAL
-        #    Pair hunters value positions where both cards are hidden
-        if not current_card.face_up and not partner_card.face_up:
-            pair_viability = get_pair_viability(drawn_card.rank, game)
-            score += pair_viability * pair_weight * 0.5
-
-        # 4b. FOUR OF A KIND PURSUIT
-        #     When four_of_a_kind rule is enabled, boost score for collecting 3rd/4th card
-        if options.four_of_a_kind:
-            # Count how many of this rank player already has visible (excluding current position)
-            rank_count = sum(
-                1 for i, c in enumerate(player.cards)
-                if c.face_up and c.rank == drawn_card.rank and i != pos
-            )
-            if rank_count >= 2:
-                # Already have 2+ of this rank, getting more is great for 4-of-a-kind
-                four_kind_bonus = rank_count * 4  # 8 for 2 cards, 12 for 3 cards
-                # Boost when behind in standings
-                standings_pressure = get_standings_pressure(player, game)
-                if standings_pressure > 0.3:
-                    four_kind_bonus *= (1 + standings_pressure * 0.5)  # Up to 50% boost
-                score += four_kind_bonus
-                ai_log(f"    Four-of-a-kind pursuit bonus: +{four_kind_bonus:.1f}")
-
-        # 4c. WOLFPACK PURSUIT - Aggressive players chase Jack pairs for -20 bonus
-        if options.wolfpack and profile.aggression > 0.5:
-            # Count Jack pairs already formed
-            jack_pair_count = 0
-            for col in range(3):
-                top, bot = player.cards[col], player.cards[col + 3]
-                if top.face_up and bot.face_up and top.rank == Rank.JACK and bot.rank == Rank.JACK:
-                    jack_pair_count += 1
-
-            # Count visible Jacks that could form pairs
-            visible_jacks = sum(1 for c in player.cards if c.face_up and c.rank == Rank.JACK)
-
-            if drawn_card.rank == Rank.JACK:
-                # Drawing a Jack - evaluate wolfpack potential
-                if jack_pair_count == 1:
-                    # Already have one pair! Second pair gives -20 bonus
-                    if partner_card.face_up and partner_card.rank == Rank.JACK:
-                        # Completing second Jack pair!
-                        wolfpack_bonus = 15 * profile.aggression
-                        score += wolfpack_bonus
-                        ai_log(f"    Wolfpack pursuit: completing 2nd Jack pair! +{wolfpack_bonus:.1f}")
-                    elif not partner_card.face_up:
-                        # Partner unknown - speculative wolfpack pursuit
-                        # Probability of unknown card being Jack is very low (~3%)
-                        # Expected value of swapping Jack into unknown is negative
-                        # Only give small bonus - not enough to override negative point_gain
-                        wolfpack_bonus = 2 * profile.aggression
-                        score += wolfpack_bonus
-                        ai_log(f"    Wolfpack pursuit (speculative): +{wolfpack_bonus:.1f}")
-                elif visible_jacks >= 1 and partner_card.face_up and partner_card.rank == Rank.JACK:
-                    # Completing first Jack pair while having other Jacks
-                    wolfpack_bonus = 8 * profile.aggression
-                    score += wolfpack_bonus
-                    ai_log(f"    Wolfpack pursuit: first Jack pair +{wolfpack_bonus:.1f}")
-
-        # 4d. COMEBACK AGGRESSION - Boost reveal bonus when behind in late game
-        # Only for cards that aren't objectively bad (value < 8)
-        # Don't incentivize locking in 8, 9, 10, J, Q just to "go out faster"
-        standings_pressure = get_standings_pressure(player, game)
-        if standings_pressure > 0.3 and not current_card.face_up and drawn_value < HIGH_CARD_THRESHOLD:
-            # Behind in standings - boost incentive to reveal and play faster
-            comeback_bonus = standings_pressure * 3 * profile.aggression
-            score += comeback_bonus
-            ai_log(f"    Comeback aggression bonus: +{comeback_bonus:.1f} (pressure={standings_pressure:.2f})")
+        # 3-4d. Reveal bonus, future pair potential, four-of-a-kind, wolfpack, comeback
+        score += GolfAI._reveal_and_bonus_score(pos, drawn_card, drawn_value, player, options, game, profile)
 
         # 5. GO-OUT SAFETY - Penalty for going out with bad score
         face_down_positions = hidden_positions(player)
         if len(face_down_positions) == 1 and pos == face_down_positions[0]:
             projected_score = project_score(player, pos, drawn_card, options)
 
-            # Aggressive players accept higher scores when going out
             max_acceptable = GO_OUT_SCORE_BASE + int(profile.aggression * (GO_OUT_SCORE_MAX - GO_OUT_SCORE_BASE))
             if projected_score > max_acceptable:
                 score -= 100
@@ -1701,12 +1739,26 @@ class GolfAI:
         expected_hidden_total = len(face_down) * EXPECTED_HIDDEN_VALUE
         projected_score = visible_score + expected_hidden_total
 
-        # More aggressive players accept higher risk
-        max_acceptable = 8 + int(profile.aggression * 10)  # Range: 8 to 18
+        # Tighter threshold: range 5 to 9 based on aggression
+        max_acceptable = 5 + int(profile.aggression * 4)
+
+        # Exception: if all opponents are showing terrible scores, relax threshold
+        all_opponents_bad = all(
+            sum(get_ai_card_value(c, game.options) for c in p.cards if c.face_up) >= 25
+            for p in game.players if p.id != player.id
+        )
+        if all_opponents_bad:
+            max_acceptable += 5  # Willing to knock at higher score when winning big
 
         if projected_score <= max_acceptable:
-            # Add some randomness based on aggression
-            knock_chance = profile.aggression * 0.4  # Max 40% for most aggressive
+            # Scale knock chance by how good the projected score is
+            if projected_score <= 5:
+                knock_chance = profile.aggression * 0.3  # Max 30%
+            elif projected_score <= 7:
+                knock_chance = profile.aggression * 0.15  # Max 15%
+            else:
+                knock_chance = profile.aggression * 0.05  # Max 5% (very rare)
+
             if random.random() < knock_chance:
                 ai_log(f"  Knock early: taking the gamble! (projected {projected_score:.1f})")
                 return True
