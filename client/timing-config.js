@@ -75,26 +75,26 @@ const TIMING = {
 
     // V3_03: Round end reveal timing
     reveal: {
-        voluntaryWindow: 4000,    // Time for players to flip their own cards
-        initialPause: 500,        // Pause before auto-reveals start
-        cardStagger: 100,         // Between cards in same hand
-        playerPause: 400,         // Pause after each player's reveal
-        highlightDuration: 200,   // Player area highlight fade-in
+        voluntaryWindow: 2000,    // Time for players to flip their own cards
+        initialPause: 250,        // Pause before auto-reveals start
+        cardStagger: 50,          // Between cards in same hand
+        playerPause: 200,         // Pause after each player's reveal
+        highlightDuration: 100,   // Player area highlight fade-in
     },
 
     // V3_04: Pair celebration
     celebration: {
-        pairDuration: 400,        // Celebration animation length
-        pairDelay: 50,            // Slight delay before celebration
+        pairDuration: 200,        // Celebration animation length
+        pairDelay: 25,            // Slight delay before celebration
     },
 
     // V3_07: Score tallying animation
     tally: {
-        initialPause: 200,        // After reveal, before tally
-        cardHighlight: 140,       // Duration to show each card value
-        columnPause: 100,         // Between columns
-        pairCelebration: 300,     // Pair cancel effect
-        playerPause: 350,         // Between players
+        initialPause: 100,        // After reveal, before tally
+        cardHighlight: 70,        // Duration to show each card value
+        columnPause: 30,          // Between columns
+        pairCelebration: 200,     // Pair cancel effect
+        playerPause: 50,          // Between players
         finalScoreReveal: 400,    // Final score animation
     },
 

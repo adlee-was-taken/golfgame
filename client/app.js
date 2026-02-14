@@ -56,6 +56,9 @@ class GolfGame {
         // Track opponent discard animation in progress (prevent renderGame from updating discard)
         this.opponentDiscardAnimating = false;
 
+        // Track deal animation in progress (suppress flip prompts until dealing complete)
+        this.dealAnimationInProgress = false;
+
         // Track round winners for visual highlight
         this.roundWinnerNames = new Set();
 
@@ -1510,11 +1513,16 @@ class GolfGame {
         this.playerCards.style.visibility = 'hidden';
         this.opponentsRow.style.visibility = 'hidden';
 
+        // Suppress flip prompts until dealing complete
+        this.dealAnimationInProgress = true;
+
         if (window.cardAnimations) {
             window.cardAnimations.animateDealing(
                 this.gameState,
                 (playerId, cardIdx) => this.getCardSlotRect(playerId, cardIdx),
                 () => {
+                    // Deal complete - allow flip prompts
+                    this.dealAnimationInProgress = false;
                     // Show real cards
                     this.playerCards.style.visibility = 'visible';
                     this.opponentsRow.style.visibility = 'visible';
@@ -1525,6 +1533,7 @@ class GolfGame {
             );
         } else {
             // Fallback
+            this.dealAnimationInProgress = false;
             this.playerCards.style.visibility = 'visible';
             this.opponentsRow.style.visibility = 'visible';
             this.playSound('shuffle');
@@ -3386,7 +3395,8 @@ class GolfGame {
         // Update deck/discard clickability and visual state
         // Use visual check so indicators sync with opponent swap animation
         const hasDrawn = this.drawnCard || this.gameState.has_drawn_card;
-        const canDraw = this.isVisuallyMyTurn() && !hasDrawn && !this.gameState.waiting_for_initial_flip;
+        const isRoundActive = this.gameState.phase !== 'round_over' && this.gameState.phase !== 'game_over';
+        const canDraw = isRoundActive && this.isVisuallyMyTurn() && !hasDrawn && !this.gameState.waiting_for_initial_flip;
 
         // Pulse the deck area when it's player's turn to draw
         const wasTurnToDraw = this.deckArea.classList.contains('your-turn-to-draw');
@@ -3516,8 +3526,8 @@ class GolfGame {
         this.renderPairIndicators();
 
         // Show flip prompt for initial flip
-        // Show flip prompt during initial flip phase
-        if (this.gameState.waiting_for_initial_flip) {
+        // Show flip prompt during initial flip phase (but not during deal animation)
+        if (this.gameState.waiting_for_initial_flip && !this.dealAnimationInProgress) {
             const requiredFlips = this.gameState.initial_flips || 2;
             const flippedCount = this.locallyFlippedCards.size;
             const remaining = requiredFlips - flippedCount;
