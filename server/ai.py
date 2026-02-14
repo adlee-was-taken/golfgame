@@ -69,6 +69,38 @@ THINKING_TIME = {
 }
 
 
+# =============================================================================
+# AI Decision Constants
+# =============================================================================
+
+# Expected value of an unknown (face-down) card, based on deck distribution
+EXPECTED_HIDDEN_VALUE = 4.5
+
+# Pessimistic estimate for hidden cards (used in go-out safety checks)
+PESSIMISTIC_HIDDEN_VALUE = 6.0
+
+# Conservative estimate (used in opponent score estimation)
+CONSERVATIVE_HIDDEN_VALUE = 2.5
+
+# Cards at or above this value should never be swapped into unknown positions
+HIGH_CARD_THRESHOLD = 8
+
+# Maximum card value for unpredictability swaps
+UNPREDICTABLE_MAX_VALUE = 7
+
+# Pair potential discount when adjacent card matches (25% chance of pair)
+PAIR_POTENTIAL_DISCOUNT = 0.25
+
+# Blackjack target score
+BLACKJACK_TARGET = 21
+
+# Base acceptable score range for go-out decisions
+GO_OUT_SCORE_BASE = 12
+GO_OUT_SCORE_MAX = 20
+
+# Personality tie-breaker threshold (options within this many points are "close")
+TIE_BREAKER_THRESHOLD = 2.0
+
 # Alias for backwards compatibility - use the centralized function from game.py
 def get_ai_card_value(card: Card, options: GameOptions) -> int:
     """Get card value with house rules applied for AI decisions.
@@ -137,7 +169,7 @@ def estimate_opponent_min_score(player: Player, game: Game, optimistic: bool = F
 
         if optimistic:
             # Assume average hidden cards
-            estimate = visible + int(hidden * 4.5)
+            estimate = visible + int(hidden * EXPECTED_HIDDEN_VALUE)
         else:
             # Assume opponents could get lucky - hidden cards might be low
             # or could complete pairs, so use lower estimate
@@ -151,10 +183,10 @@ def estimate_opponent_min_score(player: Player, game: Game, optimistic: bool = F
                 elif bot.face_up and not top.face_up:
                     pair_potential += get_ai_card_value(bot, game.options)
 
-            # Conservative estimate: assume 2.5 avg for hidden (could be low cards)
+            # Conservative estimate: assume low avg for hidden (could be low cards)
             # and subtract some pair potential (hidden cards might match visible)
-            base_estimate = visible + int(hidden * 2.5)
-            estimate = base_estimate - int(pair_potential * 0.25)  # 25% chance of pair
+            base_estimate = visible + int(hidden * CONSERVATIVE_HIDDEN_VALUE)
+            estimate = base_estimate - int(pair_potential * PAIR_POTENTIAL_DISCOUNT)
 
         min_est = min(min_est, estimate)
     return min_est
@@ -293,7 +325,7 @@ def get_game_phase(game: Game) -> str:
     )
     avg_hidden = total_hidden / len(game.players) if game.players else 6
 
-    if avg_hidden >= 4.5:
+    if avg_hidden >= EXPECTED_HIDDEN_VALUE:
         return 'early'
     elif avg_hidden >= 2.5:
         return 'mid'
@@ -397,6 +429,69 @@ def get_column_partner_position(pos: int) -> int:
     Column pairs: (0,3), (1,4), (2,5)
     """
     return (pos + 3) % 6 if pos < 3 else pos - 3
+
+
+# =============================================================================
+# Column/Pair Utility Functions
+# =============================================================================
+
+def iter_columns(player: Player):
+    """Yield (col_index, top_idx, bot_idx, top_card, bot_card) for each column."""
+    for col in range(3):
+        top_idx = col
+        bot_idx = col + 3
+        yield col, top_idx, bot_idx, player.cards[top_idx], player.cards[bot_idx]
+
+
+def project_score(player: Player, swap_pos: int, new_card: Card, options: GameOptions) -> int:
+    """Calculate what the player's score would be if new_card were swapped into swap_pos.
+
+    Handles pair cancellation correctly. Used by multiple decision paths.
+    """
+    total = 0
+    for col, top_idx, bot_idx, top_card, bot_card in iter_columns(player):
+        # Substitute the new card if it's in this column
+        effective_top = new_card if top_idx == swap_pos else top_card
+        effective_bot = new_card if bot_idx == swap_pos else bot_card
+
+        if effective_top.rank == effective_bot.rank:
+            # Pair cancels (standard rules)
+            continue
+        total += get_ai_card_value(effective_top, options)
+        total += get_ai_card_value(effective_bot, options)
+    return total
+
+
+def count_hidden(player: Player) -> int:
+    """Count face-down cards."""
+    return sum(1 for c in player.cards if not c.face_up)
+
+
+def hidden_positions(player: Player) -> list[int]:
+    """Get indices of face-down cards."""
+    return [i for i, c in enumerate(player.cards) if not c.face_up]
+
+
+def visible_score_excluding_column(player: Player, exclude_col_pos: int, options: GameOptions) -> int:
+    """Calculate score from visible columns, excluding the column containing exclude_col_pos.
+
+    Used in go-out calculations where one column has special handling.
+    """
+    exclude_col = exclude_col_pos if exclude_col_pos < 3 else exclude_col_pos - 3
+    total = 0
+    for col, top_idx, bot_idx, top_card, bot_card in iter_columns(player):
+        if col == exclude_col:
+            continue
+        if top_card.face_up and bot_card.face_up:
+            if top_card.rank == bot_card.rank:
+                continue  # Pair = 0
+            total += get_ai_card_value(top_card, options)
+            total += get_ai_card_value(bot_card, options)
+        elif top_card.face_up:
+            total += get_ai_card_value(top_card, options)
+        elif bot_card.face_up:
+            total += get_ai_card_value(bot_card, options)
+    return total
 
 
 def filter_bad_pair_positions(
@@ -665,25 +760,9 @@ class GolfAI:
 
         # SAFEGUARD: If we have only 1 face-down card, taking from discard
         # forces us to swap and go out. Check if that would be acceptable.
-        face_down = [i for i, c in enumerate(player.cards) if not c.face_up]
+        face_down = hidden_positions(player)
         if len(face_down) == 1:
-            # Calculate projected score if we swap into the last face-down position
-            projected_score = 0
-            for i, c in enumerate(player.cards):
-                if i == face_down[0]:
-                    projected_score += discard_value
-                elif c.face_up:
-                    projected_score += get_ai_card_value(c, options)
-
-            # Apply column pair cancellation
-            for col in range(3):
-                top_idx, bot_idx = col, col + 3
-                top_card = discard_card if top_idx == face_down[0] else player.cards[top_idx]
-                bot_card = discard_card if bot_idx == face_down[0] else player.cards[bot_idx]
-                if top_card.rank == bot_card.rank:
-                    top_val = discard_value if top_idx == face_down[0] else get_ai_card_value(player.cards[top_idx], options)
-                    bot_val = discard_value if bot_idx == face_down[0] else get_ai_card_value(player.cards[bot_idx], options)
-                    projected_score -= (top_val + bot_val)
+            projected_score = project_score(player, face_down[0], discard_card, options)
 
             # Don't take if score would be terrible
             max_acceptable = 18 if profile.aggression > 0.6 else (16 if profile.aggression > 0.3 else 14)
@@ -787,8 +866,7 @@ class GolfAI:
             pressure_threshold = min(pressure_threshold, 7)  # Cap at 7
             if discard_value <= pressure_threshold:
                 # Only take if we have hidden cards that could be worse
-                my_hidden = sum(1 for c in player.cards if not c.face_up)
-                if my_hidden > 0:
+                if count_hidden(player) > 0:
                     # CRITICAL: Verify there's actually a good swap position
                     if has_good_swap_option():
                         ai_log(f"  >> TAKE: pressure={pressure:.2f}, threshold={pressure_threshold}")
@@ -946,7 +1024,7 @@ class GolfAI:
                 not (options.eagle_eye and drawn_card.rank == Rank.JOKER)
             )
             if not creates_negative_pair:
-                expected_hidden = 4.5
+                expected_hidden = EXPECTED_HIDDEN_VALUE
                 point_gain = expected_hidden - drawn_value
                 # Conservative players (low swap_threshold) discount uncertain gains more
                 discount = 0.5 + (profile.swap_threshold / 16)  # Range: 0.5 to 1.0
@@ -955,8 +1033,7 @@ class GolfAI:
         # 3. REVEAL BONUS - Value of revealing hidden cards
         #    More aggressive players want to reveal faster to go out
         if not current_card.face_up:
-            hidden_count = sum(1 for c in player.cards if not c.face_up)
-            reveal_bonus = min(hidden_count, 4)
+            reveal_bonus = min(count_hidden(player), 4)
 
             # Aggressive players get bigger reveal bonus (want to go out faster)
             aggression_multiplier = 0.8 + profile.aggression * 0.4  # Range: 0.8 to 1.2
@@ -1035,32 +1112,19 @@ class GolfAI:
         # Only for cards that aren't objectively bad (value < 8)
         # Don't incentivize locking in 8, 9, 10, J, Q just to "go out faster"
         standings_pressure = get_standings_pressure(player, game)
-        if standings_pressure > 0.3 and not current_card.face_up and drawn_value < 8:
+        if standings_pressure > 0.3 and not current_card.face_up and drawn_value < HIGH_CARD_THRESHOLD:
             # Behind in standings - boost incentive to reveal and play faster
             comeback_bonus = standings_pressure * 3 * profile.aggression
             score += comeback_bonus
             ai_log(f"    Comeback aggression bonus: +{comeback_bonus:.1f} (pressure={standings_pressure:.2f})")
 
         # 5. GO-OUT SAFETY - Penalty for going out with bad score
-        face_down_positions = [i for i, c in enumerate(player.cards) if not c.face_up]
+        face_down_positions = hidden_positions(player)
         if len(face_down_positions) == 1 and pos == face_down_positions[0]:
-            projected_score = drawn_value
-            for i, c in enumerate(player.cards):
-                if i != pos and c.face_up:
-                    projected_score += get_ai_card_value(c, options)
-
-            # Apply pair cancellation
-            for col in range(3):
-                top_idx, bot_idx = col, col + 3
-                top_card = drawn_card if top_idx == pos else player.cards[top_idx]
-                bot_card = drawn_card if bot_idx == pos else player.cards[bot_idx]
-                if top_card.rank == bot_card.rank:
-                    top_val = drawn_value if top_idx == pos else get_ai_card_value(player.cards[top_idx], options)
-                    bot_val = drawn_value if bot_idx == pos else get_ai_card_value(player.cards[bot_idx], options)
-                    projected_score -= (top_val + bot_val)
+            projected_score = project_score(player, pos, drawn_card, options)
 
             # Aggressive players accept higher scores when going out
-            max_acceptable = 12 + int(profile.aggression * 8)  # Range: 12 to 20
+            max_acceptable = GO_OUT_SCORE_BASE + int(profile.aggression * (GO_OUT_SCORE_MAX - GO_OUT_SCORE_BASE))
             if projected_score > max_acceptable:
                 score -= 100
 
@@ -1082,107 +1146,10 @@ class GolfAI:
         options = game.options
         drawn_value = get_ai_card_value(drawn_card, options)
 
-        # CRITICAL SAFETY CHECK: If we have exactly 1 face-down card, we're about to
-        # go out no matter what. Either we swap (revealing) or discard+flip (revealing).
-        # Choose the option that gives the lowest projected score.
-        face_down_positions = [i for i, c in enumerate(player.cards) if not c.face_up]
-        if len(face_down_positions) == 1:
-            last_pos = face_down_positions[0]
-            last_partner_pos = get_column_partner_position(last_pos)
-            last_partner = player.cards[last_partner_pos]
-
-            # Calculate base visible score (EXCLUDING the column with hidden card entirely)
-            visible_score = 0
-            for col in range(3):
-                top_idx, bot_idx = col, col + 3
-                top = player.cards[top_idx]
-                bot = player.cards[bot_idx]
-
-                # Skip column with hidden card - we'll handle it separately
-                if top_idx == last_pos or bot_idx == last_pos:
-                    continue  # Don't add anything from this column yet
-
-                # Both visible - check for pair
-                if top.face_up and bot.face_up:
-                    if top.rank == bot.rank:
-                        continue  # Pair = 0
-                    visible_score += get_ai_card_value(top, options)
-                    visible_score += get_ai_card_value(bot, options)
-                elif top.face_up:
-                    visible_score += get_ai_card_value(top, options)
-                elif bot.face_up:
-                    visible_score += get_ai_card_value(bot, options)
-
-            # Get partner value for calculations
-            partner_value = get_ai_card_value(last_partner, options) if last_partner.face_up else 0
-
-            # Calculate score if we SWAP drawn card into last position
-            if last_partner.face_up and last_partner.rank == drawn_card.rank:
-                # Would create a pair - calculate actual column contribution
-                if drawn_value < 0 and not options.negative_pairs_keep_value:
-                    if options.eagle_eye and drawn_card.rank == Rank.JOKER:
-                        # Eagle Eye: Joker pairs contribute -4
-                        pair_column_value = -4
-                    else:
-                        # Standard rules: pairing 2s/Jokers wastes their negative value!
-                        # Column becomes 0 instead of keeping negative contribution
-                        pair_column_value = 0
-                        ai_log(f"    GO-OUT: pairing negative cards would waste {abs(drawn_value + partner_value)} pts")
-                elif options.negative_pairs_keep_value and (drawn_value < 0 or partner_value < 0):
-                    # Negative pairs keep value
-                    pair_column_value = drawn_value + partner_value
-                else:
-                    # Standard positive pair: column contributes 0
-                    pair_column_value = 0
-                score_if_swap = visible_score + pair_column_value
-            else:
-                # No pair - column contributes both values
-                score_if_swap = visible_score + drawn_value + partner_value
-
-            # Estimate score if we DISCARD and FLIP (hidden card is unknown)
-            # Use pessimistic estimate: average is 4.5, but high cards are common
-            # Use 6 as conservative estimate (accounts for face cards)
-            estimated_hidden = 6
-            # Column contributes: hidden (estimated) + partner
-            score_if_flip = visible_score + estimated_hidden + partner_value
-
-            # Check if swap would create a wasteful negative pair
-            would_waste_negative = (
-                last_partner.face_up and
-                last_partner.rank == drawn_card.rank and
-                drawn_value < 0 and
-                not options.negative_pairs_keep_value and
-                not (options.eagle_eye and drawn_card.rank == Rank.JOKER)
-            )
-
-            # What score is acceptable to go out with?
-            max_acceptable_go_out = 14 + int(profile.aggression * 4)  # Range: 14 to 18
-
-            ai_log(f"  Go-out safety check: visible_base={visible_score}, "
-                   f"score_if_swap={score_if_swap}, score_if_flip={score_if_flip}, "
-                   f"max_acceptable={max_acceptable_go_out}")
-
-            # If BOTH options are bad, choose the better one
-            if score_if_swap > max_acceptable_go_out and score_if_flip > max_acceptable_go_out:
-                if score_if_swap <= score_if_flip:
-                    ai_log(f"  >> SAFETY: both options bad, but swap ({score_if_swap}) "
-                           f"<= flip ({score_if_flip}), forcing swap")
-                    return last_pos
-                else:
-                    ai_log(f"  >> WARNING: both options bad, flip ({score_if_flip}) "
-                           f"< swap ({score_if_swap}), will try to find better swap")
-                    # Don't return - let normal scoring find a visible card to replace
-
-            # If swap would waste negative cards, DON'T take the early return
-            # Let normal scoring find a better position (swap into visible card instead)
-            elif would_waste_negative:
-                ai_log(f"  >> SKIP GO-OUT SHORTCUT: would waste negative pair, checking other positions")
-                # Don't return - let normal scoring find a better swap position
-
-            # If swap is good, prefer it (known outcome vs unknown flip)
-            elif score_if_swap <= max_acceptable_go_out and score_if_swap <= score_if_flip:
-                ai_log(f"  >> SAFETY: swap gives acceptable score {score_if_swap}")
-                return last_pos
+        # Check if we should force a go-out swap (exactly 1 face-down card)
+        go_out_pos = GolfAI._check_go_out_swap(drawn_card, drawn_value, player, profile, game)
+        if go_out_pos is not None:
+            return go_out_pos
 
         ai_log(f"=== {profile.name} deciding: drew {drawn_card.rank.value}{drawn_card.suit.value} (value={drawn_value}) ===")
         ai_log(f"  Personality: pair_hope={profile.pair_hope:.2f}, aggression={profile.aggression:.2f}, "
@@ -1194,52 +1161,194 @@ class GolfAI:
         )
         ai_log(f"  Hand: {hand_str}")
 
-        # Unpredictable players occasionally make surprising plays
-        # But never discard excellent cards (Jokers, 2s, Kings, Aces)
-        # AND never make random choices that would cause a terrible go-out
-        if random.random() < profile.unpredictability:
-            if drawn_value > 1:
-                face_down = [i for i, c in enumerate(player.cards) if not c.face_up]
-                if face_down and random.random() < 0.5:
-                    # SAFETY: Don't randomly go out with a bad score
-                    if len(face_down) == 1:
-                        # Would force go-out - check if acceptable
-                        last_pos = face_down[0]
-                        projected = drawn_value
-                        for i, c in enumerate(player.cards):
-                            if i != last_pos and c.face_up:
-                                projected += get_ai_card_value(c, options)
-                        # Apply pair cancellation
-                        for col in range(3):
-                            top_idx, bot_idx = col, col + 3
-                            top_card = drawn_card if top_idx == last_pos else player.cards[top_idx]
-                            bot_card = drawn_card if bot_idx == last_pos else player.cards[bot_idx]
-                            if top_card.face_up or top_idx == last_pos:
-                                if bot_card.face_up or bot_idx == last_pos:
-                                    if top_card.rank == bot_card.rank:
-                                        top_val = drawn_value if top_idx == last_pos else get_ai_card_value(player.cards[top_idx], options)
-                                        bot_val = drawn_value if bot_idx == last_pos else get_ai_card_value(player.cards[bot_idx], options)
-                                        projected -= (top_val + bot_val)
-                        max_acceptable = 12 + int(profile.aggression * 8)
-                        if projected > max_acceptable:
-                            ai_log(f"  >> UNPREDICTABLE: blocked - would go out with {projected} > {max_acceptable}")
-                        else:
-                            ai_log(f"  >> UNPREDICTABLE: randomly chose position {last_pos} (projected {projected})")
-                            return last_pos
-                    else:
-                        # Only allow random swaps for cards that aren't objectively bad
-                        # Cards 8+ are too bad to randomly put into unknowns
-                        # (Expected value of hidden card is ~4.5)
-                        UNPREDICTABLE_MAX_VALUE = 7
-                        if drawn_value <= UNPREDICTABLE_MAX_VALUE:
-                            choice = random.choice(face_down)
-                            ai_log(f"  >> UNPREDICTABLE: randomly chose position {choice} (value {drawn_value} <= {UNPREDICTABLE_MAX_VALUE})")
-                            return choice
-                        else:
-                            ai_log(f"  >> UNPREDICTABLE: blocked - value {drawn_value} > {UNPREDICTABLE_MAX_VALUE} threshold")
-                            # Fall through to normal scoring logic
+        # Check for unpredictable random play
+        unpredictable_pos = GolfAI._check_unpredictable_swap(
+            drawn_card, drawn_value, player, profile, options
+        )
+        if unpredictable_pos is not None:
+            return unpredictable_pos
 
-        # Calculate score for each position
+        # Score all positions and select best candidate
+        position_scores = GolfAI._score_all_positions(
+            drawn_card, drawn_value, player, profile, options, game
+        )
+        best_pos, best_score = GolfAI._select_best_candidate(
+            position_scores, drawn_card, drawn_value, player, profile, options, game
+        )
+
+        # Blackjack special case: chase exactly 21
+        if options.blackjack and best_pos is None:
+            blackjack_pos = GolfAI._check_blackjack_swap(drawn_card, drawn_value, player, profile, options)
+            if blackjack_pos is not None:
+                return blackjack_pos
+
+        # Check if pair hunter wants to hold for future pair
+        best_pos = GolfAI._check_hold_for_pair(
+            best_pos, drawn_card, drawn_value, player, profile, game
+        )
+
+        # Final safety: force swap if about to go out with bad score
+        best_pos = GolfAI._check_final_safety(
+            best_pos, drawn_card, drawn_value, player, profile, options
+        )
+
+        # Opponent denial: consider keeping card to deny next player
+        best_pos = GolfAI._check_denial_swap(
+            best_pos, drawn_card, drawn_value, player, profile, game, options
+        )
+
+        # Log final decision
+        if best_pos is not None:
+            target_card = player.cards[best_pos]
+            target_str = target_card.rank.value if target_card.face_up else "hidden"
+            ai_log(f"  DECISION: SWAP into position {best_pos} (replacing {target_str}) [score={best_score:.2f}]")
+        else:
+            ai_log(f"  DECISION: DISCARD {drawn_card.rank.value} (no good swap options)")
+
+        return best_pos
+
+    @staticmethod
+    def _check_go_out_swap(drawn_card: Card, drawn_value: int, player: Player,
+                           profile: CPUProfile, game: Game) -> Optional[int]:
+        """If player has exactly 1 face-down card, decide the best go-out swap.
+
+        Returns position to swap into, or None to fall through to normal scoring.
+        Uses a sentinel value of -1 (converted to None by caller) is not needed -
+        we return None to indicate "no early decision, continue normal flow".
+        """
+        options = game.options
+        face_down_positions = hidden_positions(player)
+        if len(face_down_positions) != 1:
+            return None
+
+        last_pos = face_down_positions[0]
+        last_partner_pos = get_column_partner_position(last_pos)
+        last_partner = player.cards[last_partner_pos]
+
+        # Calculate base visible score (EXCLUDING the column with hidden card entirely)
+        visible_score = visible_score_excluding_column(player, last_pos, options)
+
+        # Get partner value for calculations
+        partner_value = get_ai_card_value(last_partner, options) if last_partner.face_up else 0
+
+        # Calculate score if we SWAP drawn card into last position
+        if last_partner.face_up and last_partner.rank == drawn_card.rank:
+            # Would create a pair - calculate actual column contribution
+            if drawn_value < 0 and not options.negative_pairs_keep_value:
+                if options.eagle_eye and drawn_card.rank == Rank.JOKER:
+                    pair_column_value = -4
+                else:
+                    pair_column_value = 0
+                    ai_log(f"    GO-OUT: pairing negative cards would waste {abs(drawn_value + partner_value)} pts")
+            elif options.negative_pairs_keep_value and (drawn_value < 0 or partner_value < 0):
+                pair_column_value = drawn_value + partner_value
+            else:
+                pair_column_value = 0
+            score_if_swap = visible_score + pair_column_value
+        else:
+            score_if_swap = visible_score + drawn_value + partner_value
+
+        # Estimate score if we DISCARD and FLIP (hidden card is unknown)
+        estimated_hidden = PESSIMISTIC_HIDDEN_VALUE
+        score_if_flip = visible_score + estimated_hidden + partner_value
+
+        # Check if swap would create a wasteful negative pair
+        would_waste_negative = (
+            last_partner.face_up and
+            last_partner.rank == drawn_card.rank and
+            drawn_value < 0 and
+            not options.negative_pairs_keep_value and
+            not (options.eagle_eye and drawn_card.rank == Rank.JOKER)
+        )
+
+        max_acceptable_go_out = 14 + int(profile.aggression * 4)
+
+        ai_log(f"  Go-out safety check: visible_base={visible_score}, "
+               f"score_if_swap={score_if_swap}, score_if_flip={score_if_flip}, "
+               f"max_acceptable={max_acceptable_go_out}")
+
+        # If BOTH options are bad, choose the better one
+        if score_if_swap > max_acceptable_go_out and score_if_flip > max_acceptable_go_out:
+            if score_if_swap <= score_if_flip:
+                ai_log(f"  >> SAFETY: both options bad, but swap ({score_if_swap}) "
+                       f"<= flip ({score_if_flip}), forcing swap")
+                return last_pos
+            else:
+                ai_log(f"  >> WARNING: both options bad, flip ({score_if_flip}) "
+                       f"< swap ({score_if_swap}), will try to find better swap")
+                return None  # Fall through to normal scoring
+
+        # If swap would waste negative cards, fall through to normal scoring
+        elif would_waste_negative:
+            ai_log(f"  >> SKIP GO-OUT SHORTCUT: would waste negative pair, checking other positions")
+            return None
+
+        # If swap is good, prefer it (known outcome vs unknown flip)
+        elif score_if_swap <= max_acceptable_go_out and score_if_swap <= score_if_flip:
+            ai_log(f"  >> SAFETY: swap gives acceptable score {score_if_swap}")
+            return last_pos
+
+        return None
+
+    @staticmethod
+    def _check_unpredictable_swap(drawn_card: Card, drawn_value: int, player: Player,
+                                   profile: CPUProfile, options: GameOptions) -> Optional[int]:
+        """Unpredictable players occasionally make surprising plays.
+
+        Returns position to swap into, or None to continue normal scoring.
+        """
+        if random.random() >= profile.unpredictability:
+            return None
+        if drawn_value <= 1:
+            return None  # Never discard excellent cards
+
+        face_down = hidden_positions(player)
+        if not face_down or random.random() >= 0.5:
+            return None
+
+        # SAFETY: Don't randomly go out with a bad score
+        if len(face_down) == 1:
+            last_pos = face_down[0]
+            projected = drawn_value
+            for i, c in enumerate(player.cards):
+                if i != last_pos and c.face_up:
+                    projected += get_ai_card_value(c, options)
+            # Apply pair cancellation
+            for col in range(3):
+                top_idx, bot_idx = col, col + 3
+                top_card = drawn_card if top_idx == last_pos else player.cards[top_idx]
+                bot_card = drawn_card if bot_idx == last_pos else player.cards[bot_idx]
+                if top_card.face_up or top_idx == last_pos:
+                    if bot_card.face_up or bot_idx == last_pos:
+                        if top_card.rank == bot_card.rank:
+                            top_val = drawn_value if top_idx == last_pos else get_ai_card_value(player.cards[top_idx], options)
+                            bot_val = drawn_value if bot_idx == last_pos else get_ai_card_value(player.cards[bot_idx], options)
+                            projected -= (top_val + bot_val)
+            max_acceptable = GO_OUT_SCORE_BASE + int(profile.aggression * (GO_OUT_SCORE_MAX - GO_OUT_SCORE_BASE))
+            if projected > max_acceptable:
+                ai_log(f"  >> UNPREDICTABLE: blocked - would go out with {projected} > {max_acceptable}")
+                return None
+            else:
+                ai_log(f"  >> UNPREDICTABLE: randomly chose position {last_pos} (projected {projected})")
+                return last_pos
+        else:
+            # Only allow random swaps for cards that aren't objectively bad
+            if drawn_value <= UNPREDICTABLE_MAX_VALUE:
+                choice = random.choice(face_down)
+                ai_log(f"  >> UNPREDICTABLE: randomly chose position {choice} (value {drawn_value} <= {UNPREDICTABLE_MAX_VALUE})")
+                return choice
+            else:
+                ai_log(f"  >> UNPREDICTABLE: blocked - value {drawn_value} > {UNPREDICTABLE_MAX_VALUE} threshold")
+                return None
+
+    @staticmethod
+    def _score_all_positions(drawn_card: Card, drawn_value: int, player: Player,
+                              profile: CPUProfile, options: GameOptions,
+                              game: Game) -> list[tuple[int, float]]:
+        """Calculate swap benefit score for each of the 6 positions.
+
+        Returns list of (position, score) tuples.
+        """
         position_scores: list[tuple[int, float]] = []
         for pos in range(6):
             score = GolfAI.calculate_swap_score(
@@ -1259,13 +1368,22 @@ class GolfAI:
             reveal_indicator = " [REVEAL]" if not card.face_up else ""
             ai_log(f"    pos {pos} ({card_str}, partner={partner_str}): {score:+.2f}{pair_indicator}{reveal_indicator}")
 
+        return position_scores
+
+    @staticmethod
+    def _select_best_candidate(position_scores: list[tuple[int, float]],
+                                drawn_card: Card, drawn_value: int, player: Player,
+                                profile: CPUProfile, options: GameOptions,
+                                game: Game) -> tuple[Optional[int], float]:
+        """From scored positions, apply safety filters and personality tie-breaking.
+
+        Returns (best_position, best_score) or (None, 0.0) if no good swap.
+        """
         # Filter to positive scores only
         positive_scores = [(p, s) for p, s in position_scores if s > 0]
 
-        # SAFETY: Never swap high cards (8+) into hidden positions
-        # This is objectively bad since expected hidden value is ~4.5
-        # Exception: creating a visible pair (partner face-up and matches)
-        if drawn_value >= 8:
+        # SAFETY: Never swap high cards into hidden positions
+        if drawn_value >= HIGH_CARD_THRESHOLD:
             safe_positive = []
             for pos, score in positive_scores:
                 card = player.cards[pos]
@@ -1289,38 +1407,32 @@ class GolfAI:
             best_pos, best_score = positive_scores[0]
 
             # PERSONALITY TIE-BREAKER: When top options are close, let personality decide
-            close_threshold = 2.0  # Options within 2 points are "close"
+            close_threshold = TIE_BREAKER_THRESHOLD
             close_options = [(p, s) for p, s in positive_scores if s >= best_score - close_threshold]
 
             if len(close_options) > 1:
                 ai_log(f"  TIE-BREAKER: {len(close_options)} options within {close_threshold} pts of best ({best_score:.2f})")
                 original_best = best_pos
 
-                # Multiple close options - personality decides
-                # Categorize each option
                 for pos, score in close_options:
                     partner_pos = get_column_partner_position(pos)
                     partner_card = player.cards[partner_pos]
                     is_pair_move = partner_card.face_up and partner_card.rank == drawn_card.rank
                     is_reveal_move = not player.cards[pos].face_up
 
-                    # Pair hunters prefer pair moves
                     if is_pair_move and profile.pair_hope > 0.6:
                         ai_log(f"    >> PAIR_HOPE ({profile.pair_hope:.2f}): chose pair move at pos {pos}")
                         best_pos = pos
                         break
-                    # Aggressive players prefer reveal moves (to go out faster)
                     if is_reveal_move and profile.aggression > 0.7:
                         ai_log(f"    >> AGGRESSION ({profile.aggression:.2f}): chose reveal move at pos {pos}")
                         best_pos = pos
                         break
-                    # Conservative players prefer safe visible card replacements
                     if not is_reveal_move and profile.swap_threshold <= 4:
                         ai_log(f"    >> CONSERVATIVE (threshold={profile.swap_threshold}): chose safe move at pos {pos}")
                         best_pos = pos
                         break
 
-                # If still tied, add small random factor based on unpredictability
                 if profile.unpredictability > 0.1 and random.random() < profile.unpredictability:
                     best_pos = random.choice([p for p, s in close_options])
                     ai_log(f"    >> RANDOM (unpredictability={profile.unpredictability:.2f}): chose pos {best_pos}")
@@ -1328,150 +1440,167 @@ class GolfAI:
                 if best_pos != original_best:
                     ai_log(f"  Tie-breaker changed choice: {original_best} -> {best_pos}")
 
-        # Blackjack special case: chase exactly 21
-        if options.blackjack and best_pos is None:
-            current_score = player.calculate_score()
-            if current_score >= 15:
-                for i, card in enumerate(player.cards):
-                    if card.face_up:
-                        potential_change = drawn_value - get_ai_card_value(card, options)
-                        if current_score + potential_change == 21:
-                            if random.random() < profile.aggression:
-                                ai_log(f"  >> BLACKJACK: chasing 21 at position {i}")
-                                return i
+        return best_pos, best_score
 
-        # Pair hunters might hold medium cards hoping for matches
-        # BUT NOT if we only have 1 face-down card (would force bad go-out)
-        face_down_count = sum(1 for c in player.cards if not c.face_up)
-        if best_pos is not None and not player.cards[best_pos].face_up and face_down_count > 1:
-            if drawn_value >= 5:  # Only hold out for medium/high cards
-                # DON'T hold if placing at best_pos would actually CREATE a pair right now!
-                partner_pos = get_column_partner_position(best_pos)
-                partner_card = player.cards[partner_pos]
-                would_make_pair = partner_card.face_up and partner_card.rank == drawn_card.rank
+    @staticmethod
+    def _check_blackjack_swap(drawn_card: Card, drawn_value: int, player: Player,
+                               profile: CPUProfile, options: GameOptions) -> Optional[int]:
+        """Check if we can chase exactly 21 for blackjack bonus."""
+        current_score = player.calculate_score()
+        if current_score >= 15:
+            for i, card in enumerate(player.cards):
+                if card.face_up:
+                    potential_change = drawn_value - get_ai_card_value(card, options)
+                    if current_score + potential_change == BLACKJACK_TARGET:
+                        if random.random() < profile.aggression:
+                            ai_log(f"  >> BLACKJACK: chasing 21 at position {i}")
+                            return i
+        return None
 
-                if would_make_pair:
-                    ai_log(f"  Skip hold-for-pair: placing at {best_pos} creates pair with {partner_card.rank.value}")
-                else:
-                    pair_viability = get_pair_viability(drawn_card.rank, game)
-                    phase = get_game_phase(game)
-                    pressure = get_end_game_pressure(player, game)
+    @staticmethod
+    def _check_hold_for_pair(best_pos: Optional[int], drawn_card: Card, drawn_value: int,
+                              player: Player, profile: CPUProfile,
+                              game: Game) -> Optional[int]:
+        """Pair hunters might hold medium cards hoping for matches.
 
-                    effective_hope = profile.pair_hope * pair_viability
-                    if phase == 'late' or pressure > 0.5:
-                        effective_hope *= 0.3
+        Returns best_pos (unchanged) or None (discard to hold for pair).
+        """
+        face_down_count = count_hidden(player)
+        # Only hold if best swap is into a hidden position and we have >1 face-down
+        if best_pos is None or player.cards[best_pos].face_up or face_down_count <= 1:
+            return best_pos
+        if drawn_value < 5:
+            return best_pos  # Only hold out for medium/high cards
 
-                    ai_log(f"  Hold-for-pair check: value={drawn_value}, viability={pair_viability:.2f}, "
-                           f"phase={phase}, effective_hope={effective_hope:.2f}")
+        # DON'T hold if placing at best_pos would actually CREATE a pair right now!
+        partner_pos = get_column_partner_position(best_pos)
+        partner_card = player.cards[partner_pos]
+        would_make_pair = partner_card.face_up and partner_card.rank == drawn_card.rank
 
-                    if effective_hope > 0.5 and random.random() < effective_hope:
-                        ai_log(f"  >> HOLDING: discarding {drawn_card.rank.value} hoping for future pair")
-                        return None  # Discard and hope for pair later
+        if would_make_pair:
+            ai_log(f"  Skip hold-for-pair: placing at {best_pos} creates pair with {partner_card.rank.value}")
+            return best_pos
 
-        # FINAL SAFETY: If we have exactly 1 face-down card and would discard,
-        # force a swap to prevent going out with a terrible score
-        if best_pos is None and face_down_count == 1:
-            last_pos = [i for i, c in enumerate(player.cards) if not c.face_up][0]
+        pair_viability = get_pair_viability(drawn_card.rank, game)
+        phase = get_game_phase(game)
+        pressure = get_end_game_pressure(player, game)
 
-            # Find the worst visible card we could replace instead
-            worst_visible_pos = None
-            worst_visible_val = -999
-            for i, c in enumerate(player.cards):
-                if c.face_up:
-                    val = get_ai_card_value(c, options)
-                    # Check if this card is part of an existing pair
-                    partner_pos = get_column_partner_position(i)
-                    partner = player.cards[partner_pos]
-                    if partner.face_up and partner.rank == c.rank:
-                        # Card is paired - effective value is 0, don't replace
-                        continue
-                    if val > worst_visible_val:
-                        worst_visible_val = val
-                        worst_visible_pos = i
+        effective_hope = profile.pair_hope * pair_viability
+        if phase == 'late' or pressure > 0.5:
+            effective_hope *= 0.3
 
-            # Compare: swap into worst visible vs swap into hidden vs discard+flip
-            # Prefer swapping drawn card over flipping unknown
-            if drawn_value < 8:  # Drawn card is at least mediocre
-                ai_log(f"  >> FINAL SAFETY: forcing swap into hidden pos {last_pos} "
-                       f"(drawn value {drawn_value} < 8)")
-                best_pos = last_pos
-            elif worst_visible_pos is not None and drawn_value < worst_visible_val:
-                ai_log(f"  >> FINAL SAFETY: swapping into visible pos {worst_visible_pos} "
-                       f"(drawn {drawn_value} < worst visible {worst_visible_val})")
-                best_pos = worst_visible_pos
-            elif drawn_value >= 8:
-                # Drawn card is terrible (8+) - better to discard and flip the unknown
-                # Don't lock in a guaranteed bad card
-                ai_log(f"  >> FINAL SAFETY: discarding bad card ({drawn_value}), will flip unknown")
-                best_pos = None  # Discard
-            else:
-                # Drawn card is mediocre but not terrible - swap into hidden
-                # known mediocre is better than unknown
-                ai_log(f"  >> FINAL SAFETY: forcing swap into hidden pos {last_pos} "
-                       f"(drawn value {drawn_value} is acceptable)")
-                best_pos = last_pos
+        ai_log(f"  Hold-for-pair check: value={drawn_value}, viability={pair_viability:.2f}, "
+               f"phase={phase}, effective_hope={effective_hope:.2f}")
 
-        # OPPONENT DENIAL CHECK: Before discarding, check if this would help next player
-        # Only applies when we're about to discard (best_pos is still None)
-        if best_pos is None:
-            next_opponent = get_next_player(game, player)
-            if next_opponent:
-                denial_value = calculate_denial_value(drawn_card, next_opponent, game, options)
-                if denial_value > 0:
-                    ai_log(f"  DENIAL CHECK: discarding {drawn_card.rank.value} would help "
-                           f"{next_opponent.name} (denial_value={denial_value:.1f})")
+        if effective_hope > 0.5 and random.random() < effective_hope:
+            ai_log(f"  >> HOLDING: discarding {drawn_card.rank.value} hoping for future pair")
+            return None  # Discard and hope for pair later
 
-                    # Find the least-bad swap position to deny the opponent
-                    # We're willing to take a small hit to deny a pair
-                    denial_threshold = 4.0 + profile.aggression * 4  # 4-8 based on aggression
+        return best_pos
 
-                    if denial_value >= denial_threshold:
-                        # Find acceptable swap positions (minimize our loss)
-                        denial_candidates = []
-                        for pos in range(6):
-                            card = player.cards[pos]
-                            if not card.face_up:
-                                # Swapping into face-down: cost is drawn_value (we keep it)
-                                # Skip hidden positions for high cards (8+) - too costly
-                                if drawn_value >= 8:
-                                    continue  # Never swap 8+ into hidden for denial
-                                cost = drawn_value
-                                denial_candidates.append((pos, cost, "hidden"))
-                            else:
-                                # Swapping into face-up: cost is drawn_value - replaced_value
-                                replaced_val = get_ai_card_value(card, options)
-                                # Check if this card is part of a pair
-                                partner_pos = get_column_partner_position(pos)
-                                partner = player.cards[partner_pos]
-                                if partner.face_up and partner.rank == card.rank:
-                                    continue  # Don't break a pair
-                                cost = drawn_value - replaced_val
-                                denial_candidates.append((pos, cost, card.rank.value))
+    @staticmethod
+    def _check_final_safety(best_pos: Optional[int], drawn_card: Card, drawn_value: int,
+                             player: Player, profile: CPUProfile,
+                             options: GameOptions) -> Optional[int]:
+        """If we have exactly 1 face-down card and would discard, force a swap.
 
-                        # Sort by cost (lowest first)
-                        denial_candidates.sort(key=lambda x: x[1])
+        Returns updated best_pos.
+        """
+        face_down_count = count_hidden(player)
+        if best_pos is not None or face_down_count != 1:
+            return best_pos
 
-                        if denial_candidates:
-                            best_denial_pos, best_cost, card_desc = denial_candidates[0]
-                            # Accept if the cost is reasonable relative to denial value
-                            # Cost threshold: denial_value / 2 (willing to lose half of what we deny)
-                            max_acceptable_cost = denial_value / 2
+        last_pos = hidden_positions(player)[0]
 
-                            if best_cost <= max_acceptable_cost:
-                                ai_log(f"  >> DENIAL: swapping into pos {best_denial_pos} ({card_desc}) "
-                                       f"to deny pair (cost={best_cost:.1f}, denial={denial_value:.1f})")
-                                best_pos = best_denial_pos
-                            else:
-                                ai_log(f"  >> DENIAL REJECTED: best option cost {best_cost:.1f} > "
-                                       f"max acceptable {max_acceptable_cost:.1f}")
+        # Find the worst visible card we could replace instead
+        worst_visible_pos = None
+        worst_visible_val = -999
+        for i, c in enumerate(player.cards):
+            if c.face_up:
+                val = get_ai_card_value(c, options)
+                partner_pos = get_column_partner_position(i)
+                partner = player.cards[partner_pos]
+                if partner.face_up and partner.rank == c.rank:
+                    continue  # Card is paired, don't replace
+                if val > worst_visible_val:
+                    worst_visible_val = val
+                    worst_visible_pos = i
 
-        # Log final decision
-        if best_pos is not None:
-            target_card = player.cards[best_pos]
-            target_str = target_card.rank.value if target_card.face_up else "hidden"
-            ai_log(f"  DECISION: SWAP into position {best_pos} (replacing {target_str}) [score={best_score:.2f}]")
+        if drawn_value < HIGH_CARD_THRESHOLD:
+            ai_log(f"  >> FINAL SAFETY: forcing swap into hidden pos {last_pos} "
+                   f"(drawn value {drawn_value} < {HIGH_CARD_THRESHOLD})")
+            return last_pos
+        elif worst_visible_pos is not None and drawn_value < worst_visible_val:
+            ai_log(f"  >> FINAL SAFETY: swapping into visible pos {worst_visible_pos} "
+                   f"(drawn {drawn_value} < worst visible {worst_visible_val})")
+            return worst_visible_pos
+        elif drawn_value >= HIGH_CARD_THRESHOLD:
+            ai_log(f"  >> FINAL SAFETY: discarding bad card ({drawn_value}), will flip unknown")
+            return None
         else:
-            ai_log(f"  DECISION: DISCARD {drawn_card.rank.value} (no good swap options)")
+            ai_log(f"  >> FINAL SAFETY: forcing swap into hidden pos {last_pos} "
+                   f"(drawn value {drawn_value} is acceptable)")
+            return last_pos
+
+    @staticmethod
+    def _check_denial_swap(best_pos: Optional[int], drawn_card: Card, drawn_value: int,
+                            player: Player, profile: CPUProfile,
+                            game: Game, options: GameOptions) -> Optional[int]:
+        """Check if we should swap to deny opponents a useful card.
+
+        Only triggers when we're about to discard (best_pos is None).
+        Returns updated best_pos.
+        """
+        if best_pos is not None:
+            return best_pos
+
+        next_opponent = get_next_player(game, player)
+        if not next_opponent:
+            return best_pos
+
+        denial_value = calculate_denial_value(drawn_card, next_opponent, game, options)
+        if denial_value <= 0:
+            return best_pos
+
+        ai_log(f"  DENIAL CHECK: discarding {drawn_card.rank.value} would help "
+               f"{next_opponent.name} (denial_value={denial_value:.1f})")
+
+        denial_threshold = 4.0 + profile.aggression * 4
+
+        if denial_value < denial_threshold:
+            return best_pos
+
+        # Find acceptable swap positions (minimize our loss)
+        denial_candidates = []
+        for pos in range(6):
+            card = player.cards[pos]
+            if not card.face_up:
+                if drawn_value >= HIGH_CARD_THRESHOLD:
+                    continue  # Never swap high cards into hidden for denial
+                cost = drawn_value
+                denial_candidates.append((pos, cost, "hidden"))
+            else:
+                replaced_val = get_ai_card_value(card, options)
+                partner_pos = get_column_partner_position(pos)
+                partner = player.cards[partner_pos]
+                if partner.face_up and partner.rank == card.rank:
+                    continue  # Don't break a pair
+                cost = drawn_value - replaced_val
+                denial_candidates.append((pos, cost, card.rank.value))
+
+        denial_candidates.sort(key=lambda x: x[1])
+
+        if denial_candidates:
+            best_denial_pos, best_cost, card_desc = denial_candidates[0]
+            max_acceptable_cost = denial_value / 2
+
+            if best_cost <= max_acceptable_cost:
+                ai_log(f"  >> DENIAL: swapping into pos {best_denial_pos} ({card_desc}) "
+                       f"to deny pair (cost={best_cost:.1f}, denial={denial_value:.1f})")
+                return best_denial_pos
+            else:
+                ai_log(f"  >> DENIAL REJECTED: best option cost {best_cost:.1f} > "
+                       f"max acceptable {max_acceptable_cost:.1f}")
 
         return best_pos
 
@@ -1569,7 +1698,7 @@ class GolfAI:
 
         # Aggressive players with low visible scores might knock early
         # Expected value of hidden card is ~4.5
-        expected_hidden_total = len(face_down) * 4.5
+        expected_hidden_total = len(face_down) * EXPECTED_HIDDEN_VALUE
         projected_score = visible_score + expected_hidden_total
 
         # More aggressive players accept higher risk
@@ -1654,7 +1783,7 @@ class GolfAI:
         estimated_score = player.calculate_score()
 
         # Blackjack: If score is exactly 21, definitely go out (becomes 0!)
-        if options.blackjack and estimated_score == 21:
+        if options.blackjack and estimated_score == BLACKJACK_TARGET:
             return True
 
         # Base threshold based on aggression
@@ -1733,6 +1862,23 @@ class GolfAI:
         return False
 
 
+def _log_cpu_action(logger, game_id: Optional[str], cpu_player: Player, game: Game,
+                    action: str, card=None, position: Optional[int] = None,
+                    decision_reason: str = ""):
+    """Log a CPU action if logger is available."""
+    if logger and game_id:
+        logger.log_move(
+            game_id=game_id,
+            player=cpu_player,
+            is_cpu=True,
+            action=action,
+            card=card,
+            position=position,
+            game=game,
+            decision_reason=decision_reason,
+        )
+
+
 async def process_cpu_turn(
     game: Game, cpu_player: Player, broadcast_callback, game_id: Optional[str] = None
 ) -> None:
@@ -1742,10 +1888,8 @@ async def process_cpu_turn(
 
     profile = get_profile(cpu_player.id)
     if not profile:
-        # Fallback to balanced profile
         profile = CPUProfile("CPU", "Balanced", 5, 0.4, 0.5, 0.1)
 
-    # Get logger if game_id provided
     logger = get_logger() if game_id else None
 
     # Brief initial delay before CPU "looks at" the discard pile
@@ -1753,7 +1897,6 @@ async def process_cpu_turn(
     await asyncio.sleep(random.uniform(initial_look[0], initial_look[1]))
 
     # "Thinking" delay based on how obvious the discard decision is
-    # Easy decisions (good/bad cards) are quick, medium cards take longer
     discard_top = game.discard_top()
     thinking_time = get_discard_thinking_time(discard_top, game.options)
 
@@ -1773,67 +1916,41 @@ async def process_cpu_turn(
     # Check if we should knock early (flip all remaining cards at once)
     if GolfAI.should_knock_early(game, cpu_player, profile):
         if game.knock_early(cpu_player.id):
-            # Log knock early
-            if logger and game_id:
-                face_down_count = sum(1 for c in cpu_player.cards if not c.face_up)
-                logger.log_move(
-                    game_id=game_id,
-                    player=cpu_player,
-                    is_cpu=True,
-                    action="knock_early",
-                    card=None,
-                    game=game,
-                    decision_reason=f"knocked early, revealing {face_down_count} hidden cards",
-                )
+            _log_cpu_action(logger, game_id, cpu_player, game,
+                            action="knock_early",
+                            decision_reason=f"knocked early, revealing {count_hidden(cpu_player)} hidden cards")
             await broadcast_callback()
-            return  # Turn is over
+            return
 
     # Check if we should use flip-as-action instead of drawing
     flip_action_pos = GolfAI.should_use_flip_action(game, cpu_player, profile)
     if flip_action_pos is not None:
         if game.flip_card_as_action(cpu_player.id, flip_action_pos):
-            # Log flip-as-action
-            if logger and game_id:
-                flipped_card = cpu_player.cards[flip_action_pos]
-                logger.log_move(
-                    game_id=game_id,
-                    player=cpu_player,
-                    is_cpu=True,
-                    action="flip_as_action",
-                    card=flipped_card,
-                    position=flip_action_pos,
-                    game=game,
-                    decision_reason=f"used flip-as-action to reveal position {flip_action_pos}",
-                )
+            _log_cpu_action(logger, game_id, cpu_player, game,
+                            action="flip_as_action",
+                            card=cpu_player.cards[flip_action_pos],
+                            position=flip_action_pos,
+                            decision_reason=f"used flip-as-action to reveal position {flip_action_pos}")
             await broadcast_callback()
-            return  # Turn is over
+            return
 
-    # Decide whether to draw from discard or deck (discard_top already fetched above)
+    # Decide whether to draw from discard or deck
     take_discard = GolfAI.should_take_discard(discard_top, cpu_player, profile, game)
 
     source = "discard" if take_discard else "deck"
     drawn = game.draw_card(cpu_player.id, source)
 
-    # Log draw decision
-    if logger and game_id and drawn:
+    if drawn:
         reason = f"took {discard_top.rank.value} from discard" if take_discard else "drew from deck"
-        logger.log_move(
-            game_id=game_id,
-            player=cpu_player,
-            is_cpu=True,
-            action="take_discard" if take_discard else "draw_deck",
-            card=drawn,
-            game=game,
-            decision_reason=reason,
-        )
+        _log_cpu_action(logger, game_id, cpu_player, game,
+                        action="take_discard" if take_discard else "draw_deck",
+                        card=drawn, decision_reason=reason)
 
     if not drawn:
         return
 
     await broadcast_callback()
-    # Brief pause after draw to let the flash animation register visually
     await asyncio.sleep(CPU_TIMING["post_draw_settle"])
-    # Consideration time before swap/discard decision
     consider = CPU_TIMING["post_draw_consider"]
     await asyncio.sleep(consider[0] + random.uniform(0, consider[1] - consider[0]))
 
@@ -1842,14 +1959,12 @@ async def process_cpu_turn(
 
     # If drawn from discard, must swap (always enforced)
     if swap_pos is None and game.drawn_from_discard:
-        face_down = [i for i, c in enumerate(cpu_player.cards) if not c.face_up]
+        face_down = hidden_positions(cpu_player)
         if face_down:
-            # Filter out positions that would create bad pairs with negative cards
             safe_positions = filter_bad_pair_positions(face_down, drawn, cpu_player, game.options)
             swap_pos = random.choice(safe_positions)
         else:
             # All cards are face up - find worst card to replace
-            # IMPORTANT: Consider effective value (cards in pairs contribute 0, not face value)
             worst_pos = 0
             worst_effective_val = -999
             for i, c in enumerate(cpu_player.cards):
@@ -1857,18 +1972,12 @@ async def process_cpu_turn(
                 partner_pos = get_column_partner_position(i)
                 partner = cpu_player.cards[partner_pos]
 
-                # Check if this card is part of an existing pair
                 if partner.rank == c.rank:
-                    # Card is paired - its effective value depends on house rules
                     if card_val >= 0 or not game.options.negative_pairs_keep_value:
-                        # Standard pair: both contribute 0, so effective value is 0
-                        # BUT breaking it orphans partner, so true cost is partner's value
                         effective_val = -get_ai_card_value(partner, game.options)
                     elif game.options.eagle_eye and c.rank == Rank.JOKER:
-                        # Eagle eye joker pair contributes -4 total, each contributes -2 effective
                         effective_val = -2
                     else:
-                        # Negative pairs keep value: each card contributes its value
                         effective_val = card_val
                 else:
                     effective_val = card_val
@@ -1878,101 +1987,48 @@ async def process_cpu_turn(
                     worst_pos = i
             swap_pos = worst_pos
 
-            # Sanity check: warn if we're swapping out a good card for a bad one
             drawn_val = get_ai_card_value(drawn, game.options)
-            if worst_val < drawn_val:
+            if worst_effective_val < drawn_val:
                 logging.warning(
-                    f"AI {cpu_player.name} forced to swap good card (value={worst_val}) "
+                    f"AI {cpu_player.name} forced to swap good card (value={worst_effective_val}) "
                     f"for bad card {drawn.rank.value} (value={drawn_val})"
                 )
 
     if swap_pos is not None:
-        old_card = cpu_player.cards[swap_pos]  # Card being replaced
+        old_card = cpu_player.cards[swap_pos]
         game.swap_card(cpu_player.id, swap_pos)
-
-        # Log swap decision
-        if logger and game_id:
-            logger.log_move(
-                game_id=game_id,
-                player=cpu_player,
-                is_cpu=True,
-                action="swap",
-                card=drawn,
-                position=swap_pos,
-                game=game,
-                decision_reason=f"swapped {drawn.rank.value} into position {swap_pos}, replaced {old_card.rank.value}",
-            )
+        _log_cpu_action(logger, game_id, cpu_player, game,
+                        action="swap", card=drawn, position=swap_pos,
+                        decision_reason=f"swapped {drawn.rank.value} into position {swap_pos}, replaced {old_card.rank.value}")
     else:
         game.discard_drawn(cpu_player.id)
-
-        # Log discard decision
-        if logger and game_id:
-            logger.log_move(
-                game_id=game_id,
-                player=cpu_player,
-                is_cpu=True,
-                action="discard",
-                card=drawn,
-                game=game,
-                decision_reason=f"discarded {drawn.rank.value}",
-            )
+        _log_cpu_action(logger, game_id, cpu_player, game,
+                        action="discard", card=drawn,
+                        decision_reason=f"discarded {drawn.rank.value}")
 
         if game.flip_on_discard:
-            # Check if flip is optional (endgame mode) and decide whether to skip
             if game.flip_is_optional:
                 if GolfAI.should_skip_optional_flip(cpu_player, profile, game):
                     game.skip_flip_and_end_turn(cpu_player.id)
-
-                    # Log skip decision
-                    if logger and game_id:
-                        logger.log_move(
-                            game_id=game_id,
-                            player=cpu_player,
-                            is_cpu=True,
-                            action="skip_flip",
-                            card=None,
-                            game=game,
-                            decision_reason="skipped optional flip (endgame mode)",
-                        )
+                    _log_cpu_action(logger, game_id, cpu_player, game,
+                                    action="skip_flip",
+                                    decision_reason="skipped optional flip (endgame mode)")
                 else:
-                    # Choose to flip
                     flip_pos = GolfAI.choose_flip_after_discard(cpu_player, profile)
                     game.flip_and_end_turn(cpu_player.id, flip_pos)
-
-                    # Log flip decision
-                    if logger and game_id:
-                        flipped_card = cpu_player.cards[flip_pos]
-                        logger.log_move(
-                            game_id=game_id,
-                            player=cpu_player,
-                            is_cpu=True,
-                            action="flip",
-                            card=flipped_card,
-                            position=flip_pos,
-                            game=game,
-                            decision_reason=f"flipped card at position {flip_pos} (chose to flip in endgame mode)",
-                        )
+                    _log_cpu_action(logger, game_id, cpu_player, game,
+                                    action="flip", card=cpu_player.cards[flip_pos],
+                                    position=flip_pos,
+                                    decision_reason=f"flipped card at position {flip_pos} (chose to flip in endgame mode)")
             else:
-                # Mandatory flip (always mode)
                 flip_pos = GolfAI.choose_flip_after_discard(cpu_player, profile)
                 game.flip_and_end_turn(cpu_player.id, flip_pos)
-
-                # Log flip decision
-                if logger and game_id:
-                    flipped_card = cpu_player.cards[flip_pos]
-                    logger.log_move(
-                        game_id=game_id,
-                        player=cpu_player,
-                        is_cpu=True,
-                        action="flip",
-                        card=flipped_card,
-                        position=flip_pos,
-                        game=game,
-                        decision_reason=f"flipped card at position {flip_pos}",
-                    )
+                _log_cpu_action(logger, game_id, cpu_player, game,
+                                action="flip", card=cpu_player.cards[flip_pos],
+                                position=flip_pos,
+                                decision_reason=f"flipped card at position {flip_pos}")
 
     await broadcast_callback()
 
-    # Pause to let client animation complete and show result before next turn
     post_action = CPU_TIMING["post_action_pause"]
     await asyncio.sleep(random.uniform(post_action[0], post_action[1]))
