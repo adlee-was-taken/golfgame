@@ -28,7 +28,9 @@ from ai import (
     filter_bad_pair_positions, get_column_partner_position
 )
 from game import Rank
-from game_log import GameLogger
+
+# Note: Simulations run standalone without PostgreSQL database logging.
+# In-memory SimulationStats provides all the analysis needed for bulk runs.
 
 
 # Named rule presets for quick configuration
@@ -121,6 +123,7 @@ class SimulationStats:
         self.took_bad_card_without_pair = 0
         self.paired_negative_cards = 0
         self.swapped_good_for_bad = 0
+        self.swapped_high_into_unknown = 0  # Cards 8+ swapped into face-down position
         self.total_opportunities = 0  # Total decision points
 
     def record_game(self, game: Game, winner_name: str):
@@ -158,6 +161,8 @@ class SimulationStats:
             self.paired_negative_cards += 1
         elif move_type == "swapped_good_for_bad":
             self.swapped_good_for_bad += 1
+        elif move_type == "swapped_high_into_unknown":
+            self.swapped_high_into_unknown += 1
 
     def record_opportunity(self):
         """Record a decision opportunity for rate calculation."""
@@ -172,7 +177,8 @@ class SimulationStats:
             self.discarded_kings +
             self.took_bad_card_without_pair +
             self.paired_negative_cards +
-            self.swapped_good_for_bad
+            self.swapped_good_for_bad +
+            self.swapped_high_into_unknown
         )
         if self.total_opportunities == 0:
             return 0.0
@@ -230,6 +236,7 @@ class SimulationStats:
         lines.append("  Mistakes (should be < 0.1%):")
         lines.append(f"    Discarded Kings: {self.discarded_kings}")
         lines.append(f"    Swapped good for bad: {self.swapped_good_for_bad}")
+        lines.append(f"    Swapped 8+ into unknown: {self.swapped_high_into_unknown}")
 
         return "\n".join(lines)
 
@@ -251,8 +258,6 @@ def run_cpu_turn(
     game: Game,
     player: Player,
     profile: CPUProfile,
-    logger: Optional[GameLogger],
-    game_id: Optional[str],
     stats: SimulationStats
 ) -> str:
     """Run a single CPU turn synchronously. Returns action taken."""
@@ -291,39 +296,45 @@ def run_cpu_turn(
             if not has_pair_potential and not has_worse_to_replace:
                 stats.record_dumb_move("took_bad_without_pair")
 
-    # Log draw decision
-    if logger and game_id:
-        reason = f"took {discard_top.rank.value} from discard" if take_discard else "drew from deck"
-        logger.log_move(
-            game_id=game_id,
-            player=player,
-            is_cpu=True,
-            action=action,
-            card=drawn,
-            game=game,
-            decision_reason=reason,
-        )
-
     # Decide whether to swap or discard
     swap_pos = GolfAI.choose_swap_or_discard(drawn, player, profile, game)
+    ai_chose_swap = swap_pos is not None  # Track if AI made this decision vs fallback
 
     # If drawn from discard, must swap
     if swap_pos is None and game.drawn_from_discard:
-        face_down = [i for i, c in enumerate(player.cards) if not c.face_up]
-        if face_down:
-            # Use filter to avoid bad pairs with negative cards
-            safe_positions = filter_bad_pair_positions(face_down, drawn, player, game.options)
-            swap_pos = random.choice(safe_positions)
-        else:
-            # Find worst card using house rules
-            worst_pos = 0
-            worst_val = -999
-            for i, c in enumerate(player.cards):
+        drawn_val = get_ai_card_value(drawn, game.options)
+
+        # First, check if there's a visible card WORSE than what we drew
+        # (prefer swapping visible bad cards over face-down unknowns)
+        worst_visible_pos = None
+        worst_visible_val = drawn_val  # Only consider cards worse than drawn
+        for i, c in enumerate(player.cards):
+            if c.face_up:
                 card_val = get_ai_card_value(c, game.options)
-                if card_val > worst_val:
-                    worst_val = card_val
-                    worst_pos = i
-            swap_pos = worst_pos
+                if card_val > worst_visible_val:
+                    worst_visible_val = card_val
+                    worst_visible_pos = i
+
+        if worst_visible_pos is not None:
+            # Found a visible card worse than drawn - swap with it
+            swap_pos = worst_visible_pos
+        else:
+            # No visible card worse than drawn - must use face-down
+            face_down = [i for i, c in enumerate(player.cards) if not c.face_up]
+            if face_down:
+                # Use filter to avoid bad pairs with negative cards
+                safe_positions = filter_bad_pair_positions(face_down, drawn, player, game.options)
+                swap_pos = random.choice(safe_positions)
+            else:
+                # All cards face-up, find worst card overall
+                worst_pos = 0
+                worst_val = -999
+                for i, c in enumerate(player.cards):
+                    card_val = get_ai_card_value(c, game.options)
+                    if card_val > worst_val:
+                        worst_val = card_val
+                        worst_pos = i
+                swap_pos = worst_pos
 
     # Record this as a decision opportunity for dumb move rate calculation
     stats.record_opportunity()
@@ -362,6 +373,24 @@ def run_cpu_turn(
             if not creates_pair and not is_denial_move:
                 stats.record_dumb_move("swapped_good_for_bad")
 
+        # Check for dumb move: swapping high card into unknown position
+        # Cards 8+ (8, 9, 10, J, Q) should never be swapped into face-down positions
+        # since expected value of hidden card is only ~4.5
+        # Exception: pairing, denial moves, or forced swaps from discard
+        if not old_card.face_up and drawn_val >= 8:
+            if not creates_pair and not is_denial_move:
+                # Only count as dumb if:
+                # 1. AI actively chose this (not fallback from forced discard swap)
+                # 2. OR if drawn from discard but a worse visible card existed
+                worse_visible_exists = has_worse_visible_card(player, drawn_val, game.options)
+
+                if ai_chose_swap:
+                    # AI chose to swap 8+ into hidden - this is dumb
+                    stats.record_dumb_move("swapped_high_into_unknown")
+                elif game.drawn_from_discard and worse_visible_exists:
+                    # Fallback chose hidden when worse visible existed - also dumb
+                    stats.record_dumb_move("swapped_high_into_unknown")
+
         # Check for dumb move: creating bad pair with negative card
         if (partner.face_up and
             partner.rank == drawn.rank and
@@ -375,18 +404,6 @@ def run_cpu_turn(
         game.swap_card(player.id, swap_pos)
         action = "swap"
         stats.record_turn(player.name, action)
-
-        if logger and game_id:
-            logger.log_move(
-                game_id=game_id,
-                player=player,
-                is_cpu=True,
-                action="swap",
-                card=drawn,
-                position=swap_pos,
-                game=game,
-                decision_reason=f"swapped {drawn.rank.value} for {old_card.rank.value} at pos {swap_pos}",
-            )
     else:
         # Check for dumb moves: discarding excellent cards
         if drawn.rank == Rank.JOKER:
@@ -400,33 +417,9 @@ def run_cpu_turn(
         action = "discard"
         stats.record_turn(player.name, action)
 
-        if logger and game_id:
-            logger.log_move(
-                game_id=game_id,
-                player=player,
-                is_cpu=True,
-                action="discard",
-                card=drawn,
-                game=game,
-                decision_reason=f"discarded {drawn.rank.value}",
-            )
-
         if game.flip_on_discard:
             flip_pos = GolfAI.choose_flip_after_discard(player, profile)
             game.flip_and_end_turn(player.id, flip_pos)
-
-            if logger and game_id:
-                flipped = player.cards[flip_pos]
-                logger.log_move(
-                    game_id=game_id,
-                    player=player,
-                    is_cpu=True,
-                    action="flip",
-                    card=flipped,
-                    position=flip_pos,
-                    game=game,
-                    decision_reason=f"flipped position {flip_pos}",
-                )
 
     return action
 
@@ -434,7 +427,6 @@ def run_cpu_turn(
 def run_game(
     players_with_profiles: list[tuple[Player, CPUProfile]],
     options: GameOptions,
-    logger: Optional[GameLogger],
     stats: SimulationStats,
     verbose: bool = False
 ) -> tuple[str, int]:
@@ -455,15 +447,6 @@ def run_game(
 
     game.start_game(num_decks=1, num_rounds=1, options=options)
 
-    # Log game start
-    game_id = None
-    if logger:
-        game_id = logger.log_game_start(
-            room_code="SIM",
-            num_players=len(players_with_profiles),
-            options=options
-        )
-
     # Do initial flips for all players
     if options.initial_flips > 0:
         for player, profile in players_with_profiles:
@@ -480,16 +463,12 @@ def run_game(
             break
 
         profile = profiles[current.id]
-        action = run_cpu_turn(game, current, profile, logger, game_id, stats)
+        action = run_cpu_turn(game, current, profile, stats)
 
         if verbose and turn_count % 10 == 0:
             print(f"  Turn {turn_count}: {current.name} - {action}")
 
         turn_count += 1
-
-    # Log game end
-    if logger and game_id:
-        logger.log_game_end(game_id)
 
     # Find winner
     winner = min(game.players, key=lambda p: p.total_score)
@@ -523,7 +502,6 @@ def run_simulation(
     print(f"Rules: {rules_desc}")
     print("=" * 50)
 
-    logger = GameLogger()
     stats = SimulationStats()
 
     for i in range(num_games):
@@ -533,20 +511,13 @@ def run_simulation(
             names = [p.name for p, _ in players]
             print(f"\nGame {i+1}/{num_games}: {', '.join(names)}")
 
-        winner, score = run_game(players, options, logger, stats, verbose=False)
+        winner, score = run_game(players, options, stats, verbose=False)
 
         if verbose:
             print(f"  Winner: {winner} (score: {score})")
 
     print("\n")
     print(stats.report())
-
-    print("\n" + "=" * 50)
-    print("ANALYSIS")
-    print("=" * 50)
-    print("\nRun analysis with:")
-    print("  python game_analyzer.py blunders")
-    print("  python game_analyzer.py summary")
 
     return stats
 
@@ -571,7 +542,6 @@ def run_detailed_game(num_players: int = 4, options: Optional[GameOptions] = Non
     print(f"Rules: {rules_desc}")
     print("=" * 50)
 
-    logger = GameLogger()
     stats = SimulationStats()
 
     players_with_profiles = create_cpu_players(num_players)
@@ -585,12 +555,6 @@ def run_detailed_game(num_players: int = 4, options: Optional[GameOptions] = Non
         print(f"  {player.name} ({profile.style})")
 
     game.start_game(num_decks=1, num_rounds=1, options=options)
-
-    game_id = logger.log_game_start(
-        room_code="DETAIL",
-        num_players=num_players,
-        options=options
-    )
 
     # Initial flips
     print("\nInitial flips:")
@@ -622,7 +586,7 @@ def run_detailed_game(num_players: int = 4, options: Optional[GameOptions] = Non
         print(f"  Discard: {discard_before.rank.value}")
 
         # Run turn
-        action = run_cpu_turn(game, current, profile, logger, game_id, stats)
+        action = run_cpu_turn(game, current, profile, stats)
 
         # Show result
         discard_after = game.discard_top()
@@ -635,8 +599,6 @@ def run_detailed_game(num_players: int = 4, options: Optional[GameOptions] = Non
         turn += 1
 
     # Game over
-    logger.log_game_end(game_id)
-
     print("\n" + "=" * 50)
     print("FINAL SCORES")
     print("=" * 50)
@@ -648,8 +610,6 @@ def run_detailed_game(num_players: int = 4, options: Optional[GameOptions] = Non
 
     winner = min(game.players, key=lambda p: p.total_score)
     print(f"\nWinner: {winner.name}!")
-
-    print(f"\nGame logged as: {game_id[:8]}...")
     print("Run: python game_analyzer.py game", game_id, winner.name)
 
 

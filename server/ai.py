@@ -1018,10 +1018,13 @@ class GolfAI:
                         score += wolfpack_bonus
                         ai_log(f"    Wolfpack pursuit: completing 2nd Jack pair! +{wolfpack_bonus:.1f}")
                     elif not partner_card.face_up:
-                        # Partner unknown, Jack could pair
-                        wolfpack_bonus = 6 * profile.aggression
+                        # Partner unknown - speculative wolfpack pursuit
+                        # Probability of unknown card being Jack is very low (~3%)
+                        # Expected value of swapping Jack into unknown is negative
+                        # Only give small bonus - not enough to override negative point_gain
+                        wolfpack_bonus = 2 * profile.aggression
                         score += wolfpack_bonus
-                        ai_log(f"    Wolfpack pursuit: Jack with unknown partner +{wolfpack_bonus:.1f}")
+                        ai_log(f"    Wolfpack pursuit (speculative): +{wolfpack_bonus:.1f}")
                 elif visible_jacks >= 1 and partner_card.face_up and partner_card.rank == Rank.JACK:
                     # Completing first Jack pair while having other Jacks
                     wolfpack_bonus = 8 * profile.aggression
@@ -1029,8 +1032,10 @@ class GolfAI:
                     ai_log(f"    Wolfpack pursuit: first Jack pair +{wolfpack_bonus:.1f}")
 
         # 4d. COMEBACK AGGRESSION - Boost reveal bonus when behind in late game
+        # Only for cards that aren't objectively bad (value < 8)
+        # Don't incentivize locking in 8, 9, 10, J, Q just to "go out faster"
         standings_pressure = get_standings_pressure(player, game)
-        if standings_pressure > 0.3 and not current_card.face_up:
+        if standings_pressure > 0.3 and not current_card.face_up and drawn_value < 8:
             # Behind in standings - boost incentive to reveal and play faster
             comeback_bonus = standings_pressure * 3 * profile.aggression
             score += comeback_bonus
@@ -1222,9 +1227,17 @@ class GolfAI:
                             ai_log(f"  >> UNPREDICTABLE: randomly chose position {last_pos} (projected {projected})")
                             return last_pos
                     else:
-                        choice = random.choice(face_down)
-                        ai_log(f"  >> UNPREDICTABLE: randomly chose position {choice}")
-                        return choice
+                        # Only allow random swaps for cards that aren't objectively bad
+                        # Cards 8+ are too bad to randomly put into unknowns
+                        # (Expected value of hidden card is ~4.5)
+                        UNPREDICTABLE_MAX_VALUE = 7
+                        if drawn_value <= UNPREDICTABLE_MAX_VALUE:
+                            choice = random.choice(face_down)
+                            ai_log(f"  >> UNPREDICTABLE: randomly chose position {choice} (value {drawn_value} <= {UNPREDICTABLE_MAX_VALUE})")
+                            return choice
+                        else:
+                            ai_log(f"  >> UNPREDICTABLE: blocked - value {drawn_value} > {UNPREDICTABLE_MAX_VALUE} threshold")
+                            # Fall through to normal scoring logic
 
         # Calculate score for each position
         position_scores: list[tuple[int, float]] = []
@@ -1248,6 +1261,24 @@ class GolfAI:
 
         # Filter to positive scores only
         positive_scores = [(p, s) for p, s in position_scores if s > 0]
+
+        # SAFETY: Never swap high cards (8+) into hidden positions
+        # This is objectively bad since expected hidden value is ~4.5
+        # Exception: creating a visible pair (partner face-up and matches)
+        if drawn_value >= 8:
+            safe_positive = []
+            for pos, score in positive_scores:
+                card = player.cards[pos]
+                partner_pos = get_column_partner_position(pos)
+                partner = player.cards[partner_pos]
+                creates_pair = partner.face_up and partner.rank == drawn_card.rank
+
+                if card.face_up or creates_pair:
+                    safe_positive.append((pos, score))
+                else:
+                    ai_log(f"    SAFETY: rejecting pos {pos} - high card ({drawn_value}) into hidden")
+
+            positive_scores = safe_positive
 
         best_pos: Optional[int] = None
         best_score = 0.0
@@ -1368,11 +1399,16 @@ class GolfAI:
                 ai_log(f"  >> FINAL SAFETY: swapping into visible pos {worst_visible_pos} "
                        f"(drawn {drawn_value} < worst visible {worst_visible_val})")
                 best_pos = worst_visible_pos
+            elif drawn_value >= 8:
+                # Drawn card is terrible (8+) - better to discard and flip the unknown
+                # Don't lock in a guaranteed bad card
+                ai_log(f"  >> FINAL SAFETY: discarding bad card ({drawn_value}), will flip unknown")
+                best_pos = None  # Discard
             else:
-                # Drawn card is terrible and worse than all visible cards
-                # Swap into hidden position anyway - known bad is better than unknown
+                # Drawn card is mediocre but not terrible - swap into hidden
+                # known mediocre is better than unknown
                 ai_log(f"  >> FINAL SAFETY: forcing swap into hidden pos {last_pos} "
-                       f"(all options bad, but known > unknown)")
+                       f"(drawn value {drawn_value} is acceptable)")
                 best_pos = last_pos
 
         # OPPONENT DENIAL CHECK: Before discarding, check if this would help next player
@@ -1396,6 +1432,9 @@ class GolfAI:
                             card = player.cards[pos]
                             if not card.face_up:
                                 # Swapping into face-down: cost is drawn_value (we keep it)
+                                # Skip hidden positions for high cards (8+) - too costly
+                                if drawn_value >= 8:
+                                    continue  # Never swap 8+ into hidden for denial
                                 cost = drawn_value
                                 denial_candidates.append((pos, cost, "hidden"))
                             else:
@@ -1699,7 +1738,7 @@ async def process_cpu_turn(
 ) -> None:
     """Process a complete turn for a CPU player."""
     import asyncio
-    from game_log import get_logger
+    from services.game_logger import get_logger
 
     profile = get_profile(cpu_player.id)
     if not profile:
