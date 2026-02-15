@@ -92,6 +92,9 @@ class CardAnimations {
             card.style.top = rect.top + 'px';
             card.style.width = rect.width + 'px';
             card.style.height = rect.height + 'px';
+            // Scale font-size proportionally to card width
+            const front = card.querySelector('.draw-anim-front');
+            if (front) front.style.fontSize = (rect.width * 0.5) + 'px';
         }
 
         // Apply deck color to back
@@ -448,10 +451,6 @@ class CardAnimations {
         const deckColor = this.getDeckColor();
 
         const animCard = this.createAnimCard(rect, true, deckColor);
-        // Match source card's font-size (opponent cards are smaller than default)
-        const srcFontSize = getComputedStyle(cardElement).fontSize;
-        const front = animCard.querySelector('.draw-anim-front');
-        if (front) front.style.fontSize = srcFontSize;
         this.setCardContent(animCard, cardData);
 
         // Apply rotation to match arch layout
@@ -607,10 +606,6 @@ class CardAnimations {
         const deckColor = this.getDeckColor();
 
         const animCard = this.createAnimCard(rect, true, deckColor);
-        // Match source card's font-size (opponent cards are smaller than default)
-        const srcFontSize = getComputedStyle(sourceCardElement).fontSize;
-        const front = animCard.querySelector('.draw-anim-front');
-        if (front) front.style.fontSize = srcFontSize;
         this.setCardContent(animCard, discardCard);
 
         if (rotation) {
@@ -1164,6 +1159,9 @@ class CardAnimations {
             });
 
             // Hand card arcs to discard (apply counter-rotation to land flat)
+            const handFront = travelingHand.querySelector('.draw-anim-front');
+            const heldFront = travelingHeld.querySelector('.draw-anim-front');
+
             timeline.add({
                 targets: travelingHand,
                 left: discardRect.left,
@@ -1177,6 +1175,16 @@ class CardAnimations {
                 duration: T.arc,
                 easing: this.getEasing('arc'),
             }, `-=${T.lift / 2}`);
+
+            // Scale hand card font to match discard size
+            if (handFront) {
+                timeline.add({
+                    targets: handFront,
+                    fontSize: (discardRect.width * 0.5) + 'px',
+                    duration: T.arc,
+                    easing: this.getEasing('arc'),
+                }, `-=${T.arc}`);
+            }
 
             // Held card arcs to hand slot (apply rotation to match hand position)
             timeline.add({
@@ -1192,6 +1200,16 @@ class CardAnimations {
                 duration: T.arc,
                 easing: this.getEasing('arc'),
             }, `-=${T.arc + T.lift / 2}`);
+
+            // Scale held card font to match hand size
+            if (heldFront) {
+                timeline.add({
+                    targets: heldFront,
+                    fontSize: (handRect.width * 0.5) + 'px',
+                    duration: T.arc,
+                    easing: this.getEasing('arc'),
+                }, `-=${T.arc}`);
+            }
 
             // Settle with gentle overshoot
             timeline.add({
@@ -1404,6 +1422,9 @@ class CardAnimations {
         card.style.top = rect.top + 'px';
         card.style.width = rect.width + 'px';
         card.style.height = rect.height + 'px';
+        // Scale font-size proportionally to card width
+        const front = card.querySelector('.draw-anim-front');
+        if (front) front.style.fontSize = (rect.width * 0.5) + 'px';
 
         if (rotation) {
             card.style.transform = `rotate(${rotation}deg)`;
@@ -1444,9 +1465,8 @@ class CardAnimations {
         try {
             anime({
                 targets: element,
-                scale: [0.5, 1.25, 1.15],
-                opacity: [0, 1, 1],
-                duration: 300,
+                opacity: [0, 1],
+                duration: 200,
                 easing: 'easeOutQuad'
             });
         } catch (e) {

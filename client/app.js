@@ -3107,10 +3107,8 @@ class GolfGame {
         this.heldCardFloating.style.height = `${cardHeight}px`;
 
         // Position discard button attached to right side of held card
-        const scaledWidth = cardWidth * 1.15; // Account for scale transform
-        const scaledHeight = cardHeight * 1.15;
-        const buttonLeft = cardLeft + scaledWidth / 2 + cardWidth / 2; // Right edge of scaled card (no gap)
-        const buttonTop = cardTop + (scaledHeight - cardHeight) / 2 + cardHeight * 0.3; // Vertically centered on card
+        const buttonLeft = cardLeft + cardWidth; // Right edge of card (no gap)
+        const buttonTop = cardTop + cardHeight * 0.3; // Vertically centered on card
         this.discardBtn.style.left = `${buttonLeft}px`;
         this.discardBtn.style.top = `${buttonTop}px`;
 

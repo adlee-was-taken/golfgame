@@ -1156,10 +1156,8 @@ input::placeholder {
     top: 0;
     left: 0;
     z-index: 100;
-    transform: scale(1.15);
-    transform-origin: center bottom;
     border: 3px solid #f4a460 !important;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(244, 164, 96, 0.7) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(244, 164, 96, 0.6) !important;
     pointer-events: none;
     /* No transition - anime.js handles animations */
 }
@@ -1523,11 +1521,11 @@ input::placeholder {
 
 @keyframes heldCardPulse {
     0%, 100% {
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(244, 164, 96, 0.7);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(244, 164, 96, 0.6);
     }
     50% {
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 35px rgba(244, 164, 96, 1),
-                    0 0 50px rgba(244, 164, 96, 0.5);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 30px rgba(244, 164, 96, 0.9),
+                    0 0 45px rgba(244, 164, 96, 0.4);
     }
 }
 
