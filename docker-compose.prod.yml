@@ -56,15 +56,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=golfgame_web"
-      # HTTPS route (primary, once DNS + cert are working)
       - "traefik.http.routers.golf.rule=Host(`${DOMAIN:-golf.example.com}`)"
       - "traefik.http.routers.golf.entrypoints=websecure"
       - "traefik.http.routers.golf.tls=true"
       - "traefik.http.routers.golf.tls.certresolver=letsencrypt"
-      # HTTP route (fallback for testing before DNS/cert)
-      - "traefik.http.routers.golf-http.rule=Host(`${DOMAIN:-golf.example.com}`)"
-      - "traefik.http.routers.golf-http.entrypoints=web"
-      - "traefik.http.routers.golf-http.service=golf"
       - "traefik.http.services.golf.loadbalancer.server.port=8000"
       # WebSocket sticky sessions
       - "traefik.http.services.golf.loadbalancer.sticky.cookie=true"
@@ -119,13 +114,12 @@ services:
       - "--api.dashboard=true"
       - "--api.insecure=true"
       - "--accesslog=true"
-      - "--log.level=DEBUG"
+      - "--log.level=WARN"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
-      # HTTP->HTTPS redirect disabled until DNS propagates and cert is issued
-      # - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-      # - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
