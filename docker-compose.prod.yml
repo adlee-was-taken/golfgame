@@ -106,7 +106,7 @@ services:
           memory: 16M
 
   traefik:
-    image: traefik:v2.10
+    image: traefik:v3.3
     command:
       - "--api.dashboard=true"
       - "--providers.docker=true"
