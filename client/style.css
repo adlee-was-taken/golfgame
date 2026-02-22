@@ -5018,7 +5018,7 @@ body.mobile-portrait .game-header #leave-game-btn {
 
 body.mobile-portrait .rules-container,
 body.mobile-portrait .leaderboard-container {
-    margin-top: 0;
+    margin-top: 50px;
 }
 
 body.mobile-portrait .status-message {
