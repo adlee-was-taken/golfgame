@@ -2848,7 +2848,7 @@ input::placeholder {
     border-radius: 12px;
     padding: 20px 35px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    margin-top: 50px;
+    margin-top: 0;
     scroll-behavior: smooth;
 }
 
@@ -3444,7 +3444,6 @@ input::placeholder {
 #matchmaking-screen {
     text-align: center;
     padding: 40px 20px;
-    margin-top: 50px;
 }
 
 #matchmaking-screen h2 {
@@ -3517,7 +3516,7 @@ input::placeholder {
     border-radius: 12px;
     padding: 20px 25px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    margin-top: 50px;
+    margin-top: 0;
 }
 
 .leaderboard-header {
@@ -5017,7 +5016,8 @@ body.mobile-portrait .game-header #leave-game-btn {
 }
 
 body.mobile-portrait .rules-container,
-body.mobile-portrait .leaderboard-container {
+body.mobile-portrait .leaderboard-container,
+body.mobile-portrait #matchmaking-screen {
     margin-top: 50px;
 }
 
