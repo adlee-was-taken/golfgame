@@ -1654,7 +1654,7 @@ input::placeholder {
 }
 
 .status-message.your-turn {
-    background: linear-gradient(135deg, #b5d484 0%, #9ab973 100%);
+    background: linear-gradient(135deg, #c8e6a0 0%, #8fbf5a 100%);
     color: #2d3436;
 }
 
