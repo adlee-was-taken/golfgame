@@ -61,6 +61,15 @@ services:
       - "traefik.http.routers.golf.entrypoints=websecure"
       - "traefik.http.routers.golf.tls=true"
       - "traefik.http.routers.golf.tls.certresolver=letsencrypt"
+      # www -> bare domain redirect
+      - "traefik.http.routers.golf-www.rule=Host(`www.${DOMAIN:-golf.example.com}`)"
+      - "traefik.http.routers.golf-www.entrypoints=websecure"
+      - "traefik.http.routers.golf-www.tls=true"
+      - "traefik.http.routers.golf-www.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.golf-www.middlewares=www-redirect"
+      - "traefik.http.middlewares.www-redirect.redirectregex.regex=^https://www\\.(.+)"
+      - "traefik.http.middlewares.www-redirect.redirectregex.replacement=https://$${1}"
+      - "traefik.http.middlewares.www-redirect.redirectregex.permanent=true"
       - "traefik.http.services.golf.loadbalancer.server.port=8000"
       # WebSocket sticky sessions
       - "traefik.http.services.golf.loadbalancer.sticky.cookie=true"
