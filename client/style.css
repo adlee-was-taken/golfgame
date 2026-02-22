@@ -5031,7 +5031,7 @@ body.mobile-portrait .opponents-row {
     flex-wrap: wrap;
     justify-content: center;
     align-items: flex-start;
-    gap: 4px;
+    gap: 4px 10px;
     min-height: 0 !important;
     padding: 2px 4px 6px;
     overflow: hidden;
@@ -5115,15 +5115,15 @@ body.mobile-portrait .deck-area {
 body.mobile-portrait .deck-area > .card,
 body.mobile-portrait #deck,
 body.mobile-portrait #discard {
-    width: 72px !important;
-    height: 101px !important;
-    font-size: 1.5rem !important;
+    width: 64px !important;
+    height: 90px !important;
+    font-size: 1.4rem !important;
 }
 
 /* Held card floating should NOT be constrained to deck/discard size */
 body.mobile-portrait .held-card-floating {
-    width: 72px !important;
-    height: 101px !important;
+    width: 64px !important;
+    height: 90px !important;
 }
 
 body.mobile-portrait .discard-stack {
@@ -5165,15 +5165,15 @@ body.mobile-portrait .player-showing {
 
 /* Player hand: fixed-size cards */
 body.mobile-portrait .player-section .card-grid {
-    grid-template-columns: repeat(3, 72px) !important;
+    grid-template-columns: repeat(3, 64px) !important;
     gap: 5px !important;
     justify-content: center;
 }
 
 body.mobile-portrait .player-section .card {
-    width: 72px !important;
-    height: 101px !important;
-    font-size: 1.5rem !important;
+    width: 64px !important;
+    height: 90px !important;
+    font-size: 1.4rem !important;
 }
 
 /* Real cards: font-size is now set inline by card-manager.js (proportional to card width).
