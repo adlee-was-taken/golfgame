@@ -5071,7 +5071,7 @@ body.mobile-portrait .opponents-row {
     align-items: flex-start;
     gap: 9px 10px;
     min-height: 0 !important;
-    padding: 2px 4px 6px;
+    padding: 2px 4px 12px;
     overflow: visible;
     flex-shrink: 0;
 }

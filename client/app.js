@@ -3544,7 +3544,9 @@ class GolfGame {
         const cardHeight = deckRect.height;
 
         // Position card centered, overlapping both piles (lower than before)
-        const overlapOffset = cardHeight * 0.35; // More overlap = lower position
+        // On mobile portrait, reduce overlap so held card doesn't cover 2-row opponents
+        const isMobilePortrait = document.body.classList.contains('mobile-portrait');
+        const overlapOffset = cardHeight * (isMobilePortrait ? 0.15 : 0.35);
         const cardLeft = centerX - cardWidth / 2;
         const cardTop = deckRect.top - overlapOffset;
         this.heldCardFloating.style.left = `${cardLeft}px`;
