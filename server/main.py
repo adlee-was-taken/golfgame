@@ -768,6 +768,10 @@ if os.path.exists(client_path):
     async def serve_replay_page(share_code: str):
         return FileResponse(os.path.join(client_path, "index.html"))
 
+    @app.get("/reset-password")
+    async def serve_reset_password_page():
+        return FileResponse(os.path.join(client_path, "index.html"))
+
     # Mount static files for everything else (JS, CSS, SVG, etc.)
     app.mount("/", StaticFiles(directory=client_path), name="static")
 

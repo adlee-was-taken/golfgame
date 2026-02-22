@@ -4628,6 +4628,19 @@ class AuthManager {
         this.signupError = document.getElementById('signup-error');
         this.showSignupLink = document.getElementById('show-signup');
         this.showLoginLink = document.getElementById('show-login');
+        this.showForgotLink = document.getElementById('show-forgot');
+        this.forgotFormContainer = document.getElementById('forgot-form-container');
+        this.forgotForm = document.getElementById('forgot-form');
+        this.forgotEmail = document.getElementById('forgot-email');
+        this.forgotError = document.getElementById('forgot-error');
+        this.forgotSuccess = document.getElementById('forgot-success');
+        this.forgotBackLogin = document.getElementById('forgot-back-login');
+        this.resetFormContainer = document.getElementById('reset-form-container');
+        this.resetForm = document.getElementById('reset-form');
+        this.resetPassword = document.getElementById('reset-password');
+        this.resetPasswordConfirm = document.getElementById('reset-password-confirm');
+        this.resetError = document.getElementById('reset-error');
+        this.resetSuccess = document.getElementById('reset-success');
     }
 
     bindEvents() {
@@ -4648,6 +4661,19 @@ class AuthManager {
         this.loginForm?.addEventListener('submit', (e) => this.handleLogin(e));
         this.signupForm?.addEventListener('submit', (e) => this.handleSignup(e));
         this.logoutBtn?.addEventListener('click', () => this.logout());
+        this.showForgotLink?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showForm('forgot');
+        });
+        this.forgotBackLogin?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showForm('login');
+        });
+        this.forgotForm?.addEventListener('submit', (e) => this.handleForgotPassword(e));
+        this.resetForm?.addEventListener('submit', (e) => this.handleResetPassword(e));
+
+        // Check URL for reset token on page load
+        this.checkResetToken();
     }
 
     showModal(form = 'login') {
@@ -4662,14 +4688,24 @@ class AuthManager {
     }
 
     showForm(form) {
+        this.loginFormContainer.classList.add('hidden');
+        this.signupFormContainer.classList.add('hidden');
+        this.forgotFormContainer?.classList.add('hidden');
+        this.resetFormContainer?.classList.add('hidden');
+        this.clearErrors();
+
         if (form === 'login') {
             this.loginFormContainer.classList.remove('hidden');
-            this.signupFormContainer.classList.add('hidden');
             this.loginUsername.focus();
-        } else {
-            this.loginFormContainer.classList.add('hidden');
+        } else if (form === 'signup') {
             this.signupFormContainer.classList.remove('hidden');
             this.signupUsername.focus();
+        } else if (form === 'forgot') {
+            this.forgotFormContainer?.classList.remove('hidden');
+            this.forgotEmail?.focus();
+        } else if (form === 'reset') {
+            this.resetFormContainer?.classList.remove('hidden');
+            this.resetPassword?.focus();
         }
     }
 
@@ -4682,6 +4718,10 @@ class AuthManager {
     clearErrors() {
         this.loginError.textContent = '';
         this.signupError.textContent = '';
+        if (this.forgotError) this.forgotError.textContent = '';
+        if (this.forgotSuccess) this.forgotSuccess.textContent = '';
+        if (this.resetError) this.resetError.textContent = '';
+        if (this.resetSuccess) this.resetSuccess.textContent = '';
     }
 
     async handleLogin(e) {
@@ -4770,6 +4810,79 @@ class AuthManager {
             this.authBar?.classList.add('hidden');
             this.authPrompt?.classList.remove('hidden');
             this.lobbyGameControls?.classList.add('hidden');
+        }
+    }
+
+    checkResetToken() {
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+        const path = window.location.pathname;
+
+        if (token && path.includes('reset-password')) {
+            this._resetToken = token;
+            this.showModal('reset');
+            // Clean URL
+            window.history.replaceState({}, '', '/');
+        }
+    }
+
+    async handleForgotPassword(e) {
+        e.preventDefault();
+        this.clearErrors();
+
+        const email = this.forgotEmail.value.trim();
+
+        try {
+            const response = await fetch('/api/auth/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                this.forgotError.textContent = data.detail || 'Request failed';
+                return;
+            }
+
+            this.forgotSuccess.textContent = 'If an account exists with that email, a reset link has been sent.';
+            this.forgotForm.reset();
+        } catch (err) {
+            this.forgotError.textContent = 'Connection error';
+        }
+    }
+
+    async handleResetPassword(e) {
+        e.preventDefault();
+        this.clearErrors();
+
+        const password = this.resetPassword.value;
+        const confirm = this.resetPasswordConfirm.value;
+
+        if (password !== confirm) {
+            this.resetError.textContent = 'Passwords do not match';
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/auth/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: this._resetToken, new_password: password }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                this.resetError.textContent = data.detail || 'Reset failed';
+                return;
+            }
+
+            this.resetSuccess.textContent = 'Password reset! You can now log in.';
+            this.resetForm.reset();
+            setTimeout(() => this.showForm('login'), 2000);
+        } catch (err) {
+            this.resetError.textContent = 'Connection error';
         }
     }
 }

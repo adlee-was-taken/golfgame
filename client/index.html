@@ -839,6 +839,38 @@ TOTAL: 0 + 8 + 16 = 24 points</pre>
                     <button type="submit" class="btn btn-primary btn-full">Login</button>
                 </form>
                 <p class="auth-switch">Don't have an account? <a href="#" id="show-signup">Sign up</a></p>
+                <p class="auth-switch"><a href="#" id="show-forgot">Forgot password?</a></p>
+            </div>
+
+            <!-- Forgot Password Form -->
+            <div id="forgot-form-container" class="hidden">
+                <h3>Reset Password</h3>
+                <p class="auth-hint">Enter your email and we'll send you a reset link.</p>
+                <form id="forgot-form">
+                    <div class="form-group">
+                        <input type="email" id="forgot-email" placeholder="Email" required>
+                    </div>
+                    <p id="forgot-error" class="error"></p>
+                    <p id="forgot-success" class="success"></p>
+                    <button type="submit" class="btn btn-primary btn-full">Send Reset Link</button>
+                </form>
+                <p class="auth-switch"><a href="#" id="forgot-back-login">Back to login</a></p>
+            </div>
+
+            <!-- Reset Password Form (from email link) -->
+            <div id="reset-form-container" class="hidden">
+                <h3>Set New Password</h3>
+                <form id="reset-form">
+                    <div class="form-group">
+                        <input type="password" id="reset-password" placeholder="New password" required minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="reset-password-confirm" placeholder="Confirm password" required minlength="8">
+                    </div>
+                    <p id="reset-error" class="error"></p>
+                    <p id="reset-success" class="success"></p>
+                    <button type="submit" class="btn btn-primary btn-full">Reset Password</button>
+                </form>
             </div>
 
             <!-- Signup Form -->

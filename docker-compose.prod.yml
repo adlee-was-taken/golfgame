@@ -26,6 +26,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - SECRET_KEY=${SECRET_KEY}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM:-Golf Cards <noreply@golfcards.club>}
       - SENTRY_DSN=${SENTRY_DSN:-}
       - ENVIRONMENT=production
       - LOG_LEVEL=INFO
