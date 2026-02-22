@@ -4984,7 +4984,7 @@ body.mobile-portrait .game-header #leave-game-btn {
 }
 
 body.mobile-portrait .status-message {
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
