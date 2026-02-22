@@ -1132,8 +1132,8 @@ input::placeholder {
 .draw-anim-front,
 .draw-anim-back {
     position: absolute;
-    width: 100%;
-    height: 100%;
+    width: 100% !important;
+    height: 100% !important;
     backface-visibility: hidden;
     border-radius: 8px;
 }
@@ -4935,13 +4935,14 @@ body.mobile-portrait .game-header {
     display: flex;
     flex-direction: row;
     align-items: center;
-    padding: 4px 10px;
+    padding: 4px 8px;
     padding-top: calc(4px + env(safe-area-inset-top, 0px));
-    font-size: 0.8rem;
-    min-height: 36px;
+    font-size: 0.75rem;
+    min-height: 32px;
     width: 100%;
     margin-left: 0;
-    gap: 6px;
+    gap: 4px;
+    margin-bottom: 4px;
 }
 
 body.mobile-portrait .header-col-left {
@@ -4967,29 +4968,32 @@ body.mobile-portrait #game-logout-btn {
 }
 
 body.mobile-portrait .status-message {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 body.mobile-portrait .round-info {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
 }
 
 body.mobile-portrait #leave-game-btn {
     padding: 2px 6px;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
+    white-space: nowrap;
 }
 
 body.mobile-portrait .mute-btn {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     padding: 2px;
 }
 
 body.mobile-portrait .final-turn-badge {
-    font-size: 0.7rem;
-    padding: 2px 8px;
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    white-space: nowrap;
 }
 
 /* --- Mobile: Game table — opponents pinned top, rest centered in remaining space --- */
@@ -5013,7 +5017,7 @@ body.mobile-portrait .opponents-row {
     align-items: flex-start;
     gap: 6px;
     min-height: 0 !important;
-    padding: 2px 8px;
+    padding: 2px 8px 6px;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
@@ -5026,7 +5030,7 @@ body.mobile-portrait .player-row {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 10px;
     width: 100%;
     flex: 1;
     min-height: 0;
@@ -5043,6 +5047,17 @@ body.mobile-portrait .opponent-area {
     padding: 3px 5px 4px;
     border-radius: 6px;
     min-width: 0;
+    position: relative;
+    overflow: visible;
+}
+
+body.mobile-portrait .opponent-area .dealer-chip {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+    border-width: 2px;
+    bottom: -6px;
+    left: -6px;
 }
 
 body.mobile-portrait .opponent-area h4 {
@@ -5086,9 +5101,9 @@ body.mobile-portrait .deck-area {
 body.mobile-portrait .deck-area > .card,
 body.mobile-portrait #deck,
 body.mobile-portrait #discard {
-    width: 60px !important;
-    height: 84px !important;
-    font-size: 1.3rem !important;
+    width: 72px !important;
+    height: 101px !important;
+    font-size: 1.5rem !important;
 }
 
 /* Held card floating should NOT be constrained to deck/discard size */
@@ -5314,14 +5329,18 @@ body.mobile-portrait #waiting-screen {
     body.mobile-portrait .deck-area > .card,
     body.mobile-portrait #deck,
     body.mobile-portrait #discard {
-        width: 50px !important;
-        height: 70px !important;
-        font-size: 1.1rem !important;
+        width: 60px !important;
+        height: 84px !important;
+        font-size: 1.3rem !important;
     }
 
     body.mobile-portrait .held-card-floating {
         width: 60px !important;
         height: 84px !important;
+    }
+
+    body.mobile-portrait .player-row {
+        gap: 6px;
     }
 
     body.mobile-portrait .player-area {

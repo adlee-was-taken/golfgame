@@ -2780,11 +2780,22 @@ class GolfGame {
 
         // Use unified swap animation
         if (window.cardAnimations) {
+            // For opponent swaps, size the held card to match the opponent card
+            // rather than the deck size (default holding rect uses deck dimensions,
+            // which looks oversized next to small opponent cards on mobile)
+            const holdingRect = window.cardAnimations.getHoldingRect();
+            const heldRect = holdingRect ? {
+                left: holdingRect.left,
+                top: holdingRect.top,
+                width: sourceRect.width,
+                height: sourceRect.height
+            } : null;
+
             window.cardAnimations.animateUnifiedSwap(
                 discardCard,        // handCardData - card going to discard
                 newCardInHand,      // heldCardData - card going to hand
                 sourceRect,         // handRect - where the hand card is
-                null,               // heldRect - use default holding position
+                heldRect,           // heldRect - holding position, opponent card size
                 {
                     rotation: sourceRotation,
                     wasHandFaceDown: !wasFaceUp,
