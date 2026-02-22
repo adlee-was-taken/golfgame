@@ -4672,8 +4672,9 @@ class AuthManager {
         this.forgotForm?.addEventListener('submit', (e) => this.handleForgotPassword(e));
         this.resetForm?.addEventListener('submit', (e) => this.handleResetPassword(e));
 
-        // Check URL for reset token on page load
+        // Check URL for reset token or invite code on page load
         this.checkResetToken();
+        this.checkInviteCode();
     }
 
     showModal(form = 'login') {
@@ -4821,6 +4822,18 @@ class AuthManager {
         if (token && path.includes('reset-password')) {
             this._resetToken = token;
             this.showModal('reset');
+            // Clean URL
+            window.history.replaceState({}, '', '/');
+        }
+    }
+
+    checkInviteCode() {
+        const params = new URLSearchParams(window.location.search);
+        const invite = params.get('invite');
+
+        if (invite) {
+            this.signupInviteCode.value = invite;
+            this.showModal('signup');
             // Clean URL
             window.history.replaceState({}, '', '/');
         }

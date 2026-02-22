@@ -454,7 +454,8 @@ async function loadInvites() {
                     <td>${status}</td>
                     <td>
                         ${invite.is_active && !isExpired && invite.remaining_uses > 0
-                            ? `<button class="btn btn-small btn-danger" onclick="promptRevokeInvite('${invite.code}')">Revoke</button>`
+                            ? `<button class="btn btn-small" onclick="copyInviteLink('${invite.code}')">Copy Link</button>
+                               <button class="btn btn-small btn-danger" onclick="promptRevokeInvite('${invite.code}')">Revoke</button>`
                             : '-'
                         }
                     </td>
@@ -617,6 +618,16 @@ async function handleCreateInvite() {
     } catch (error) {
         showToast('Failed to create invite: ' + error.message, 'error');
     }
+}
+
+function copyInviteLink(code) {
+    const link = `${window.location.origin}/?invite=${encodeURIComponent(code)}`;
+    navigator.clipboard.writeText(link).then(() => {
+        showToast('Invite link copied!', 'success');
+    }).catch(() => {
+        // Fallback: select text for manual copy
+        prompt('Copy this link:', link);
+    });
 }
 
 async function promptRevokeInvite(code) {
