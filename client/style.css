@@ -5191,7 +5191,8 @@ body.mobile-portrait #discard-btn {
     position: fixed;
     writing-mode: horizontal-tb;
     text-orientation: initial;
-    padding: 8px 16px;
+    width: auto;
+    padding: 6px 18px;
     font-size: 0.8rem;
     border-radius: 8px;
 }

@@ -3558,11 +3558,21 @@ class GolfGame {
             this.heldCardFloating.style.fontSize = `${cardWidth * 0.35}px`;
         }
 
-        // Position discard button attached to right side of held card
-        const buttonLeft = cardLeft + cardWidth; // Right edge of card (no gap)
-        const buttonTop = cardTop + cardHeight * 0.3; // Vertically centered on card
-        this.discardBtn.style.left = `${buttonLeft}px`;
-        this.discardBtn.style.top = `${buttonTop}px`;
+        // Position discard button
+        if (isMobilePortrait) {
+            // Below the held card, centered
+            const btnRect = this.discardBtn.getBoundingClientRect();
+            const buttonLeft = cardLeft + (cardWidth - (btnRect.width || 70)) / 2;
+            const buttonTop = cardTop + cardHeight + 4;
+            this.discardBtn.style.left = `${buttonLeft}px`;
+            this.discardBtn.style.top = `${buttonTop}px`;
+        } else {
+            // Right side of held card (desktop)
+            const buttonLeft = cardLeft + cardWidth;
+            const buttonTop = cardTop + cardHeight * 0.3;
+            this.discardBtn.style.left = `${buttonLeft}px`;
+            this.discardBtn.style.top = `${buttonTop}px`;
+        }
 
         if (card.rank === '★') {
             this.heldCardFloating.classList.add('joker');
