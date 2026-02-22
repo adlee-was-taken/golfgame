@@ -1124,6 +1124,20 @@ input::placeholder {
     align-items: flex-start;
 }
 
+.pile-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.pile-label {
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 3px;
+}
+
 /* Gentle pulse when it's your turn to draw - handled by anime.js */
 /* The .your-turn-to-draw class triggers anime.js startTurnPulse() */
 
@@ -5154,7 +5168,7 @@ body.mobile-portrait .deck-area {
     align-items: flex-start;
 }
 
-body.mobile-portrait .deck-area > .card,
+body.mobile-portrait .deck-area .card,
 body.mobile-portrait #deck,
 body.mobile-portrait #discard {
     width: 64px !important;
@@ -5482,7 +5496,7 @@ body.mobile-portrait .ss-next-btn {
         padding: 3px 8px;
     }
 
-    body.mobile-portrait .deck-area > .card,
+    body.mobile-portrait .deck-area .card,
     body.mobile-portrait #deck,
     body.mobile-portrait #discard {
         width: 60px !important;

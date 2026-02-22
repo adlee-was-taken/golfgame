@@ -328,18 +328,24 @@
                                         </div>
                                         <span class="held-label">Holding</span>
                                     </div>
-                                    <div id="deck" class="card card-back"></div>
-                                    <div class="discard-stack">
-                                        <div id="discard" class="card">
-                                            <span id="discard-content"></span>
+                                    <div class="pile-wrapper">
+                                        <span class="pile-label">DRAW</span>
+                                        <div id="deck" class="card card-back"></div>
+                                    </div>
+                                    <div class="pile-wrapper">
+                                        <span class="pile-label">DISCARD</span>
+                                        <div class="discard-stack">
+                                            <div id="discard" class="card">
+                                                <span id="discard-content"></span>
+                                            </div>
+                                            <!-- Floating held card (appears larger over discard when holding) -->
+                                            <div id="held-card-floating" class="card card-front held-card-floating hidden">
+                                                <span id="held-card-floating-content"></span>
+                                            </div>
+                                            <button id="discard-btn" class="btn btn-small hidden">Discard</button>
+                                            <button id="skip-flip-btn" class="btn btn-small btn-secondary hidden">Skip Flip</button>
+                                            <button id="knock-early-btn" class="btn btn-small btn-danger hidden">Knock!</button>
                                         </div>
-                                        <!-- Floating held card (appears larger over discard when holding) -->
-                                        <div id="held-card-floating" class="card card-front held-card-floating hidden">
-                                            <span id="held-card-floating-content"></span>
-                                        </div>
-                                        <button id="discard-btn" class="btn btn-small hidden">Discard</button>
-                                        <button id="skip-flip-btn" class="btn btn-small btn-secondary hidden">Skip Flip</button>
-                                        <button id="knock-early-btn" class="btn btn-small btn-danger hidden">Knock!</button>
                                     </div>
                                 </div>
                             </div>
