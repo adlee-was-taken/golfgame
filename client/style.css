@@ -5052,7 +5052,7 @@ body.mobile-portrait .opponents-row {
     flex-wrap: wrap;
     justify-content: center;
     align-items: flex-start;
-    gap: 4px 10px;
+    gap: 9px 10px;
     min-height: 0 !important;
     padding: 2px 4px 6px;
     overflow: visible;
