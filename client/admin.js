@@ -317,7 +317,7 @@ async function loadUsers() {
                     <td>${user.games_played} (${user.games_won} wins)</td>
                     <td>${formatDateShort(user.created_at)}</td>
                     <td>
-                        <button class="btn btn-small" onclick="viewUser('${user.id}')">View</button>
+                        <button class="btn btn-small" data-action="view-user" data-id="${user.id}">View</button>
                     </td>
                 </tr>
             `;
@@ -404,7 +404,7 @@ async function loadGames() {
                     <td><span class="badge badge-${game.status === 'playing' ? 'success' : 'info'}">${game.status}</span></td>
                     <td>${formatDate(game.created_at)}</td>
                     <td>
-                        <button class="btn btn-small btn-danger" onclick="promptEndGame('${game.game_id}')">End</button>
+                        <button class="btn btn-small btn-danger" data-action="end-game" data-id="${game.game_id}">End</button>
                     </td>
                 </tr>
             `;
@@ -454,8 +454,8 @@ async function loadInvites() {
                     <td>${status}</td>
                     <td>
                         ${invite.is_active && !isExpired && invite.remaining_uses > 0
-                            ? `<button class="btn btn-small" onclick="copyInviteLink('${invite.code}')">Copy Link</button>
-                               <button class="btn btn-small btn-danger" onclick="promptRevokeInvite('${invite.code}')">Revoke</button>`
+                            ? `<button class="btn btn-small" data-action="copy-invite" data-code="${escapeHtml(invite.code)}">Copy Link</button>
+                               <button class="btn btn-small btn-danger" data-action="revoke-invite" data-code="${escapeHtml(invite.code)}">Revoke</button>`
                             : '-'
                         }
                     </td>
@@ -813,6 +813,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 hideAllModals();
             }
         });
+    });
+
+    // Delegated click handlers for dynamically-created buttons
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+
+        const action = btn.dataset.action;
+        if (action === 'view-user') viewUser(btn.dataset.id);
+        else if (action === 'end-game') promptEndGame(btn.dataset.id);
+        else if (action === 'copy-invite') copyInviteLink(btn.dataset.code);
+        else if (action === 'revoke-invite') promptRevokeInvite(btn.dataset.code);
     });
 
     // Check auth on load
