@@ -4906,9 +4906,7 @@ body.screen-shake {
 }
 
 body.mobile-portrait {
-    height: 100vh;
-    height: -webkit-fill-available;
-    height: 100dvh;
+    height: var(--app-height, 100vh);
     overflow: hidden;
     overscroll-behavior: contain;
     touch-action: manipulation;
@@ -4916,19 +4914,18 @@ body.mobile-portrait {
 
 body.mobile-portrait #app {
     padding: 0;
-    height: 100%;
+    height: var(--app-height, 100vh);
     overflow: hidden;
 }
 
 /* --- Mobile: Game screen fills viewport --- */
 /* IMPORTANT: Must include .active to avoid overriding .screen { display: none } */
 body.mobile-portrait #game-screen.active {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    height: var(--app-height, 100vh);
+    max-height: var(--app-height, 100vh);
     overflow: hidden;
+    margin-left: 0;
+    width: 100%;
     display: flex;
     flex-direction: column;
 }

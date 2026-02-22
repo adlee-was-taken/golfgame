@@ -90,10 +90,20 @@ class GolfGame {
     }
 
     initMobileDetection() {
+        // Set --app-height custom property to actual visible viewport height.
+        // This works around Chrome Android's 100vh bug where vh includes the
+        // space behind the dynamic URL bar.
+        const setAppHeight = () => {
+            document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+        };
+        window.addEventListener('resize', setAppHeight);
+        setAppHeight();
+
         const mql = window.matchMedia('(max-width: 500px) and (orientation: portrait)');
         const update = (e) => {
             this.isMobile = e.matches;
             document.body.classList.toggle('mobile-portrait', e.matches);
+            setAppHeight();
             // Close any open drawers on layout change
             if (!e.matches) {
                 this.closeDrawers();
