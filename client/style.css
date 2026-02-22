@@ -5061,8 +5061,7 @@ body.mobile-portrait .opponent-area {
     padding: 3px 4px 4px;
     border-radius: 6px;
     min-width: 0;
-    flex: 0 0 auto;
-    width: 120px;
+    flex: 0 0 calc((100% - 20px) / 3);
     position: relative;
     overflow: visible;
 }
