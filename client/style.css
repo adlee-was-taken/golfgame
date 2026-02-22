@@ -4952,7 +4952,7 @@ body.mobile-portrait .game-header {
     display: flex;
     flex-direction: row;
     align-items: center;
-    padding: 4px 8px;
+    padding: 4px 12px;
     padding-top: calc(4px + env(safe-area-inset-top, 0px));
     font-size: 0.75rem;
     min-height: 32px;
@@ -5023,8 +5023,9 @@ body.mobile-portrait .game-table {
     justify-content: flex-start;
     gap: 0 !important;
     flex: 1 1 0%;
-    overflow: hidden;
-    padding: 0 4px;
+    overflow-x: clip;
+    overflow-y: hidden;
+    padding: 0 10px;
     min-height: 0;
     max-height: 100%;
 }
@@ -5038,7 +5039,7 @@ body.mobile-portrait .opponents-row {
     gap: 4px 10px;
     min-height: 0 !important;
     padding: 2px 4px 6px;
-    overflow: hidden;
+    overflow: visible;
     flex-shrink: 0;
 }
 
