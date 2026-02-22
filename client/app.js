@@ -639,7 +639,10 @@ class GolfGame {
 
         this.ws.onclose = () => {
             console.log('Disconnected from server');
-            this.showError('Connection lost. Please refresh the page.');
+            if (!this._intentionalClose) {
+                this.showError('Connection lost. Please refresh the page.');
+            }
+            this._intentionalClose = false;
         };
 
         this.ws.onerror = (error) => {
@@ -881,8 +884,9 @@ class GolfGame {
 
             case 'game_ended':
                 // Host ended the game or player was kicked
-                this.ws.close();
-                this.showLobby();
+                this._intentionalClose = true;
+                if (this.ws) this.ws.close();
+                this.showScreen('lobby');
                 if (data.reason) {
                     this.showError(data.reason);
                 }
