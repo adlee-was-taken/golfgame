@@ -129,6 +129,7 @@ class GolfGame {
                     panel.classList.add('drawer-open');
                     btn.classList.add('active');
                     if (backdrop) backdrop.classList.add('visible');
+                    if (bottomBar) bottomBar.classList.add('hidden');
                 }
             });
         }
@@ -142,6 +143,8 @@ class GolfGame {
         document.querySelectorAll('.mobile-bar-btn.active').forEach(b => b.classList.remove('active'));
         const backdrop = document.getElementById('drawer-backdrop');
         if (backdrop) backdrop.classList.remove('visible');
+        const bottomBar = document.getElementById('mobile-bottom-bar');
+        if (bottomBar) bottomBar.classList.remove('hidden');
     }
 
     initAudio() {
