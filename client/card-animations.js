@@ -47,7 +47,7 @@ class CardAnimations {
         const cardWidth = deckRect.width;
         const cardHeight = deckRect.height;
         const isMobilePortrait = document.body.classList.contains('mobile-portrait');
-        const overlapOffset = cardHeight * (isMobilePortrait ? 1.15 : 0.35);
+        const overlapOffset = cardHeight * (isMobilePortrait ? 0.65 : 0.35);
 
         return {
             left: centerX - cardWidth / 2,
