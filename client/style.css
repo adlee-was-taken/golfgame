@@ -5048,7 +5048,7 @@ body.mobile-portrait .player-row {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: space-evenly;
     gap: 10px;
     width: 100%;
     flex: 1 1 0%;
@@ -5114,7 +5114,6 @@ body.mobile-portrait .opponent-showing {
 body.mobile-portrait .table-center {
     padding: 5px 10px;
     border-radius: 8px;
-    margin: auto 0;
 }
 
 body.mobile-portrait .deck-area {
