@@ -4969,11 +4969,12 @@ body.mobile-portrait .game-header {
     padding: 2px 0;
     padding-top: env(safe-area-inset-top, 0px);
     font-size: 0.75rem;
-    min-height: 32px;
+    min-height: 0;
     width: 100%;
     margin-left: 0;
     gap: 4px;
     margin-bottom: 8px;
+    background: none;
 }
 
 body.mobile-portrait .header-col-left {
