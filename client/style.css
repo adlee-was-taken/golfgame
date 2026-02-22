@@ -5006,6 +5006,7 @@ body.mobile-portrait .game-table {
     flex: 1;
     overflow: hidden;
     padding: 0 4px;
+    padding-bottom: calc(44px + env(safe-area-inset-bottom, 0px));
     min-height: 0;
 }
 
@@ -5258,15 +5259,14 @@ body.mobile-portrait #mobile-bottom-bar {
     justify-content: center;
     align-items: center;
     gap: 12px;
-    background: rgba(10, 10, 20, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
     padding: 8px 20px;
     padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    width: 100%;
     z-index: 500;
-    flex-shrink: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 body.mobile-portrait #mobile-bottom-bar .mobile-bar-btn {
