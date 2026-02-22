@@ -2592,6 +2592,7 @@ class GolfGame {
 
                 if (!wasPaired && nowPaired) {
                     // New pair formed!
+                    console.log('[PAIR] New pair detected for', newPlayer.name, 'col', top, bottom, 'isLocal:', newPlayer.id === this.playerId);
                     setTimeout(() => {
                         this.firePairCelebration(newPlayer.id, top, bottom);
                     }, window.TIMING?.celebration?.pairDelay || 50);
@@ -2607,10 +2608,10 @@ class GolfGame {
     }
 
     firePairCelebration(playerId, pos1, pos2) {
+        this.playSound('pair');
         const elements = this.getCardElements(playerId, pos1, pos2);
         if (elements.length < 2) return;
 
-        this.playSound('pair');
         if (window.cardAnimations) {
             window.cardAnimations.celebratePair(elements[0], elements[1]);
         }
