@@ -1705,7 +1705,8 @@ class GolfGame {
 
             // Badge
             let badge = '';
-            if (isKnocker) badge = '<span class="ss-badge ss-badge-knock">KNOCKED</span>';
+            if (isKnocker && isLowScore) badge = '<span class="ss-badge ss-badge-knock">KNOCKED</span><span class="ss-badge ss-badge-low">LOW SCORE</span>';
+            else if (isKnocker) badge = '<span class="ss-badge ss-badge-knock">KNOCKED</span>';
             else if (isLowScore) badge = '<span class="ss-badge ss-badge-low">LOW SCORE</span>';
 
             // Build columns

@@ -5061,6 +5061,8 @@ body.mobile-portrait .opponent-area {
     padding: 3px 4px 4px;
     border-radius: 6px;
     min-width: 0;
+    flex: 0 0 auto;
+    width: 120px;
     position: relative;
     overflow: visible;
 }
@@ -5078,9 +5080,10 @@ body.mobile-portrait .opponent-area h4 {
     font-size: 0.85rem;
     margin: 0 0 2px 0;
     padding: 2px 4px;
-    max-width: 120px;
+    width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
+    box-sizing: border-box;
 }
 
 body.mobile-portrait .opponent-area .card-grid {
