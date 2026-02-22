@@ -3444,6 +3444,7 @@ input::placeholder {
 #matchmaking-screen {
     text-align: center;
     padding: 40px 20px;
+    margin-top: 50px;
 }
 
 #matchmaking-screen h2 {
