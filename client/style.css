@@ -4906,6 +4906,7 @@ body.screen-shake {
 }
 
 body.mobile-portrait {
+    height: 100vh;
     height: 100dvh;
     overflow: hidden;
     overscroll-behavior: contain;
@@ -4914,14 +4915,20 @@ body.mobile-portrait {
 
 body.mobile-portrait #app {
     padding: 0;
+    height: 100vh;
     height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
     overflow: hidden;
 }
 
 /* --- Mobile: Game screen fills viewport --- */
 /* IMPORTANT: Must include .active to avoid overriding .screen { display: none } */
 body.mobile-portrait #game-screen.active {
+    height: 100vh;
     height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
     overflow: hidden;
     margin-left: 0;
     width: 100%;
@@ -4930,10 +4937,11 @@ body.mobile-portrait #game-screen.active {
 }
 
 body.mobile-portrait .game-layout {
-    flex: 1;
+    flex: 1 1 0%;
     flex-direction: column;
     overflow: hidden;
     min-height: 0;
+    max-height: 100%;
 }
 
 body.mobile-portrait .game-main {
@@ -5019,10 +5027,11 @@ body.mobile-portrait .game-table {
     align-items: center;
     justify-content: flex-start;
     gap: 0 !important;
-    flex: 1;
+    flex: 1 1 0%;
     overflow: hidden;
     padding: 0 4px 36px;
     min-height: 0;
+    max-height: 100%;
 }
 
 /* --- Mobile: Opponents wrap at 3 per row (max 5 opponents = 3+2) --- */
@@ -5046,8 +5055,9 @@ body.mobile-portrait .player-row {
     justify-content: center;
     gap: 10px;
     width: 100%;
-    flex: 1;
+    flex: 1 1 0%;
     min-height: 0;
+    max-height: 100%;
     overflow: hidden;
 }
 
