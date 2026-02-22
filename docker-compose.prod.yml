@@ -55,6 +55,7 @@ services:
       - web
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=golfgame_web"
       # HTTPS route (primary, once DNS + cert are working)
       - "traefik.http.routers.golf.rule=Host(`${DOMAIN:-golf.example.com}`)"
       - "traefik.http.routers.golf.entrypoints=websecure"
