@@ -4940,6 +4940,7 @@ body.mobile-portrait #game-screen.active {
     overflow: hidden;
     margin-left: 0;
     width: 100%;
+    padding: 0;
     display: flex;
     flex-direction: column;
 }
