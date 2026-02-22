@@ -5270,15 +5270,23 @@ body.mobile-portrait #mobile-bottom-bar {
     z-index: 500;
 }
 
+/* Hole indicator — pinned left with pill background */
 body.mobile-portrait #mobile-bottom-bar .mobile-round-info {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.65rem;
-    font-weight: 600;
+    margin-right: auto;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.7rem;
+    font-weight: 700;
     white-space: nowrap;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.03em;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    padding: 5px 12px;
 }
 
+/* End Game — pinned right */
 body.mobile-portrait #mobile-bottom-bar .mobile-leave-btn {
+    margin-left: auto;
     background: rgba(180, 60, 60, 0.3) !important;
     border-color: rgba(220, 80, 80, 0.4) !important;
     color: rgba(255, 120, 120, 0.9) !important;
