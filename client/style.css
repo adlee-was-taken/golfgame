@@ -5282,22 +5282,20 @@ body.mobile-portrait #mobile-bottom-bar {
     padding: 6px 12px;
     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
     z-index: 900;
-    transform: scale(0.75);
-    transform-origin: bottom center;
 }
 
 /* Hole indicator — pinned left with pill background */
 body.mobile-portrait #mobile-bottom-bar .mobile-round-info {
     margin-right: auto;
     color: rgba(255, 255, 255, 0.9);
-    font-size: 0.7rem;
+    font-size: 0.55rem;
     font-weight: 700;
     white-space: nowrap;
     letter-spacing: 0.03em;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 20px;
-    padding: 5px 12px;
+    padding: 4px 9px;
 }
 
 /* End Game — pinned right */
@@ -5316,9 +5314,9 @@ body.mobile-portrait #mobile-bottom-bar .mobile-bar-btn {
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.65);
-    font-size: 0.65rem;
+    font-size: 0.5rem;
     font-weight: 600;
-    padding: 6px 14px;
+    padding: 5px 10px;
     cursor: pointer;
     text-transform: uppercase;
     letter-spacing: 0.1em;
