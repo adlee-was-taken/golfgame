@@ -106,7 +106,7 @@ services:
           memory: 16M
 
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3.6
     environment:
       - DOCKER_API_VERSION=1.44
     command:
