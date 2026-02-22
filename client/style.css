@@ -5160,6 +5160,7 @@ body.mobile-portrait .player-area {
     border-radius: 8px;
     width: auto;
     display: inline-block;
+    margin-bottom: 6px;
 }
 
 body.mobile-portrait .player-area .dealer-chip {
