@@ -5002,6 +5002,16 @@ body.mobile-portrait .game-header #leave-game-btn {
     display: none !important;
 }
 
+body.mobile-portrait .rules-container,
+body.mobile-portrait .leaderboard-container {
+    padding-top: 40px;
+}
+
+body.mobile-portrait .rules-back-btn,
+body.mobile-portrait .leaderboard-back-btn {
+    align-self: flex-start;
+}
+
 body.mobile-portrait .status-message {
     font-size: 1.02rem;
     white-space: nowrap;
