@@ -5281,7 +5281,9 @@ body.mobile-portrait #mobile-bottom-bar {
     right: 0;
     padding: 6px 12px;
     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
-    z-index: 500;
+    z-index: 900;
+    transform: scale(0.75);
+    transform-origin: bottom center;
 }
 
 /* Hole indicator — pinned left with pill background */
