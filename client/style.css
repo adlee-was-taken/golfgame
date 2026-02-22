@@ -5021,7 +5021,15 @@ body.mobile-portrait #leave-game-btn {
 
 body.mobile-portrait .mute-btn {
     font-size: 0.85rem;
-    padding: 2px;
+    padding: 4px;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.9;
 }
 
 body.mobile-portrait .final-turn-badge {
