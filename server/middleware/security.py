@@ -110,8 +110,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # Add WebSocket URLs
         if self.environment == "production":
+            connect_sources.append(f"ws://{host}")
             connect_sources.append(f"wss://{host}")
             for allowed_host in self.allowed_hosts:
+                connect_sources.append(f"ws://{allowed_host}")
                 connect_sources.append(f"wss://{allowed_host}")
         else:
             # Development - allow ws:// and wss://
