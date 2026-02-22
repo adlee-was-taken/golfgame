@@ -545,6 +545,8 @@ class GolfGame {
         this.addSelectedCpusBtn.addEventListener('click', () => { this.playSound('success'); this.addSelectedCpus(); });
         this.muteBtn.addEventListener('click', () => this.toggleSound());
         this.leaveGameBtn.addEventListener('click', () => { this.playSound('click'); this.leaveGame(); });
+        const mobileLeaveBtn = document.getElementById('mobile-leave-btn');
+        if (mobileLeaveBtn) mobileLeaveBtn.addEventListener('click', () => { this.playSound('click'); this.leaveGame(); });
         this.gameLogoutBtn.addEventListener('click', () => { this.playSound('click'); this.auth?.logout(); });
 
         // Copy room code to clipboard
@@ -3073,7 +3075,10 @@ class GolfGame {
         this.waitingForFlip = false;
         this.previousState = null;
         // Update leave button text based on role
-        this.leaveGameBtn.textContent = this.isHost ? 'End Game' : 'Leave';
+        const leaveText = this.isHost ? 'End Game' : 'Leave';
+        this.leaveGameBtn.textContent = leaveText;
+        const mobileLeave = document.getElementById('mobile-leave-btn');
+        if (mobileLeave) mobileLeave.textContent = leaveText;
         // Update active rules bar
         this.updateActiveRulesBar();
     }
@@ -3749,6 +3754,12 @@ class GolfGame {
         // Update header
         this.currentRoundSpan.textContent = this.gameState.current_round;
         this.totalRoundsSpan.textContent = this.gameState.total_rounds;
+
+        // Sync mobile bottom bar round info
+        const mobileRound = document.getElementById('mobile-current-round');
+        const mobileTotal = document.getElementById('mobile-total-rounds');
+        if (mobileRound) mobileRound.textContent = this.gameState.current_round;
+        if (mobileTotal) mobileTotal.textContent = this.gameState.total_rounds;
 
         // Show/hide final turn badge with enhanced urgency
         const isFinalTurn = this.gameState.phase === 'final_turn';
