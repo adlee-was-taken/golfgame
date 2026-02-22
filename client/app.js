@@ -66,10 +66,14 @@ class GolfGame {
         this.discardHistory = [];
         this.maxDiscardHistory = 5;
 
+        // Mobile detection
+        this.isMobile = false;
+
         this.initElements();
         this.initAudio();
         this.initCardTooltips();
         this.bindEvents();
+        this.initMobileDetection();
         this.checkUrlParams();
     }
 
@@ -83,6 +87,51 @@ class GolfGame {
             // Clean up URL without reloading
             window.history.replaceState({}, '', window.location.pathname);
         }
+    }
+
+    initMobileDetection() {
+        const mql = window.matchMedia('(max-width: 500px) and (orientation: portrait)');
+        const update = (e) => {
+            this.isMobile = e.matches;
+            document.body.classList.toggle('mobile-portrait', e.matches);
+            // Close any open drawers on layout change
+            if (!e.matches) {
+                this.closeDrawers();
+            }
+        };
+        mql.addEventListener('change', update);
+        update(mql);
+
+        // Bottom bar drawer toggles
+        const bottomBar = document.getElementById('mobile-bottom-bar');
+        const backdrop = document.getElementById('drawer-backdrop');
+        if (bottomBar) {
+            bottomBar.addEventListener('click', (e) => {
+                const btn = e.target.closest('.mobile-bar-btn');
+                if (!btn) return;
+                const drawerId = btn.dataset.drawer;
+                const panel = document.getElementById(drawerId);
+                if (!panel) return;
+
+                const isOpen = panel.classList.contains('drawer-open');
+                this.closeDrawers();
+                if (!isOpen) {
+                    panel.classList.add('drawer-open');
+                    btn.classList.add('active');
+                    if (backdrop) backdrop.classList.add('visible');
+                }
+            });
+        }
+        if (backdrop) {
+            backdrop.addEventListener('click', () => this.closeDrawers());
+        }
+    }
+
+    closeDrawers() {
+        document.querySelectorAll('.side-panel.drawer-open').forEach(p => p.classList.remove('drawer-open'));
+        document.querySelectorAll('.mobile-bar-btn.active').forEach(b => b.classList.remove('active'));
+        const backdrop = document.getElementById('drawer-backdrop');
+        if (backdrop) backdrop.classList.remove('visible');
     }
 
     initAudio() {
@@ -1876,20 +1925,33 @@ class GolfGame {
         this.dealAnimationInProgress = true;
 
         if (window.cardAnimations) {
-            window.cardAnimations.animateDealing(
-                this.gameState,
-                (playerId, cardIdx) => this.getCardSlotRect(playerId, cardIdx),
-                () => {
-                    // Deal complete - allow flip prompts
-                    this.dealAnimationInProgress = false;
-                    // Show real cards
-                    this.playerCards.style.visibility = 'visible';
-                    this.opponentsRow.style.visibility = 'visible';
-                    this.renderGame();
-                    // Stagger opponent initial flips right after dealing
-                    this.animateOpponentInitialFlips();
-                }
-            );
+            // Use double-rAF to ensure layout is fully computed after renderGame().
+            // First rAF: browser computes styles. Second rAF: layout is painted.
+            // This is critical on mobile where CSS !important rules need to apply
+            // before getBoundingClientRect() returns correct card slot positions.
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    // Verify rects are valid before starting animation
+                    const testRect = this.getCardSlotRect(this.playerId, 0);
+                    if (this.isMobile) {
+                        console.log('[DEAL] Starting deal animation, test rect:', testRect);
+                    }
+                    window.cardAnimations.animateDealing(
+                        this.gameState,
+                        (playerId, cardIdx) => this.getCardSlotRect(playerId, cardIdx),
+                        () => {
+                            // Deal complete - allow flip prompts
+                            this.dealAnimationInProgress = false;
+                            // Show real cards
+                            this.playerCards.style.visibility = 'visible';
+                            this.opponentsRow.style.visibility = 'visible';
+                            this.renderGame();
+                            // Stagger opponent initial flips right after dealing
+                            this.animateOpponentInitialFlips();
+                        }
+                    );
+                });
+            });
         } else {
             // Fallback
             this.dealAnimationInProgress = false;
@@ -1950,14 +2012,22 @@ class GolfGame {
     getCardSlotRect(playerId, cardIdx) {
         if (playerId === this.playerId) {
             const cards = this.playerCards.querySelectorAll('.card');
-            return cards[cardIdx]?.getBoundingClientRect() || null;
+            const rect = cards[cardIdx]?.getBoundingClientRect() || null;
+            if (this.isMobile && rect) {
+                console.log(`[DEAL-DEBUG] Player card[${cardIdx}] rect:`, {l: rect.left, t: rect.top, w: rect.width, h: rect.height});
+            }
+            return rect;
         } else {
             const area = this.opponentsRow.querySelector(
                 `.opponent-area[data-player-id="${playerId}"]`
             );
             if (area) {
                 const cards = area.querySelectorAll('.card');
-                return cards[cardIdx]?.getBoundingClientRect() || null;
+                const rect = cards[cardIdx]?.getBoundingClientRect() || null;
+                if (this.isMobile && rect) {
+                    console.log(`[DEAL-DEBUG] Opponent ${playerId} card[${cardIdx}] rect:`, {l: rect.left, t: rect.top, w: rect.width, h: rect.height});
+                }
+                return rect;
             }
         }
         return null;
@@ -2932,6 +3002,11 @@ class GolfGame {
         }
         screen.classList.add('active');
 
+        // Close mobile drawers on screen change
+        if (this.isMobile) {
+            this.closeDrawers();
+        }
+
         // Handle auth bar visibility - hide global bar during game, show in-game controls instead
         const isGameScreen = screen === this.gameScreen;
         const user = this.auth?.user;
@@ -3444,6 +3519,10 @@ class GolfGame {
         this.heldCardFloating.style.top = `${cardTop}px`;
         this.heldCardFloating.style.width = `${cardWidth}px`;
         this.heldCardFloating.style.height = `${cardHeight}px`;
+        // Scale font to card width (matches cardAnimations.cardFontSize ratio)
+        if (this.isMobile) {
+            this.heldCardFloating.style.fontSize = `${cardWidth * 0.35}px`;
+        }
 
         // Position discard button attached to right side of held card
         const buttonLeft = cardLeft + cardWidth; // Right edge of card (no gap)
@@ -3503,6 +3582,9 @@ class GolfGame {
         this.heldCardFloating.style.top = `${cardTop}px`;
         this.heldCardFloating.style.width = `${cardWidth}px`;
         this.heldCardFloating.style.height = `${cardHeight}px`;
+        if (this.isMobile) {
+            this.heldCardFloating.style.fontSize = `${cardWidth * 0.35}px`;
+        }
 
         this.heldCardFloatingContent.innerHTML = '';
         this.heldCardFloating.classList.remove('hidden');
@@ -3648,6 +3730,7 @@ class GolfGame {
 
     renderGame() {
         if (!this.gameState) return;
+        if (this.dealAnimationInProgress) return;
 
         // Update CPU considering visual state
         this.updateCpuConsideringState();

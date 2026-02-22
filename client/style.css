@@ -4877,3 +4877,471 @@ body.screen-shake {
     border-radius: 6px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
+
+/* ============================================
+   MOBILE PORTRAIT LAYOUT
+   ============================================
+   All rules scoped under body.mobile-portrait.
+   Triggered by JS matchMedia on narrow portrait screens.
+   Desktop layout is completely untouched.
+   ============================================ */
+
+/* Mobile bottom bar - hidden on desktop */
+#mobile-bottom-bar {
+    display: none;
+}
+
+body.mobile-portrait {
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: contain;
+    touch-action: manipulation;
+}
+
+body.mobile-portrait #app {
+    padding: 0;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+/* --- Mobile: Game screen fills viewport --- */
+/* IMPORTANT: Must include .active to avoid overriding .screen { display: none } */
+body.mobile-portrait #game-screen.active {
+    height: 100dvh;
+    overflow: hidden;
+    margin-left: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+body.mobile-portrait .game-layout {
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+body.mobile-portrait .game-main {
+    flex: 1;
+    gap: 0;
+    justify-content: flex-start;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* --- Mobile: Compact header (single row) --- */
+body.mobile-portrait .game-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 4px 10px;
+    padding-top: calc(4px + env(safe-area-inset-top, 0px));
+    font-size: 0.8rem;
+    min-height: 36px;
+    width: 100%;
+    margin-left: 0;
+    gap: 6px;
+}
+
+body.mobile-portrait .header-col-left {
+    flex: 0 0 auto;
+    gap: 6px;
+}
+
+body.mobile-portrait .header-col-center {
+    flex: 1;
+    min-width: 0;
+}
+
+body.mobile-portrait .header-col-right {
+    flex: 0 0 auto;
+    gap: 4px;
+}
+
+/* Hide non-essential header items on mobile */
+body.mobile-portrait .active-rules-bar,
+body.mobile-portrait .game-username,
+body.mobile-portrait #game-logout-btn {
+    display: none !important;
+}
+
+body.mobile-portrait .status-message {
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.mobile-portrait .round-info {
+    font-size: 0.8rem;
+}
+
+body.mobile-portrait #leave-game-btn {
+    padding: 2px 6px;
+    font-size: 0.65rem;
+}
+
+body.mobile-portrait .mute-btn {
+    font-size: 0.9rem;
+    padding: 2px;
+}
+
+body.mobile-portrait .final-turn-badge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+}
+
+/* --- Mobile: Game table — opponents pinned top, rest centered in remaining space --- */
+body.mobile-portrait .game-table {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0 !important;
+    flex: 1;
+    overflow: hidden;
+    padding: 0 4px;
+    min-height: 0;
+}
+
+/* --- Mobile: Opponents as flat horizontal strip, pinned to top --- */
+body.mobile-portrait .opponents-row {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 6px;
+    min-height: 0 !important;
+    padding: 2px 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    flex-shrink: 0;
+}
+
+/* --- Mobile: Player row gets remaining space, centered vertically --- */
+body.mobile-portrait .player-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Remove all arch rotation and margin on mobile */
+body.mobile-portrait .opponents-row .opponent-area {
+    margin-bottom: 0 !important;
+    transform: none !important;
+    flex-shrink: 0;
+}
+
+body.mobile-portrait .opponent-area {
+    padding: 3px 5px 4px;
+    border-radius: 6px;
+    min-width: 0;
+}
+
+body.mobile-portrait .opponent-area h4 {
+    font-size: 0.6rem;
+    margin: 0 0 2px 0;
+    padding: 2px 4px;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.mobile-portrait .opponent-area .card-grid {
+    grid-template-columns: repeat(3, 32px) !important;
+    gap: 2px !important;
+}
+
+body.mobile-portrait .opponent-area .card {
+    width: 32px !important;
+    height: 45px !important;
+    font-size: 0.6rem !important;
+    border-radius: 3px;
+}
+
+body.mobile-portrait .opponent-showing {
+    font-size: 0.55rem;
+    padding: 0px 3px;
+    margin-left: 3px;
+}
+
+/* --- Mobile: Deck/Discard area centered --- */
+body.mobile-portrait .table-center {
+    padding: 5px 10px;
+    border-radius: 8px;
+}
+
+body.mobile-portrait .deck-area {
+    gap: 10px;
+    align-items: flex-start;
+}
+
+body.mobile-portrait .deck-area > .card,
+body.mobile-portrait #deck,
+body.mobile-portrait #discard {
+    width: 60px !important;
+    height: 84px !important;
+    font-size: 1.3rem !important;
+}
+
+/* Held card floating should NOT be constrained to deck/discard size */
+body.mobile-portrait .held-card-floating {
+    width: 72px !important;
+    height: 101px !important;
+}
+
+body.mobile-portrait .discard-stack {
+    gap: 6px;
+}
+
+/* Discard button - horizontal on mobile instead of vertical tab */
+body.mobile-portrait #discard-btn {
+    position: fixed;
+    writing-mode: horizontal-tb;
+    text-orientation: initial;
+    padding: 8px 16px;
+    font-size: 0.8rem;
+    border-radius: 8px;
+}
+
+/* --- Mobile: Player cards — explicit sizes for reliable layout --- */
+body.mobile-portrait .player-section {
+    width: auto;
+    padding: 0;
+}
+
+body.mobile-portrait .player-area {
+    padding: 5px 8px;
+    border-radius: 8px;
+    width: auto;
+    display: inline-block;
+}
+
+body.mobile-portrait .player-area h4 {
+    font-size: 0.8rem;
+    padding: 3px 8px;
+    margin-bottom: 4px;
+}
+
+body.mobile-portrait .player-showing {
+    font-size: 0.75rem;
+}
+
+/* Player hand: fixed-size cards */
+body.mobile-portrait .player-section .card-grid {
+    grid-template-columns: repeat(3, 72px) !important;
+    gap: 5px !important;
+    justify-content: center;
+}
+
+body.mobile-portrait .player-section .card {
+    width: 72px !important;
+    height: 101px !important;
+    font-size: 1.5rem !important;
+}
+
+/* Real cards: font-size is now set inline by card-manager.js (proportional to card width).
+   Override the desktop clamp values to inherit from the element. */
+body.mobile-portrait .real-card .card-face-front,
+body.mobile-portrait .real-card .card-face-back {
+    font-size: inherit;
+    line-height: 1;
+}
+
+/* --- Mobile: Side panels become bottom drawers --- */
+body.mobile-portrait .side-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 55vh;
+    border-radius: 16px 16px 0 0;
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 600;
+    transform: translateY(100%);
+    transition: transform 0.3s ease-out;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+body.mobile-portrait .side-panel.left-panel,
+body.mobile-portrait .side-panel.right-panel {
+    left: 0;
+    right: 0;
+}
+
+body.mobile-portrait .side-panel.drawer-open {
+    transform: translateY(0);
+}
+
+/* Drawer handle */
+body.mobile-portrait .side-panel::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    margin: 0 auto 10px;
+}
+
+/* Drawer backdrop */
+body.mobile-portrait .drawer-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 599;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-out;
+}
+
+body.mobile-portrait .drawer-backdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Score table in drawer: full width */
+body.mobile-portrait .side-panel table {
+    width: 100%;
+    font-size: 0.85rem;
+}
+
+body.mobile-portrait .side-panel th,
+body.mobile-portrait .side-panel td {
+    padding: 4px 8px;
+}
+
+/* Standings list in drawer */
+body.mobile-portrait .standings-list .rank-row {
+    font-size: 0.85rem;
+    padding: 3px 0;
+}
+
+/* Game buttons in drawer */
+body.mobile-portrait .game-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    padding: 8px 0;
+}
+
+/* --- Mobile: Bottom bar --- */
+body.mobile-portrait #mobile-bottom-bar {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    padding: 6px 16px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+    z-index: 500;
+    flex-shrink: 0;
+    border-top: 1px solid rgba(244, 164, 96, 0.2);
+}
+
+body.mobile-portrait #mobile-bottom-bar .mobile-bar-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 6px 16px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+}
+
+body.mobile-portrait #mobile-bottom-bar .mobile-bar-btn:active {
+    background: rgba(244, 164, 96, 0.3);
+    color: #f4a460;
+}
+
+body.mobile-portrait #mobile-bottom-bar .mobile-bar-btn.active {
+    color: #f4a460;
+    background: rgba(244, 164, 96, 0.15);
+}
+
+/* --- Mobile: Non-game screens --- */
+body.mobile-portrait #lobby-screen {
+    padding: 50px 12px 15px;
+    overflow-y: auto;
+    max-height: 100dvh;
+}
+
+body.mobile-portrait #waiting-screen {
+    padding: 10px 12px;
+    overflow-y: auto;
+    max-height: 100dvh;
+}
+
+/* --- Mobile: Very short screens (e.g. iPhone SE) --- */
+@media (max-height: 600px) {
+    body.mobile-portrait .opponents-row {
+        padding: 2px 8px 0;
+    }
+
+    body.mobile-portrait .opponent-area .card-grid {
+        grid-template-columns: repeat(3, 26px) !important;
+        gap: 1px !important;
+    }
+
+    body.mobile-portrait .opponent-area .card {
+        width: 26px !important;
+        height: 36px !important;
+        font-size: 0.45rem !important;
+    }
+
+    body.mobile-portrait .table-center {
+        padding: 3px 8px;
+    }
+
+    body.mobile-portrait .deck-area > .card,
+    body.mobile-portrait #deck,
+    body.mobile-portrait #discard {
+        width: 50px !important;
+        height: 70px !important;
+        font-size: 1.1rem !important;
+    }
+
+    body.mobile-portrait .held-card-floating {
+        width: 60px !important;
+        height: 84px !important;
+    }
+
+    body.mobile-portrait .player-area {
+        padding: 3px 5px;
+    }
+
+    body.mobile-portrait .player-section .card-grid {
+        grid-template-columns: repeat(3, 60px) !important;
+        gap: 4px !important;
+    }
+
+    body.mobile-portrait .player-section .card {
+        width: 60px !important;
+        height: 84px !important;
+        font-size: 1.3rem !important;
+    }
+
+    body.mobile-portrait .player-area h4 {
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        margin-bottom: 3px;
+    }
+}

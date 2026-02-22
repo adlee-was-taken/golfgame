@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Golf Card Game</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -398,6 +398,15 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Mobile bottom bar (hidden on desktop) -->
+            <div id="mobile-bottom-bar">
+                <button class="mobile-bar-btn" data-drawer="standings-panel">Standings</button>
+                <button class="mobile-bar-btn" data-drawer="scoreboard">Scores</button>
+            </div>
+
+            <!-- Drawer backdrop for mobile -->
+            <div id="drawer-backdrop" class="drawer-backdrop"></div>
         </div>
 
         <!-- Rules Screen -->

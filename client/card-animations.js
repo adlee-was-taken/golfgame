@@ -75,6 +75,13 @@ class CardAnimations {
         return easings[type] || 'easeOutQuad';
     }
 
+    // Font size proportional to card width — consistent across all card types.
+    // Mobile uses a tighter ratio since cards are smaller and closer together.
+    cardFontSize(width) {
+        const ratio = document.body.classList.contains('mobile-portrait') ? 0.35 : 0.5;
+        return (width * ratio) + 'px';
+    }
+
     // Create animated card element with 3D flip structure
     createAnimCard(rect, showBack = false, deckColor = null) {
         const card = document.createElement('div');
@@ -94,7 +101,7 @@ class CardAnimations {
             card.style.height = rect.height + 'px';
             // Scale font-size proportionally to card width
             const front = card.querySelector('.draw-anim-front');
-            if (front) front.style.fontSize = (rect.width * 0.5) + 'px';
+            if (front) front.style.fontSize = this.cardFontSize(rect.width);
         }
 
         // Apply deck color to back
@@ -1180,7 +1187,7 @@ class CardAnimations {
             if (handFront) {
                 timeline.add({
                     targets: handFront,
-                    fontSize: (discardRect.width * 0.5) + 'px',
+                    fontSize: this.cardFontSize(discardRect.width),
                     duration: T.arc,
                     easing: this.getEasing('arc'),
                 }, `-=${T.arc}`);
@@ -1205,7 +1212,7 @@ class CardAnimations {
             if (heldFront) {
                 timeline.add({
                     targets: heldFront,
-                    fontSize: (handRect.width * 0.5) + 'px',
+                    fontSize: this.cardFontSize(handRect.width),
                     duration: T.arc,
                     easing: this.getEasing('arc'),
                 }, `-=${T.arc}`);
@@ -1424,7 +1431,7 @@ class CardAnimations {
         card.style.height = rect.height + 'px';
         // Scale font-size proportionally to card width
         const front = card.querySelector('.draw-anim-front');
-        if (front) front.style.fontSize = (rect.width * 0.5) + 'px';
+        if (front) front.style.fontSize = this.cardFontSize(rect.width);
 
         if (rotation) {
             card.style.transform = `rotate(${rotation}deg)`;

@@ -126,6 +126,13 @@ class CardManager {
         cardEl.style.width = `${rect.width}px`;
         cardEl.style.height = `${rect.height}px`;
 
+        // On mobile, scale font proportional to card width so rank/suit fit
+        if (document.body.classList.contains('mobile-portrait')) {
+            cardEl.style.fontSize = `${rect.width * 0.35}px`;
+        } else {
+            cardEl.style.fontSize = '';
+        }
+
         if (animate) {
             const moveDuration = window.TIMING?.card?.moving || 350;
             setTimeout(() => cardEl.classList.remove('moving'), moveDuration);
