@@ -2854,12 +2854,15 @@ input::placeholder {
 
 /* Rules back button */
 .rules-back-btn {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
     padding: 4px 12px;
     font-size: 0.8rem;
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.3);
     color: rgba(255, 255, 255, 0.7);
-    margin-bottom: 15px;
 }
 
 .rules-back-btn:hover {
@@ -2875,6 +2878,7 @@ input::placeholder {
 
 /* Rules header */
 .rules-header {
+    position: relative;
     text-align: center;
     margin-bottom: 25px;
     padding-bottom: 20px;
@@ -3514,6 +3518,7 @@ input::placeholder {
 }
 
 .leaderboard-header {
+    position: relative;
     text-align: center;
     margin-bottom: 20px;
 }
@@ -3532,12 +3537,15 @@ input::placeholder {
 
 /* Leaderboard back button */
 .leaderboard-back-btn {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
     padding: 4px 12px;
     font-size: 0.8rem;
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.3);
     color: rgba(255, 255, 255, 0.7);
-    margin-bottom: 15px;
 }
 
 .leaderboard-back-btn:hover {
@@ -5002,17 +5010,9 @@ body.mobile-portrait .game-header #leave-game-btn {
     display: none !important;
 }
 
-body.mobile-portrait .rules-back-btn,
-body.mobile-portrait .leaderboard-back-btn {
-    position: fixed;
-    top: 8px;
-    left: 8px;
-    z-index: 100;
-}
-
 body.mobile-portrait .rules-container,
 body.mobile-portrait .leaderboard-container {
-    margin-top: 36px;
+    margin-top: 0;
 }
 
 body.mobile-portrait .status-message {
