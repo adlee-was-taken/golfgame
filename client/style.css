@@ -4984,7 +4984,7 @@ body.mobile-portrait .game-header #leave-game-btn {
 }
 
 body.mobile-portrait .status-message {
-    font-size: 0.85rem;
+    font-size: 1.02rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -5288,7 +5288,7 @@ body.mobile-portrait #mobile-bottom-bar {
 body.mobile-portrait #mobile-bottom-bar .mobile-round-info {
     margin-right: auto;
     color: rgba(255, 255, 255, 0.9);
-    font-size: 0.55rem;
+    font-size: 0.77rem;
     font-weight: 700;
     white-space: nowrap;
     letter-spacing: 0.03em;
@@ -5314,7 +5314,7 @@ body.mobile-portrait #mobile-bottom-bar .mobile-bar-btn {
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.65);
-    font-size: 0.5rem;
+    font-size: 0.7rem;
     font-weight: 600;
     padding: 5px 10px;
     cursor: pointer;
