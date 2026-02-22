@@ -2602,6 +2602,7 @@ class GolfGame {
         const elements = this.getCardElements(playerId, pos1, pos2);
         if (elements.length < 2) return;
 
+        this.playSound('pair');
         if (window.cardAnimations) {
             window.cardAnimations.celebratePair(elements[0], elements[1]);
         }
