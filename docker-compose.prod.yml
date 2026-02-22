@@ -63,6 +63,7 @@ services:
       # HTTP route (fallback for testing before DNS/cert)
       - "traefik.http.routers.golf-http.rule=Host(`${DOMAIN:-golf.example.com}`)"
       - "traefik.http.routers.golf-http.entrypoints=web"
+      - "traefik.http.routers.golf-http.service=golf"
       - "traefik.http.services.golf.loadbalancer.server.port=8000"
       # WebSocket sticky sessions
       - "traefik.http.services.golf.loadbalancer.sticky.cookie=true"
