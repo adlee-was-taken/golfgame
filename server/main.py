@@ -706,7 +706,29 @@ async def broadcast_game_state(room: Room):
 
 
 async def check_and_run_cpu_turn(room: Room):
-    """Check if current player is CPU and run their turn."""
+    """Check if current player is CPU and run their turn.
+
+    If this is the outermost call (no CPU task running), creates a single
+    asyncio.Task that runs the entire chain of consecutive CPU turns.
+    This allows the task to be cancelled cleanly when the game ends.
+    """
+    # If already inside a CPU turn task, run directly (no nested tasks)
+    if room.cpu_turn_task is not None:
+        await _run_cpu_chain(room)
+        return
+
+    # Outermost call: wrap the chain in a cancellable task
+    room.cpu_turn_task = asyncio.create_task(_run_cpu_chain(room))
+    try:
+        await room.cpu_turn_task
+    except asyncio.CancelledError:
+        pass
+    finally:
+        room.cpu_turn_task = None
+
+
+async def _run_cpu_chain(room: Room):
+    """Run consecutive CPU turns until a human player's turn or game ends."""
     if room.game.phase not in (GamePhase.PLAYING, GamePhase.FINAL_TURN):
         return
 
@@ -728,11 +750,20 @@ async def check_and_run_cpu_turn(room: Room):
     await process_cpu_turn(room.game, current, broadcast_cb, game_id=room.game_log_id)
 
     # Check if next player is also CPU (chain CPU turns)
-    await check_and_run_cpu_turn(room)
+    await _run_cpu_chain(room)
 
 
 async def handle_player_leave(room: Room, player_id: str):
     """Handle a player leaving a room."""
+    # Cancel any running CPU turn task before cleanup
+    if room.cpu_turn_task:
+        room.cpu_turn_task.cancel()
+        try:
+            await room.cpu_turn_task
+        except (asyncio.CancelledError, Exception):
+            pass
+        room.cpu_turn_task = None
+
     room_code = room.code
     room_player = room.remove_player(player_id)
 

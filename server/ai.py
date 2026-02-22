@@ -1934,7 +1934,11 @@ def _log_cpu_action(logger, game_id: Optional[str], cpu_player: Player, game: Ga
 async def process_cpu_turn(
     game: Game, cpu_player: Player, broadcast_callback, game_id: Optional[str] = None
 ) -> None:
-    """Process a complete turn for a CPU player."""
+    """Process a complete turn for a CPU player.
+
+    May raise asyncio.CancelledError if the game is ended mid-turn.
+    The caller (check_and_run_cpu_turn) handles cancellation.
+    """
     import asyncio
     from services.game_logger import get_logger
 

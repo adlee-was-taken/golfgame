@@ -69,6 +69,7 @@ class Room:
     settings: dict = field(default_factory=lambda: {"decks": 1, "rounds": 1})
     game_log_id: Optional[str] = None
     game_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    cpu_turn_task: Optional[asyncio.Task] = None
 
     def add_player(
         self,

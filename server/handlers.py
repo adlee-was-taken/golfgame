@@ -473,6 +473,15 @@ async def handle_end_game(data: dict, ctx: ConnectionContext, *, room_manager, c
         await ctx.websocket.send_json({"type": "error", "message": "Only the host can end the game"})
         return
 
+    # Cancel any running CPU turn task so the game ends immediately
+    if ctx.current_room.cpu_turn_task:
+        ctx.current_room.cpu_turn_task.cancel()
+        try:
+            await ctx.current_room.cpu_turn_task
+        except (asyncio.CancelledError, Exception):
+            pass
+        ctx.current_room.cpu_turn_task = None
+
     await ctx.current_room.broadcast({
         "type": "game_ended",
         "reason": "Host ended the game",
