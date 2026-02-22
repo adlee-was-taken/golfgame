@@ -4966,15 +4966,15 @@ body.mobile-portrait .game-header {
     display: flex;
     flex-direction: row;
     align-items: center;
-    padding: 2px 0;
-    padding-top: env(safe-area-inset-top, 0px);
+    padding: 6px 8px;
+    padding-top: calc(6px + env(safe-area-inset-top, 0px));
     font-size: 0.75rem;
     min-height: 0;
     width: 100%;
     margin-left: 0;
     gap: 4px;
-    margin-bottom: 8px;
-    background: none;
+    margin-bottom: 4px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.25) 0%, transparent 100%);
 }
 
 body.mobile-portrait .header-col-left {
@@ -5020,16 +5020,8 @@ body.mobile-portrait #leave-game-btn {
 }
 
 body.mobile-portrait .mute-btn {
-    font-size: 0.85rem;
-    padding: 4px;
-    background: rgba(0, 0, 0, 0.35);
-    border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.9;
+    font-size: 0.95rem;
+    padding: 2px;
 }
 
 body.mobile-portrait .final-turn-badge {
