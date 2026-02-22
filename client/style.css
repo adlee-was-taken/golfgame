@@ -5002,14 +5002,17 @@ body.mobile-portrait .game-header #leave-game-btn {
     display: none !important;
 }
 
-body.mobile-portrait .rules-container,
-body.mobile-portrait .leaderboard-container {
-    padding-top: 40px;
-}
-
 body.mobile-portrait .rules-back-btn,
 body.mobile-portrait .leaderboard-back-btn {
-    align-self: flex-start;
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 100;
+}
+
+body.mobile-portrait .rules-container,
+body.mobile-portrait .leaderboard-container {
+    margin-top: 36px;
 }
 
 body.mobile-portrait .status-message {
