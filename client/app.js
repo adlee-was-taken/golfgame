@@ -1789,6 +1789,10 @@ class GolfGame {
         document.body.appendChild(modal);
         this.setStatus('Hole complete');
 
+        // Hide bottom bar so it doesn't overlay the modal
+        const bottomBar = document.getElementById('mobile-bottom-bar');
+        if (bottomBar) bottomBar.classList.add('hidden');
+
         // Bind next button
         const nextBtn = document.getElementById('ss-next-btn');
         nextBtn.addEventListener('click', () => {
@@ -1918,6 +1922,10 @@ class GolfGame {
         this.clearScoresheetCountdown();
         const modal = document.getElementById('scoresheet-modal');
         if (modal) modal.remove();
+
+        // Restore bottom bar
+        const bottomBar = document.getElementById('mobile-bottom-bar');
+        if (bottomBar) bottomBar.classList.remove('hidden');
     }
 
     // --- V3_02: Dealing Animation ---
