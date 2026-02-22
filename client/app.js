@@ -1573,8 +1573,10 @@ class GolfGame {
         this.heldCardFloating.classList.add('hidden');
 
         if (this.pendingGameState) {
+            const oldState = this.gameState;
             this.gameState = this.pendingGameState;
             this.pendingGameState = null;
+            this.checkForNewPairs(oldState, this.gameState);
             this.renderGame();
         }
     }
@@ -2592,7 +2594,6 @@ class GolfGame {
 
                 if (!wasPaired && nowPaired) {
                     // New pair formed!
-                    console.log('[PAIR] New pair detected for', newPlayer.name, 'col', top, bottom, 'isLocal:', newPlayer.id === this.playerId);
                     setTimeout(() => {
                         this.firePairCelebration(newPlayer.id, top, bottom);
                     }, window.TIMING?.celebration?.pairDelay || 50);
