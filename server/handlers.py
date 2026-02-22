@@ -229,7 +229,7 @@ async def handle_start_game(data: dict, ctx: ConnectionContext, *, broadcast_gam
                     "game_state": game_state,
                 })
 
-        await check_and_run_cpu_turn(ctx.current_room)
+        check_and_run_cpu_turn(ctx.current_room)
 
 
 async def handle_flip_initial(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
@@ -240,7 +240,7 @@ async def handle_flip_initial(data: dict, ctx: ConnectionContext, *, broadcast_g
     async with ctx.current_room.game_lock:
         if ctx.current_room.game.flip_initial_cards(ctx.player_id, positions):
             await broadcast_game_state(ctx.current_room)
-            await check_and_run_cpu_turn(ctx.current_room)
+            check_and_run_cpu_turn(ctx.current_room)
 
 
 # ---------------------------------------------------------------------------
@@ -297,7 +297,7 @@ async def handle_swap(data: dict, ctx: ConnectionContext, *, broadcast_game_stat
 
             await broadcast_game_state(ctx.current_room)
             await asyncio.sleep(1.0)
-            await check_and_run_cpu_turn(ctx.current_room)
+            check_and_run_cpu_turn(ctx.current_room)
 
 
 async def handle_discard(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
@@ -329,12 +329,12 @@ async def handle_discard(data: dict, ctx: ConnectionContext, *, broadcast_game_s
                     })
                 else:
                     await asyncio.sleep(0.5)
-                    await check_and_run_cpu_turn(ctx.current_room)
+                    check_and_run_cpu_turn(ctx.current_room)
             else:
                 logger.debug("Player discarded, waiting 0.5s before CPU turn")
                 await asyncio.sleep(0.5)
                 logger.debug("Post-discard delay complete, checking for CPU turn")
-                await check_and_run_cpu_turn(ctx.current_room)
+                check_and_run_cpu_turn(ctx.current_room)
 
 
 async def handle_cancel_draw(data: dict, ctx: ConnectionContext, *, broadcast_game_state, **kw) -> None:
@@ -364,7 +364,7 @@ async def handle_flip_card(data: dict, ctx: ConnectionContext, *, broadcast_game
             )
 
         await broadcast_game_state(ctx.current_room)
-        await check_and_run_cpu_turn(ctx.current_room)
+        check_and_run_cpu_turn(ctx.current_room)
 
 
 async def handle_skip_flip(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
@@ -380,7 +380,7 @@ async def handle_skip_flip(data: dict, ctx: ConnectionContext, *, broadcast_game
             )
 
             await broadcast_game_state(ctx.current_room)
-            await check_and_run_cpu_turn(ctx.current_room)
+            check_and_run_cpu_turn(ctx.current_room)
 
 
 async def handle_flip_as_action(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
@@ -400,7 +400,7 @@ async def handle_flip_as_action(data: dict, ctx: ConnectionContext, *, broadcast
                 )
 
             await broadcast_game_state(ctx.current_room)
-            await check_and_run_cpu_turn(ctx.current_room)
+            check_and_run_cpu_turn(ctx.current_room)
 
 
 async def handle_knock_early(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
@@ -418,7 +418,7 @@ async def handle_knock_early(data: dict, ctx: ConnectionContext, *, broadcast_ga
                 )
 
             await broadcast_game_state(ctx.current_room)
-            await check_and_run_cpu_turn(ctx.current_room)
+            check_and_run_cpu_turn(ctx.current_room)
 
 
 async def handle_next_round(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
@@ -443,7 +443,7 @@ async def handle_next_round(data: dict, ctx: ConnectionContext, *, broadcast_gam
                         "game_state": game_state,
                     })
 
-            await check_and_run_cpu_turn(ctx.current_room)
+            check_and_run_cpu_turn(ctx.current_room)
         else:
             await broadcast_game_state(ctx.current_room)
 

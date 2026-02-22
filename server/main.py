@@ -705,30 +705,13 @@ async def broadcast_game_state(room: Room):
                 })
 
 
-async def check_and_run_cpu_turn(room: Room):
-    """Check if current player is CPU and run their turn.
+def check_and_run_cpu_turn(room: Room):
+    """Check if current player is CPU and start their turn as a background task.
 
-    If this is the outermost call (no CPU task running), creates a single
-    asyncio.Task that runs the entire chain of consecutive CPU turns.
-    This allows the task to be cancelled cleanly when the game ends.
+    The CPU turn chain runs as a fire-and-forget asyncio.Task stored on
+    room.cpu_turn_task. This allows the WebSocket message loop to remain
+    responsive so that end_game/leave messages can cancel the task immediately.
     """
-    # If already inside a CPU turn task, run directly (no nested tasks)
-    if room.cpu_turn_task is not None:
-        await _run_cpu_chain(room)
-        return
-
-    # Outermost call: wrap the chain in a cancellable task
-    room.cpu_turn_task = asyncio.create_task(_run_cpu_chain(room))
-    try:
-        await room.cpu_turn_task
-    except asyncio.CancelledError:
-        pass
-    finally:
-        room.cpu_turn_task = None
-
-
-async def _run_cpu_chain(room: Room):
-    """Run consecutive CPU turns until a human player's turn or game ends."""
     if room.game.phase not in (GamePhase.PLAYING, GamePhase.FINAL_TURN):
         return
 
@@ -740,17 +723,41 @@ async def _run_cpu_chain(room: Room):
     if not room_player or not room_player.is_cpu:
         return
 
-    # Brief pause before CPU starts - animations are faster now
-    await asyncio.sleep(0.25)
+    task = asyncio.create_task(_run_cpu_chain(room))
+    room.cpu_turn_task = task
 
-    # Run CPU turn
-    async def broadcast_cb():
-        await broadcast_game_state(room)
+    def _on_done(t: asyncio.Task):
+        # Clear the reference when the task finishes (success, cancel, or error)
+        if room.cpu_turn_task is t:
+            room.cpu_turn_task = None
+        if not t.cancelled() and t.exception():
+            logger.error(f"CPU turn task error in room {room.code}: {t.exception()}")
 
-    await process_cpu_turn(room.game, current, broadcast_cb, game_id=room.game_log_id)
+    task.add_done_callback(_on_done)
 
-    # Check if next player is also CPU (chain CPU turns)
-    await _run_cpu_chain(room)
+
+async def _run_cpu_chain(room: Room):
+    """Run consecutive CPU turns until a human player's turn or game ends."""
+    while True:
+        if room.game.phase not in (GamePhase.PLAYING, GamePhase.FINAL_TURN):
+            return
+
+        current = room.game.current_player()
+        if not current:
+            return
+
+        room_player = room.get_player(current.id)
+        if not room_player or not room_player.is_cpu:
+            return
+
+        # Brief pause before CPU starts - animations are faster now
+        await asyncio.sleep(0.25)
+
+        # Run CPU turn
+        async def broadcast_cb():
+            await broadcast_game_state(room)
+
+        await process_cpu_turn(room.game, current, broadcast_cb, game_id=room.game_log_id)
 
 
 async def handle_player_leave(room: Room, player_id: str):
