@@ -22,6 +22,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - POSTGRES_URL=postgresql://golf:${DB_PASSWORD}@postgres:5432/golf
+      - DATABASE_URL=postgresql://golf:${DB_PASSWORD}@postgres:5432/golf
       - REDIS_URL=redis://redis:6379
       - SECRET_KEY=${SECRET_KEY}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
@@ -30,21 +31,25 @@ services:
       - LOG_LEVEL=INFO
       - BASE_URL=${BASE_URL:-https://golf.example.com}
       - RATE_LIMIT_ENABLED=true
+      - INVITE_ONLY=true
+      - BOOTSTRAP_ADMIN_USERNAME=${BOOTSTRAP_ADMIN_USERNAME:-}
+      - BOOTSTRAP_ADMIN_PASSWORD=${BOOTSTRAP_ADMIN_PASSWORD:-}
+      - MATCHMAKING_ENABLED=true
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     deploy:
-      replicas: 2
+      replicas: 1
       restart_policy:
         condition: on-failure
         max_attempts: 3
       resources:
         limits:
-          memory: 512M
-        reservations:
           memory: 256M
+        reservations:
+          memory: 64M
     networks:
       - internal
       - web
@@ -77,13 +82,13 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 192M
         reservations:
-          memory: 256M
+          memory: 64M
 
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 32mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     healthcheck:
@@ -96,9 +101,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 192M
-        reservations:
           memory: 64M
+        reservations:
+          memory: 16M
 
   traefik:
     image: traefik:v2.10
@@ -125,7 +130,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 64M
 
 volumes:
   postgres_data:

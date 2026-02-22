@@ -204,6 +204,22 @@ BEGIN
                    WHERE table_name = 'player_stats' AND column_name = 'games_won_vs_humans') THEN
         ALTER TABLE player_stats ADD COLUMN games_won_vs_humans INT DEFAULT 0;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name = 'player_stats' AND column_name = 'rating') THEN
+        ALTER TABLE player_stats ADD COLUMN rating DECIMAL(7,2) DEFAULT 1500.0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name = 'player_stats' AND column_name = 'rating_deviation') THEN
+        ALTER TABLE player_stats ADD COLUMN rating_deviation DECIMAL(7,2) DEFAULT 350.0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name = 'player_stats' AND column_name = 'rating_volatility') THEN
+        ALTER TABLE player_stats ADD COLUMN rating_volatility DECIMAL(8,6) DEFAULT 0.06;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name = 'player_stats' AND column_name = 'rating_updated_at') THEN
+        ALTER TABLE player_stats ADD COLUMN rating_updated_at TIMESTAMPTZ;
+    END IF;
 END $$;
 
 -- Stats processing queue (for async stats processing)
@@ -265,9 +281,19 @@ CREATE TABLE IF NOT EXISTS system_metrics (
 );
 
 -- Leaderboard materialized view (refreshed periodically)
--- Note: Using DO block to handle case where view already exists
+-- Drop and recreate if missing rating column (v3.1.0 migration)
 DO $$
 BEGIN
+    IF EXISTS (SELECT 1 FROM pg_matviews WHERE matviewname = 'leaderboard_overall') THEN
+        -- Check if rating column exists in the view
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'leaderboard_overall' AND column_name = 'rating'
+        ) THEN
+            DROP MATERIALIZED VIEW leaderboard_overall;
+        END IF;
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM pg_matviews WHERE matviewname = 'leaderboard_overall') THEN
         EXECUTE '
             CREATE MATERIALIZED VIEW leaderboard_overall AS
@@ -282,6 +308,7 @@ BEGIN
                 s.best_score as best_round_score,
                 s.knockouts,
                 s.best_win_streak,
+                COALESCE(s.rating, 1500) as rating,
                 s.last_game_at
             FROM player_stats s
             JOIN users_v2 u ON s.user_id = u.id
@@ -348,6 +375,9 @@ BEGIN
         END IF;
         IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_leaderboard_overall_score') THEN
             CREATE INDEX idx_leaderboard_overall_score ON leaderboard_overall(avg_score ASC);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_leaderboard_overall_rating') THEN
+            CREATE INDEX idx_leaderboard_overall_rating ON leaderboard_overall(rating DESC);
         END IF;
     END IF;
 END $$;

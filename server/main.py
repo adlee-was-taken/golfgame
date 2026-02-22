@@ -59,6 +59,8 @@ _user_store = None
 _auth_service = None
 _admin_service = None
 _stats_service = None
+_rating_service = None
+_matchmaking_service = None
 _replay_service = None
 _spectator_manager = None
 _leaderboard_refresh_task = None
@@ -101,7 +103,7 @@ async def _init_redis():
 
 async def _init_database_services():
     """Initialize all PostgreSQL-dependent services."""
-    global _user_store, _auth_service, _admin_service, _stats_service
+    global _user_store, _auth_service, _admin_service, _stats_service, _rating_service, _matchmaking_service
     global _replay_service, _spectator_manager, _leaderboard_refresh_task
 
     from stores.user_store import get_user_store
@@ -109,7 +111,7 @@ async def _init_database_services():
     from services.auth_service import get_auth_service
     from services.admin_service import get_admin_service
     from services.stats_service import StatsService, set_stats_service
-    from routers.auth import set_auth_service
+    from routers.auth import set_auth_service, set_admin_service_for_auth
     from routers.admin import set_admin_service
     from routers.stats import set_stats_service as set_stats_router_service
     from routers.stats import set_auth_service as set_stats_auth_service
@@ -127,6 +129,7 @@ async def _init_database_services():
         state_cache=None,
     )
     set_admin_service(_admin_service)
+    set_admin_service_for_auth(_admin_service)
     logger.info("Admin services initialized")
 
     # Stats + event store
@@ -136,6 +139,23 @@ async def _init_database_services():
     set_stats_router_service(_stats_service)
     set_stats_auth_service(_auth_service)
     logger.info("Stats services initialized")
+
+    # Rating service (Glicko-2)
+    from services.rating_service import RatingService
+    _rating_service = RatingService(_user_store.pool)
+    logger.info("Rating service initialized")
+
+    # Matchmaking service
+    if config.MATCHMAKING_ENABLED:
+        from services.matchmaking import MatchmakingService, MatchmakingConfig
+        mm_config = MatchmakingConfig(
+            enabled=True,
+            min_players=config.MATCHMAKING_MIN_PLAYERS,
+            max_players=config.MATCHMAKING_MAX_PLAYERS,
+        )
+        _matchmaking_service = MatchmakingService(_redis_client, mm_config)
+        await _matchmaking_service.start(room_manager, broadcast_game_state)
+        logger.info("Matchmaking service initialized")
 
     # Game logger
     _game_logger = GameLogger(_event_store)
@@ -165,11 +185,55 @@ async def _init_database_services():
     logger.info("Leaderboard refresh task started")
 
 
+async def _bootstrap_admin():
+    """Create bootstrap admin user if no admins exist yet."""
+    import bcrypt
+    from models.user import UserRole
+
+    # Check if any admin already exists
+    existing = await _user_store.get_user_by_username(config.BOOTSTRAP_ADMIN_USERNAME)
+    if existing:
+        return
+
+    # Check if any admin exists at all
+    async with _user_store.pool.acquire() as conn:
+        admin_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM users_v2 WHERE role = 'admin' AND deleted_at IS NULL"
+        )
+        if admin_count > 0:
+            return
+
+    # Create the bootstrap admin
+    password_hash = bcrypt.hashpw(
+        config.BOOTSTRAP_ADMIN_PASSWORD.encode("utf-8"),
+        bcrypt.gensalt(),
+    ).decode("utf-8")
+
+    user = await _user_store.create_user(
+        username=config.BOOTSTRAP_ADMIN_USERNAME,
+        password_hash=password_hash,
+        role=UserRole.ADMIN,
+    )
+
+    if user:
+        logger.warning(
+            f"Bootstrap admin '{config.BOOTSTRAP_ADMIN_USERNAME}' created. "
+            "Change the password and remove BOOTSTRAP_ADMIN_* env vars."
+        )
+    else:
+        logger.error("Failed to create bootstrap admin user")
+
+
 async def _shutdown_services():
     """Gracefully shut down all services."""
     _shutdown_event.set()
 
     await _close_all_websockets()
+
+    # Stop matchmaking
+    if _matchmaking_service:
+        await _matchmaking_service.stop()
+        await _matchmaking_service.cleanup()
 
     # Clean up rooms and CPU profiles
     for room in list(room_manager.rooms.values()):
@@ -224,6 +288,10 @@ async def lifespan(app: FastAPI):
             raise
     else:
         logger.warning("POSTGRES_URL not configured - auth/admin/stats endpoints will not work")
+
+    # Bootstrap admin user if needed (for first-time setup with INVITE_ONLY)
+    if config.POSTGRES_URL and config.BOOTSTRAP_ADMIN_USERNAME and config.BOOTSTRAP_ADMIN_PASSWORD:
+        await _bootstrap_admin()
 
     # Set up health check dependencies
     from routers.health import set_health_dependencies
@@ -458,7 +526,7 @@ def count_user_games(user_id: str) -> int:
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
-    # Extract token from query param for optional authentication
+    # Extract token from query param for authentication
     token = websocket.query_params.get("token")
     authenticated_user = None
     if token and _auth_service:
@@ -466,6 +534,12 @@ async def websocket_endpoint(websocket: WebSocket):
             authenticated_user = await _auth_service.get_user_from_token(token)
         except Exception as e:
             logger.debug(f"WebSocket auth failed: {e}")
+
+    # Reject unauthenticated connections when invite-only
+    if config.INVITE_ONLY and not authenticated_user:
+        await websocket.send_json({"type": "error", "message": "Authentication required. Please log in."})
+        await websocket.close(code=4001, reason="Authentication required")
+        return
 
     connection_id = str(uuid.uuid4())
     auth_user_id = str(authenticated_user.id) if authenticated_user else None
@@ -492,6 +566,8 @@ async def websocket_endpoint(websocket: WebSocket):
         check_and_run_cpu_turn=check_and_run_cpu_turn,
         handle_player_leave=handle_player_leave,
         cleanup_room_profiles=cleanup_room_profiles,
+        matchmaking_service=_matchmaking_service,
+        rating_service=_rating_service,
     )
 
     try:
@@ -534,6 +610,23 @@ async def _process_stats_safe(room: Room):
             game_options=room.game.options,
         )
         logger.debug(f"Stats processed for room {room.code}")
+
+        # Update Glicko-2 ratings for human players
+        if _rating_service:
+            player_results = []
+            for game_player in room.game.players:
+                if game_player.id in player_user_ids:
+                    player_results.append((
+                        player_user_ids[game_player.id],
+                        game_player.total_score,
+                    ))
+
+            if len(player_results) >= 2:
+                await _rating_service.update_ratings(
+                    player_results=player_results,
+                    is_standard_rules=room.game.options.is_standard_rules(),
+                )
+
     except Exception as e:
         logger.error(f"Failed to process game stats: {e}")
 

@@ -26,6 +26,7 @@ class LeaderboardComponent {
             avg_score: 'Avg Score',
             knockouts: 'Knockouts',
             streak: 'Best Streak',
+            rating: 'Rating',
         };
 
         this.metricFormats = {
@@ -34,6 +35,7 @@ class LeaderboardComponent {
             avg_score: (v) => v.toFixed(1),
             knockouts: (v) => v.toLocaleString(),
             streak: (v) => v.toLocaleString(),
+            rating: (v) => Math.round(v).toLocaleString(),
         };
 
         this.init();

@@ -145,8 +145,17 @@ class ServerConfig:
 
     # Security (for future auth system)
     SECRET_KEY: str = ""
-    INVITE_ONLY: bool = False
+    INVITE_ONLY: bool = True
+
+    # Bootstrap admin (for first-time setup when INVITE_ONLY=true)
+    BOOTSTRAP_ADMIN_USERNAME: str = ""
+    BOOTSTRAP_ADMIN_PASSWORD: str = ""
     ADMIN_EMAILS: list[str] = field(default_factory=list)
+
+    # Matchmaking
+    MATCHMAKING_ENABLED: bool = True
+    MATCHMAKING_MIN_PLAYERS: int = 2
+    MATCHMAKING_MAX_PLAYERS: int = 4
 
     # Rate limiting
     RATE_LIMIT_ENABLED: bool = True
@@ -184,7 +193,12 @@ class ServerConfig:
             ROOM_TIMEOUT_MINUTES=get_env_int("ROOM_TIMEOUT_MINUTES", 60),
             ROOM_CODE_LENGTH=get_env_int("ROOM_CODE_LENGTH", 4),
             SECRET_KEY=get_env("SECRET_KEY", ""),
-            INVITE_ONLY=get_env_bool("INVITE_ONLY", False),
+            INVITE_ONLY=get_env_bool("INVITE_ONLY", True),
+            BOOTSTRAP_ADMIN_USERNAME=get_env("BOOTSTRAP_ADMIN_USERNAME", ""),
+            BOOTSTRAP_ADMIN_PASSWORD=get_env("BOOTSTRAP_ADMIN_PASSWORD", ""),
+            MATCHMAKING_ENABLED=get_env_bool("MATCHMAKING_ENABLED", True),
+            MATCHMAKING_MIN_PLAYERS=get_env_int("MATCHMAKING_MIN_PLAYERS", 2),
+            MATCHMAKING_MAX_PLAYERS=get_env_int("MATCHMAKING_MAX_PLAYERS", 4),
             ADMIN_EMAILS=admin_emails,
             RATE_LIMIT_ENABLED=get_env_bool("RATE_LIMIT_ENABLED", True),
             SENTRY_DSN=get_env("SENTRY_DSN", ""),

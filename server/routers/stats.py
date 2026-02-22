@@ -155,7 +155,7 @@ async def require_user(
 
 @router.get("/leaderboard", response_model=LeaderboardResponse)
 async def get_leaderboard(
-    metric: str = Query("wins", pattern="^(wins|win_rate|avg_score|knockouts|streak)$"),
+    metric: str = Query("wins", pattern="^(wins|win_rate|avg_score|knockouts|streak|rating)$"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     service: StatsService = Depends(get_stats_service_dep),
@@ -226,7 +226,7 @@ async def get_player_stats(
 @router.get("/players/{user_id}/rank", response_model=PlayerRankResponse)
 async def get_player_rank(
     user_id: str,
-    metric: str = Query("wins", pattern="^(wins|win_rate|avg_score|knockouts|streak)$"),
+    metric: str = Query("wins", pattern="^(wins|win_rate|avg_score|knockouts|streak|rating)$"),
     service: StatsService = Depends(get_stats_service_dep),
 ):
     """Get player's rank on a leaderboard."""
@@ -346,7 +346,7 @@ async def get_my_stats(
 
 @router.get("/me/rank", response_model=PlayerRankResponse)
 async def get_my_rank(
-    metric: str = Query("wins", pattern="^(wins|win_rate|avg_score|knockouts|streak)$"),
+    metric: str = Query("wins", pattern="^(wins|win_rate|avg_score|knockouts|streak|rating)$"),
     user: User = Depends(require_user),
     service: StatsService = Depends(get_stats_service_dep),
 ):

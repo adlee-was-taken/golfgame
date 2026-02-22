@@ -37,6 +37,8 @@ class PlayerStats:
     wolfpacks: int = 0
     current_win_streak: int = 0
     best_win_streak: int = 0
+    rating: float = 1500.0
+    rating_deviation: float = 350.0
     first_game_at: Optional[datetime] = None
     last_game_at: Optional[datetime] = None
     achievements: List[str] = field(default_factory=list)
@@ -156,6 +158,8 @@ class StatsService:
                 wolfpacks=row["wolfpacks"] or 0,
                 current_win_streak=row["current_win_streak"] or 0,
                 best_win_streak=row["best_win_streak"] or 0,
+                rating=float(row["rating"]) if row.get("rating") else 1500.0,
+                rating_deviation=float(row["rating_deviation"]) if row.get("rating_deviation") else 350.0,
                 first_game_at=row["first_game_at"].replace(tzinfo=timezone.utc) if row["first_game_at"] else None,
                 last_game_at=row["last_game_at"].replace(tzinfo=timezone.utc) if row["last_game_at"] else None,
                 achievements=[a["achievement_id"] for a in achievements],
@@ -184,6 +188,7 @@ class StatsService:
             "avg_score": ("avg_score", "ASC"),  # Lower is better
             "knockouts": ("knockouts", "DESC"),
             "streak": ("best_win_streak", "DESC"),
+            "rating": ("rating", "DESC"),
         }
 
         if metric not in order_map:
@@ -203,6 +208,7 @@ class StatsService:
                     SELECT
                         user_id, username, games_played, games_won,
                         win_rate, avg_score, knockouts, best_win_streak,
+                        COALESCE(rating, 1500) as rating,
                         ROW_NUMBER() OVER (ORDER BY {column} {direction}) as rank
                     FROM leaderboard_overall
                     ORDER BY {column} {direction}
@@ -216,6 +222,7 @@ class StatsService:
                         ROUND(s.games_won::numeric / NULLIF(s.games_played, 0) * 100, 1) as win_rate,
                         ROUND(s.total_points::numeric / NULLIF(s.total_rounds, 0), 1) as avg_score,
                         s.knockouts, s.best_win_streak,
+                        COALESCE(s.rating, 1500) as rating,
                         ROW_NUMBER() OVER (ORDER BY {column} {direction}) as rank
                     FROM player_stats s
                     JOIN users_v2 u ON s.user_id = u.id

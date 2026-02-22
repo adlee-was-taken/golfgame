@@ -12,6 +12,7 @@ from typing import Optional
 
 from fastapi import WebSocket
 
+from config import config
 from game import GamePhase, GameOptions
 from ai import GolfAI, get_all_profiles
 from room import Room
@@ -53,6 +54,10 @@ def log_human_action(room: Room, player, action: str, card=None, position=None, 
 # ---------------------------------------------------------------------------
 
 async def handle_create_room(data: dict, ctx: ConnectionContext, *, room_manager, count_user_games, max_concurrent, **kw) -> None:
+    if config.INVITE_ONLY and not ctx.authenticated_user:
+        await ctx.websocket.send_json({"type": "error", "message": "You must be logged in to play"})
+        return
+
     if ctx.auth_user_id and count_user_games(ctx.auth_user_id) >= max_concurrent:
         await ctx.websocket.send_json({
             "type": "error",
@@ -60,9 +65,8 @@ async def handle_create_room(data: dict, ctx: ConnectionContext, *, room_manager
         })
         return
 
-    player_name = data.get("player_name", "Player")
-    if ctx.authenticated_user and ctx.authenticated_user.display_name:
-        player_name = ctx.authenticated_user.display_name
+    # Use authenticated username as player name
+    player_name = ctx.authenticated_user.username if ctx.authenticated_user else data.get("player_name", "Player")
     room = room_manager.create_room()
     room.add_player(ctx.player_id, player_name, ctx.websocket, ctx.auth_user_id)
     ctx.current_room = room
@@ -81,8 +85,13 @@ async def handle_create_room(data: dict, ctx: ConnectionContext, *, room_manager
 
 
 async def handle_join_room(data: dict, ctx: ConnectionContext, *, room_manager, count_user_games, max_concurrent, **kw) -> None:
+    if config.INVITE_ONLY and not ctx.authenticated_user:
+        await ctx.websocket.send_json({"type": "error", "message": "You must be logged in to play"})
+        return
+
     room_code = data.get("room_code", "").upper()
-    player_name = data.get("player_name", "Player")
+    # Use authenticated username as player name
+    player_name = ctx.authenticated_user.username if ctx.authenticated_user else data.get("player_name", "Player")
 
     if ctx.auth_user_id and count_user_games(ctx.auth_user_id) >= max_concurrent:
         await ctx.websocket.send_json({
@@ -104,8 +113,6 @@ async def handle_join_room(data: dict, ctx: ConnectionContext, *, room_manager, 
         await ctx.websocket.send_json({"type": "error", "message": "Game already in progress"})
         return
 
-    if ctx.authenticated_user and ctx.authenticated_user.display_name:
-        player_name = ctx.authenticated_user.display_name
     room.add_player(ctx.player_id, player_name, ctx.websocket, ctx.auth_user_id)
     ctx.current_room = room
 
@@ -483,6 +490,65 @@ async def handle_end_game(data: dict, ctx: ConnectionContext, *, room_manager, c
 # Handler dispatch table
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Matchmaking handlers
+# ---------------------------------------------------------------------------
+
+async def handle_queue_join(data: dict, ctx: ConnectionContext, *, matchmaking_service=None, rating_service=None, **kw) -> None:
+    if not matchmaking_service:
+        await ctx.websocket.send_json({"type": "error", "message": "Matchmaking not available"})
+        return
+
+    if not ctx.authenticated_user:
+        await ctx.websocket.send_json({"type": "error", "message": "You must be logged in to find a game"})
+        return
+
+    # Get player's rating
+    rating = 1500.0
+    if rating_service:
+        try:
+            player_rating = await rating_service.get_rating(ctx.auth_user_id)
+            rating = player_rating.rating
+        except Exception:
+            pass
+
+    status = await matchmaking_service.join_queue(
+        user_id=ctx.auth_user_id,
+        username=ctx.authenticated_user.username,
+        rating=rating,
+        websocket=ctx.websocket,
+        connection_id=ctx.connection_id,
+    )
+
+    await ctx.websocket.send_json({
+        "type": "queue_joined",
+        **status,
+    })
+
+
+async def handle_queue_leave(data: dict, ctx: ConnectionContext, *, matchmaking_service=None, **kw) -> None:
+    if not matchmaking_service or not ctx.auth_user_id:
+        return
+
+    removed = await matchmaking_service.leave_queue(ctx.auth_user_id)
+    await ctx.websocket.send_json({
+        "type": "queue_left",
+        "was_queued": removed,
+    })
+
+
+async def handle_queue_status(data: dict, ctx: ConnectionContext, *, matchmaking_service=None, **kw) -> None:
+    if not matchmaking_service or not ctx.auth_user_id:
+        await ctx.websocket.send_json({"type": "queue_status", "in_queue": False})
+        return
+
+    status = await matchmaking_service.get_queue_status(ctx.auth_user_id)
+    await ctx.websocket.send_json({
+        "type": "queue_status",
+        **status,
+    })
+
+
 HANDLERS = {
     "create_room": handle_create_room,
     "join_room": handle_join_room,
@@ -503,4 +569,7 @@ HANDLERS = {
     "leave_room": handle_leave_room,
     "leave_game": handle_leave_game,
     "end_game": handle_end_game,
+    "queue_join": handle_queue_join,
+    "queue_leave": handle_queue_leave,
+    "queue_status": handle_queue_status,
 }

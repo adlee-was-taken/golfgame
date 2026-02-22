@@ -79,8 +79,7 @@ class GolfGame {
         const roomCode = params.get('room');
         if (roomCode) {
             this.roomCodeInput.value = roomCode.toUpperCase();
-            // Focus name input so user can quickly enter name and join
-            this.playerNameInput.focus();
+            this.roomCodeInput.focus();
             // Clean up URL without reloading
             window.history.replaceState({}, '', window.location.pathname);
         }
@@ -367,15 +366,23 @@ class GolfGame {
     initElements() {
         // Screens
         this.lobbyScreen = document.getElementById('lobby-screen');
+        this.matchmakingScreen = document.getElementById('matchmaking-screen');
         this.waitingScreen = document.getElementById('waiting-screen');
         this.gameScreen = document.getElementById('game-screen');
 
         // Lobby elements
-        this.playerNameInput = document.getElementById('player-name');
         this.roomCodeInput = document.getElementById('room-code');
+        this.findGameBtn = document.getElementById('find-game-btn');
         this.createRoomBtn = document.getElementById('create-room-btn');
         this.joinRoomBtn = document.getElementById('join-room-btn');
         this.lobbyError = document.getElementById('lobby-error');
+
+        // Matchmaking elements
+        this.matchmakingStatus = document.getElementById('matchmaking-status');
+        this.matchmakingTime = document.getElementById('matchmaking-time');
+        this.matchmakingQueueInfo = document.getElementById('matchmaking-queue-info');
+        this.cancelMatchmakingBtn = document.getElementById('cancel-matchmaking-btn');
+        this.matchmakingTimer = null;
 
         // Waiting room elements
         this.displayRoomCode = document.getElementById('display-room-code');
@@ -470,6 +477,8 @@ class GolfGame {
     }
 
     bindEvents() {
+        this.findGameBtn?.addEventListener('click', () => { this.playSound('click'); this.findGame(); });
+        this.cancelMatchmakingBtn?.addEventListener('click', () => { this.playSound('click'); this.cancelMatchmaking(); });
         this.createRoomBtn.addEventListener('click', () => { this.playSound('click'); this.createRoom(); });
         this.joinRoomBtn.addEventListener('click', () => { this.playSound('click'); this.joinRoom(); });
         this.startGameBtn.addEventListener('click', () => { this.playSound('success'); this.startGame(); });
@@ -502,9 +511,6 @@ class GolfGame {
         });
 
         // Enter key handlers
-        this.playerNameInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.createRoomBtn.click();
-        });
         this.roomCodeInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.joinRoomBtn.click();
         });
@@ -612,7 +618,13 @@ class GolfGame {
     connect() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host || 'localhost:8000';
-        const wsUrl = `${protocol}//${host}/ws`;
+        let wsUrl = `${protocol}//${host}/ws`;
+
+        // Attach auth token if available
+        const token = this.authManager?.token;
+        if (token) {
+            wsUrl += `?token=${encodeURIComponent(token)}`;
+        }
 
         this.ws = new WebSocket(wsUrl);
 
@@ -634,6 +646,14 @@ class GolfGame {
             console.error('WebSocket error:', error);
             this.showError('Connection error. Please try again.');
         };
+    }
+
+    reconnect() {
+        if (this.ws) {
+            this.ws.onclose = null; // Prevent error message on intentional close
+            this.ws.close();
+        }
+        this.connect();
     }
 
     send(message) {
@@ -682,6 +702,7 @@ class GolfGame {
             case 'round_started':
                 // Clear any countdown from previous hole
                 this.clearNextHoleCountdown();
+                this.dismissScoresheetModal();
                 this.nextRoundBtn.classList.remove('waiting');
                 // Clear round winner highlights
                 this.roundWinnerNames = new Set();
@@ -867,15 +888,80 @@ class GolfGame {
                 }
                 break;
 
+            case 'queue_joined':
+                this.showScreen('matchmaking');
+                this.startMatchmakingTimer();
+                this.updateMatchmakingStatus(data);
+                break;
+
+            case 'queue_status':
+                this.updateMatchmakingStatus(data);
+                break;
+
+            case 'queue_matched':
+                this.stopMatchmakingTimer();
+                if (this.matchmakingStatus) {
+                    this.matchmakingStatus.textContent = 'Match found!';
+                }
+                break;
+
+            case 'queue_left':
+                this.stopMatchmakingTimer();
+                this.showScreen('lobby');
+                break;
+
             case 'error':
                 this.showError(data.message);
                 break;
         }
     }
 
+    // Matchmaking
+    findGame() {
+        this.connect();
+        this.ws.onopen = () => {
+            this.send({ type: 'queue_join' });
+        };
+    }
+
+    cancelMatchmaking() {
+        this.send({ type: 'queue_leave' });
+        this.stopMatchmakingTimer();
+        this.showScreen('lobby');
+    }
+
+    startMatchmakingTimer() {
+        this.matchmakingStartTime = Date.now();
+        this.stopMatchmakingTimer();
+        this.matchmakingTimer = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - this.matchmakingStartTime) / 1000);
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+            if (this.matchmakingTime) {
+                this.matchmakingTime.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+        }, 1000);
+    }
+
+    stopMatchmakingTimer() {
+        if (this.matchmakingTimer) {
+            clearInterval(this.matchmakingTimer);
+            this.matchmakingTimer = null;
+        }
+    }
+
+    updateMatchmakingStatus(data) {
+        if (this.matchmakingQueueInfo) {
+            const parts = [];
+            if (data.queue_size) parts.push(`${data.queue_size} player${data.queue_size !== 1 ? 's' : ''} in queue`);
+            if (data.position) parts.push(`Position: #${data.position}`);
+            this.matchmakingQueueInfo.textContent = parts.join(' \u2022 ');
+        }
+    }
+
     // Room Actions
     createRoom() {
-        const name = this.playerNameInput.value.trim() || 'Player';
+        const name = this.authManager?.user?.username || 'Player';
         this.connect();
         this.ws.onopen = () => {
             this.send({ type: 'create_room', player_name: name });
@@ -883,7 +969,7 @@ class GolfGame {
     }
 
     joinRoom() {
-        const name = this.playerNameInput.value.trim() || 'Player';
+        const name = this.authManager?.user?.username || 'Player';
         const code = this.roomCodeInput.value.trim().toUpperCase();
 
         if (code.length !== 4) {
@@ -1509,20 +1595,260 @@ class GolfGame {
     }
 
     showKnockBanner(playerName) {
-        const banner = document.createElement('div');
-        banner.className = 'knock-banner';
-        banner.innerHTML = `<span>${playerName ? playerName + ' knocked!' : 'KNOCK!'}</span>`;
-        document.body.appendChild(banner);
+        const duration = window.TIMING?.knock?.statusDuration || 2500;
+        const message = playerName ? `${playerName} KNOCKED!` : 'KNOCK!';
 
+        this.setStatus(message, 'knock');
         document.body.classList.add('screen-shake');
 
         setTimeout(() => {
-            banner.classList.add('fading');
             document.body.classList.remove('screen-shake');
-        }, 800);
-        setTimeout(() => {
-            banner.remove();
-        }, 1100);
+        }, 300);
+
+        // Restore normal status after duration
+        this._knockStatusTimeout = setTimeout(() => {
+            // Only clear if still showing knock status
+            if (this.statusMessage.classList.contains('knock')) {
+                this.setStatus('Final turn!', 'opponent-turn');
+            }
+        }, duration);
+    }
+
+    // --- V3_17: Scoresheet Modal ---
+
+    showScoresheetModal(scores, gameState, rankings) {
+        // Remove existing modal if any
+        const existing = document.getElementById('scoresheet-modal');
+        if (existing) existing.remove();
+
+        // Also update side panel data (silently)
+        this.showScoreboard(scores, false, rankings);
+
+        const cardValues = gameState?.card_values || this.getDefaultCardValues();
+        const scoringRules = gameState?.scoring_rules || {};
+        const knockerId = gameState?.finisher_id;
+        const currentRound = gameState?.current_round || '?';
+        const totalRounds = gameState?.total_rounds || '?';
+
+        // Find round winner(s)
+        const roundScores = scores.map(s => s.score);
+        const minRoundScore = Math.min(...roundScores);
+
+        // Build player rows - knocker first, then others
+        const ordered = [...gameState.players].sort((a, b) => {
+            if (a.id === knockerId) return -1;
+            if (b.id === knockerId) return 1;
+            return 0;
+        });
+
+        const playerRowsHtml = ordered.map(player => {
+            const scoreData = scores.find(s => s.name === player.name) || {};
+            const result = this.calculateColumnScores(player.cards, cardValues, scoringRules, false);
+            const isKnocker = player.id === knockerId;
+            const isLowScore = scoreData.score === minRoundScore;
+            const colIndices = [[0, 3], [1, 4], [2, 5]];
+
+            // Badge
+            let badge = '';
+            if (isKnocker) badge = '<span class="ss-badge ss-badge-knock">KNOCKED</span>';
+            else if (isLowScore) badge = '<span class="ss-badge ss-badge-low">LOW SCORE</span>';
+
+            // Build columns
+            const columnsHtml = colIndices.map((indices, c) => {
+                const col = result.columns[c];
+                const topCard = player.cards[indices[0]];
+                const bottomCard = player.cards[indices[1]];
+                const isPair = col.isPair;
+
+                const topMini = this.renderMiniCard(topCard, isPair);
+                const bottomMini = this.renderMiniCard(bottomCard, isPair);
+
+                let colScore;
+                if (isPair) {
+                    const pairLabel = col.pairValue !== 0 ? `PAIR ${col.pairValue}` : 'PAIR 0';
+                    colScore = `<div class="ss-col-score ss-pair">${pairLabel}</div>`;
+                } else {
+                    const val = col.topValue + col.bottomValue;
+                    const cls = val < 0 ? 'ss-negative' : '';
+                    colScore = `<div class="ss-col-score ${cls}">${val >= 0 ? '+' + val : val}</div>`;
+                }
+
+                return `<div class="ss-column${isPair ? ' ss-column-paired' : ''}">
+                    ${topMini}${bottomMini}
+                    ${colScore}
+                </div>`;
+            }).join('');
+
+            // Bonuses
+            let bonusHtml = '';
+            if (result.bonuses.length > 0) {
+                bonusHtml = result.bonuses.map(b => {
+                    const label = b.type === 'wolfpack' ? 'WOLFPACK' : 'FOUR OF A KIND';
+                    return `<span class="ss-bonus">${label} ${b.value}</span>`;
+                }).join(' ');
+            }
+
+            const roundScore = scoreData.score !== undefined ? scoreData.score : '-';
+            const totalScore = scoreData.total !== undefined ? scoreData.total : '-';
+
+            return `<div class="ss-player-row">
+                <div class="ss-player-header">
+                    <span class="ss-player-name">${player.name}</span>
+                    ${badge}
+                </div>
+                <div class="ss-columns">${columnsHtml}</div>
+                ${bonusHtml ? `<div class="ss-bonuses">${bonusHtml}</div>` : ''}
+                <div class="ss-scores">
+                    <span>Hole: <strong>${roundScore}</strong></span>
+                    <span>Total: <strong>${totalScore}</strong></span>
+                </div>
+            </div>`;
+        }).join('');
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'scoresheet-modal';
+        modal.className = 'scoresheet-modal';
+        modal.innerHTML = `
+            <div class="scoresheet-content">
+                <div class="ss-header">Hole ${currentRound} of ${totalRounds}</div>
+                <div class="ss-players">${playerRowsHtml}</div>
+                <button class="btn btn-primary ss-next-btn" id="ss-next-btn">Next Hole</button>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        this.setStatus('Hole complete');
+
+        // Bind next button
+        const nextBtn = document.getElementById('ss-next-btn');
+        nextBtn.addEventListener('click', () => {
+            this.playSound('click');
+            this.dismissScoresheetModal();
+            this.nextRound();
+        });
+
+        // Start countdown
+        this.startScoresheetCountdown(nextBtn);
+
+        // Animate entrance
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            this.animateScoresheetEntrance(modal);
+        }
+    }
+
+    renderMiniCard(card, isPaired) {
+        if (!card || !card.rank) return '<div class="ss-mini-card ss-mini-back"></div>';
+
+        const suit = card.suit;
+        const isRed = suit === 'hearts' || suit === 'diamonds';
+        const symbol = this.getSuitSymbol(suit);
+        const rank = card.rank === '★' ? '★' : card.rank;
+        const classes = [
+            'ss-mini-card',
+            isRed ? 'ss-red' : 'ss-black',
+            isPaired ? 'ss-mini-paired' : ''
+        ].filter(Boolean).join(' ');
+
+        return `<div class="${classes}">${rank}${symbol}</div>`;
+    }
+
+    animateScoresheetEntrance(modal) {
+        const T = window.TIMING?.scoresheet || {};
+        const playerRows = modal.querySelectorAll('.ss-player-row');
+        const nextBtn = modal.querySelector('.ss-next-btn');
+
+        // Start everything hidden
+        playerRows.forEach(row => {
+            row.style.opacity = '0';
+            row.style.transform = 'translateY(10px)';
+        });
+        if (nextBtn) {
+            nextBtn.style.opacity = '0';
+        }
+
+        // Stagger player rows in
+        if (window.anime) {
+            anime({
+                targets: Array.from(playerRows),
+                opacity: [0, 1],
+                translateY: [10, 0],
+                delay: anime.stagger(T.playerStagger || 150),
+                duration: 300,
+                easing: 'easeOutCubic',
+                complete: () => {
+                    // Animate paired columns glow
+                    setTimeout(() => {
+                        modal.querySelectorAll('.ss-column-paired').forEach(col => {
+                            col.classList.add('ss-pair-glow');
+                        });
+                    }, T.pairGlowDelay || 200);
+                }
+            });
+
+            // Fade in button after rows
+            const totalRowDelay = (playerRows.length - 1) * (T.playerStagger || 150) + 300;
+            anime({
+                targets: nextBtn,
+                opacity: [0, 1],
+                delay: totalRowDelay,
+                duration: 200,
+                easing: 'easeOutCubic',
+            });
+        } else {
+            // No anime.js - show immediately
+            playerRows.forEach(row => {
+                row.style.opacity = '1';
+                row.style.transform = '';
+            });
+            if (nextBtn) nextBtn.style.opacity = '1';
+        }
+    }
+
+    startScoresheetCountdown(btn) {
+        this.clearScoresheetCountdown();
+        const COUNTDOWN_SECONDS = 15;
+        let remaining = COUNTDOWN_SECONDS;
+
+        const update = () => {
+            if (this.isHost) {
+                btn.textContent = `Next Hole (${remaining}s)`;
+                btn.disabled = false;
+            } else {
+                btn.textContent = `Next hole in ${remaining}s...`;
+                btn.disabled = true;
+            }
+        };
+
+        update();
+
+        this.scoresheetCountdownInterval = setInterval(() => {
+            remaining--;
+            if (remaining <= 0) {
+                this.clearScoresheetCountdown();
+                if (this.isHost) {
+                    this.dismissScoresheetModal();
+                    this.nextRound();
+                } else {
+                    btn.textContent = 'Waiting for host...';
+                }
+            } else {
+                update();
+            }
+        }, 1000);
+    }
+
+    clearScoresheetCountdown() {
+        if (this.scoresheetCountdownInterval) {
+            clearInterval(this.scoresheetCountdownInterval);
+            this.scoresheetCountdownInterval = null;
+        }
+    }
+
+    dismissScoresheetModal() {
+        this.clearScoresheetCountdown();
+        const modal = document.getElementById('scoresheet-modal');
+        if (modal) modal.remove();
     }
 
     // --- V3_02: Dealing Animation ---
@@ -1641,8 +1967,8 @@ class GolfGame {
         const newState = this.postRevealState || this.gameState;
 
         if (!oldState || !newState) {
-            // Fallback: show scoreboard immediately
-            this.showScoreboard(scores, false, rankings);
+            // Fallback: show scoresheet immediately
+            this.showScoresheetModal(scores, this.gameState, rankings);
             return;
         }
 
@@ -1687,18 +2013,14 @@ class GolfGame {
             this.highlightPlayerArea(player.id, false);
         }
 
-        // All revealed - run score tally before showing scoreboard
+        // All revealed - show scoresheet modal
         this.revealAnimationInProgress = false;
         this.preRevealState = null;
         this.postRevealState = null;
         this.renderGame();
 
-        // V3_07: Animated score tallying
-        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            await this.runScoreTally(newState.players, knockerId);
-        }
-
-        this.showScoreboard(scores, false, rankings);
+        // V3_17: Scoresheet modal replaces tally + side panel scoreboard
+        this.showScoresheetModal(scores, newState, rankings);
     }
 
     getCardsToReveal(oldState, newState) {
@@ -2558,6 +2880,7 @@ class GolfGame {
 
     nextRound() {
         this.clearNextHoleCountdown();
+        this.clearScoresheetCountdown();
         this.send({ type: 'next_round' });
         this.gameButtons.classList.add('hidden');
         this.nextRoundBtn.classList.remove('waiting');
@@ -2585,7 +2908,19 @@ class GolfGame {
 
     // UI Helpers
     showScreen(screen) {
+        // Accept string names or DOM elements
+        if (typeof screen === 'string') {
+            const screenMap = {
+                'lobby': this.lobbyScreen,
+                'matchmaking': this.matchmakingScreen,
+                'waiting': this.waitingScreen,
+                'game': this.gameScreen,
+            };
+            screen = screenMap[screen] || screen;
+        }
+
         this.lobbyScreen.classList.remove('active');
+        this.matchmakingScreen?.classList.remove('active');
         this.waitingScreen.classList.remove('active');
         this.gameScreen.classList.remove('active');
         if (this.rulesScreen) {
@@ -3873,13 +4208,8 @@ class GolfGame {
             return;
         }
 
-        // Show game buttons
-        this.gameButtons.classList.remove('hidden');
-        this.newGameBtn.classList.add('hidden');
-        this.nextRoundBtn.classList.remove('hidden');
-
-        // Start countdown for next hole
-        this.startNextHoleCountdown();
+        // V3_17: Scoresheet modal handles Next Hole button/countdown now
+        // Side panel just updates data silently
     }
 
     startNextHoleCountdown() {
@@ -4144,13 +4474,32 @@ class AuthManager {
         this.initElements();
         this.bindEvents();
         this.updateUI();
+
+        // Validate stored token on load
+        if (this.token) {
+            this.validateToken();
+        }
+    }
+
+    async validateToken() {
+        try {
+            const response = await fetch('/api/auth/me', {
+                headers: { 'Authorization': `Bearer ${this.token}` },
+            });
+            if (!response.ok) {
+                this.logout();
+            }
+        } catch {
+            // Network error - keep token, will fail on next action
+        }
     }
 
     initElements() {
         this.authBar = document.getElementById('auth-bar');
         this.authUsername = document.getElementById('auth-username');
         this.logoutBtn = document.getElementById('auth-logout-btn');
-        this.authButtons = document.getElementById('auth-buttons');
+        this.authPrompt = document.getElementById('auth-prompt');
+        this.lobbyGameControls = document.getElementById('lobby-game-controls');
         this.loginBtn = document.getElementById('login-btn');
         this.signupBtn = document.getElementById('signup-btn');
         this.modal = document.getElementById('auth-modal');
@@ -4162,6 +4511,7 @@ class AuthManager {
         this.loginError = document.getElementById('login-error');
         this.signupFormContainer = document.getElementById('signup-form-container');
         this.signupForm = document.getElementById('signup-form');
+        this.signupInviteCode = document.getElementById('signup-invite-code');
         this.signupUsername = document.getElementById('signup-username');
         this.signupEmail = document.getElementById('signup-email');
         this.signupPassword = document.getElementById('signup-password');
@@ -4247,10 +4597,6 @@ class AuthManager {
 
             this.setAuth(data.token, data.user);
             this.hideModal();
-
-            if (data.user.username && this.game.playerNameInput) {
-                this.game.playerNameInput.value = data.user.username;
-            }
         } catch (err) {
             this.loginError.textContent = 'Connection error';
         }
@@ -4260,6 +4606,7 @@ class AuthManager {
         e.preventDefault();
         this.clearErrors();
 
+        const invite_code = this.signupInviteCode?.value.trim() || null;
         const username = this.signupUsername.value.trim();
         const email = this.signupEmail.value.trim() || null;
         const password = this.signupPassword.value;
@@ -4268,7 +4615,7 @@ class AuthManager {
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password }),
+                body: JSON.stringify({ invite_code, username, email, password }),
             });
 
             const data = await response.json();
@@ -4280,10 +4627,6 @@ class AuthManager {
 
             this.setAuth(data.token, data.user);
             this.hideModal();
-
-            if (data.user.username && this.game.playerNameInput) {
-                this.game.playerNameInput.value = data.user.username;
-            }
         } catch (err) {
             this.signupError.textContent = 'Connection error';
         }
@@ -4308,16 +4651,15 @@ class AuthManager {
     updateUI() {
         if (this.user) {
             this.authBar?.classList.remove('hidden');
-            this.authButtons?.classList.add('hidden');
+            this.authPrompt?.classList.add('hidden');
+            this.lobbyGameControls?.classList.remove('hidden');
             if (this.authUsername) {
                 this.authUsername.textContent = this.user.username;
             }
-            if (this.game.playerNameInput && !this.game.playerNameInput.value) {
-                this.game.playerNameInput.value = this.user.username;
-            }
         } else {
             this.authBar?.classList.add('hidden');
-            this.authButtons?.classList.remove('hidden');
+            this.authPrompt?.classList.remove('hidden');
+            this.lobbyGameControls?.classList.add('hidden');
         }
     }
 }

@@ -3299,15 +3299,26 @@ input::placeholder {
     display: none;
 }
 
-/* Auth buttons in lobby */
-.auth-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-bottom: 20px;
+/* Auth prompt in lobby (shown when not logged in) */
+.auth-prompt {
+    text-align: center;
+    margin: 20px 0;
+    padding: 20px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
 }
 
-.auth-buttons.hidden {
+.auth-prompt p {
+    margin-bottom: 15px;
+    color: #ccc;
+    font-size: 1.1em;
+}
+
+.auth-prompt .button-group {
+    justify-content: center;
+}
+
+.auth-prompt.hidden {
     display: none;
 }
 
@@ -3389,6 +3400,48 @@ input::placeholder {
     font-size: 0.85rem;
     margin: 10px 0;
     text-align: center;
+}
+
+/* ===========================================
+   MATCHMAKING SCREEN
+   =========================================== */
+
+#matchmaking-screen {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+#matchmaking-screen h2 {
+    color: #f4a460;
+    margin-bottom: 20px;
+}
+
+.matchmaking-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #f4a460;
+    border-radius: 50%;
+    margin: 20px auto;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.matchmaking-timer {
+    font-size: 2em;
+    font-weight: bold;
+    color: #fff;
+    margin: 15px 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.matchmaking-info {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9em;
+    margin: 10px 0 20px;
 }
 
 /* ===========================================
@@ -4402,56 +4455,21 @@ input::placeholder {
     flex: 1;
 }
 
-.knock-banner {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.45);
-    z-index: 400;
-    pointer-events: none;
-    animation: knock-banner-in 0.3s ease-out forwards;
-}
-
-.knock-banner span {
-    display: block;
-    font-size: 4em;
+/* V3_17: Knock status message - golden gradient with pulsing glow */
+.status-message.knock {
+    background: linear-gradient(135deg, #f4a460 0%, #e67e22 50%, #d4750e 100%);
+    color: #1a1a2e;
+    font-size: 1.3em;
     font-weight: 900;
-    color: #ffe082;
-    background: rgba(20, 20, 36, 0.95);
-    padding: 20px 50px;
-    border-radius: 12px;
-    border: 3px solid rgba(255, 215, 0, 0.5);
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-    letter-spacing: 0.15em;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    animation: knock-pulse 0.6s ease-in-out 3;
+    box-shadow: 0 0 15px rgba(244, 164, 96, 0.5);
 }
 
-@keyframes knock-banner-in {
-    0% { opacity: 0; }
-    100% { opacity: 1; }
-}
-
-.knock-banner span {
-    animation: knock-text-in 0.3s ease-out forwards;
-}
-
-@keyframes knock-text-in {
-    0% { transform: scale(0); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-}
-
-.knock-banner.fading {
-    animation: knock-banner-out 0.3s ease-out forwards;
-}
-
-@keyframes knock-banner-out {
-    0% { opacity: 1; }
-    100% { opacity: 0; }
+@keyframes knock-pulse {
+    0%, 100% { box-shadow: 0 0 15px rgba(244, 164, 96, 0.5); }
+    50% { box-shadow: 0 0 25px rgba(244, 164, 96, 0.8), 0 0 40px rgba(230, 126, 34, 0.3); }
 }
 
 @keyframes screen-shake {
@@ -4466,25 +4484,7 @@ body.screen-shake {
     animation: screen-shake 0.3s ease-out;
 }
 
-.opponent-knock-banner {
-    position: fixed;
-    top: 30%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: linear-gradient(135deg, #ff6b35 0%, #d63031 100%);
-    color: white;
-    padding: 15px 30px;
-    border-radius: 12px;
-    font-size: 1.2em;
-    font-weight: bold;
-    z-index: 200;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    animation: prompt-entrance 0.3s ease-out;
-}
-
-.opponent-knock-banner.fading {
-    animation: prompt-fade 0.3s ease-out forwards;
-}
+/* opponent-knock-banner removed in V3_17 - knock uses status bar now */
 
 /* --- V3_07: Score Tallying Animation --- */
 .card-value-overlay {
@@ -4658,6 +4658,215 @@ body.screen-shake {
     font-size: 0.85em;
     color: rgba(255, 255, 255, 0.7);
     margin-top: 2px;
+}
+
+/* --- V3_17: Scoresheet Modal --- */
+.scoresheet-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 300;
+    animation: fadeInBg 0.3s ease;
+}
+
+@keyframes fadeInBg {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.scoresheet-content {
+    background: linear-gradient(145deg, #1a472a 0%, #0d3320 100%);
+    border-radius: 16px;
+    padding: 24px 28px;
+    max-width: 520px;
+    width: 92%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow:
+        0 16px 50px rgba(0, 0, 0, 0.6),
+        0 0 60px rgba(244, 164, 96, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(244, 164, 96, 0.25);
+    animation: modalSlideIn 0.4s ease;
+}
+
+.ss-header {
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #f4a460;
+    margin-bottom: 18px;
+    letter-spacing: 0.05em;
+}
+
+.ss-players {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.ss-player-row {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ss-player-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.ss-player-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #e8e8e8;
+}
+
+.ss-badge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.ss-badge-knock {
+    background: linear-gradient(135deg, #f4a460 0%, #e67e22 100%);
+    color: #1a1a2e;
+}
+
+.ss-badge-low {
+    background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+    color: #fff;
+}
+
+.ss-columns {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 6px;
+}
+
+.ss-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.ss-column-paired {
+    background: rgba(244, 164, 96, 0.08);
+    border: 1px solid rgba(244, 164, 96, 0.15);
+}
+
+.ss-column-paired.ss-pair-glow {
+    animation: ss-pair-glow-pulse 0.5s ease-out;
+}
+
+@keyframes ss-pair-glow-pulse {
+    0% { box-shadow: 0 0 0 rgba(244, 164, 96, 0); }
+    50% { box-shadow: 0 0 12px rgba(244, 164, 96, 0.4); }
+    100% { box-shadow: 0 0 0 rgba(244, 164, 96, 0); }
+}
+
+.ss-mini-card {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 28px;
+    border-radius: 3px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    background: #f5f0e8;
+    color: #1a1a2e;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    letter-spacing: -0.02em;
+}
+
+.ss-mini-card.ss-red {
+    color: #c0392b;
+}
+
+.ss-mini-card.ss-black {
+    color: #1a1a2e;
+}
+
+.ss-mini-card.ss-mini-paired {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+
+.ss-mini-card.ss-mini-back {
+    background: linear-gradient(135deg, #2c5f8a 0%, #1a3a5c 100%);
+    color: transparent;
+}
+
+.ss-col-score {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.7);
+    text-align: center;
+    margin-top: 1px;
+}
+
+.ss-col-score.ss-pair {
+    color: #f4a460;
+}
+
+.ss-col-score.ss-negative {
+    color: #27ae60;
+}
+
+.ss-bonuses {
+    margin: 4px 0 2px;
+    text-align: center;
+}
+
+.ss-bonus {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #81d4fa;
+    background: rgba(100, 181, 246, 0.15);
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin: 0 4px;
+}
+
+.ss-scores {
+    display: flex;
+    justify-content: flex-end;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 4px;
+}
+
+.ss-scores strong {
+    color: #fff;
+}
+
+.ss-next-btn {
+    display: block;
+    width: 100%;
+    margin-top: 18px;
+    padding: 10px;
+    font-size: 0.95rem;
 }
 
 /* --- V3_11: Swap Animation --- */

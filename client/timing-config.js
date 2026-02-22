@@ -128,6 +128,18 @@ const TIMING = {
         pulseDelay: 200,        // Delay before card appears (pulse visible first)
     },
 
+    // V3_17: Knock notification
+    knock: {
+        statusDuration: 2500,       // How long the knock status message persists
+    },
+
+    // V3_17: Scoresheet modal
+    scoresheet: {
+        playerStagger: 150,         // Delay between player row animations
+        columnStagger: 80,          // Delay between column animations within a row
+        pairGlowDelay: 200,        // Delay before paired columns glow
+    },
+
     // Player swap animation steps - smooth continuous motion
     playerSwap: {
         flipToReveal: 400,      // Initial flip to show card

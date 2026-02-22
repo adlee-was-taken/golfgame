@@ -19,33 +19,50 @@
             <h1><img src="golfball-logo.svg" alt="" class="golfball-logo"><span class="golfer-swing">🏌️</span><span class="kicked-ball">⚪</span> <span class="golf-title">Golf</span></h1>
             <p class="subtitle">6-Card Golf Card Game <button id="rules-btn" class="btn btn-small btn-rules">Rules</button> <button id="leaderboard-btn" class="btn btn-small leaderboard-btn">Leaderboard</button></p>
 
-            <!-- Auth buttons for guests (hidden until auth check confirms not logged in) -->
-            <div id="auth-buttons" class="auth-buttons hidden">
-                <button id="login-btn" class="btn btn-small">Login</button>
-                <button id="signup-btn" class="btn btn-small btn-primary">Sign Up</button>
+            <!-- Auth prompt for unauthenticated users -->
+            <div id="auth-prompt" class="auth-prompt">
+                <p>Log in or sign up to play.</p>
+                <div class="button-group">
+                    <button id="login-btn" class="btn btn-primary">Login</button>
+                    <button id="signup-btn" class="btn btn-secondary">Sign Up</button>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="player-name">Your Name</label>
-                <input type="text" id="player-name" placeholder="Enter your name" maxlength="12">
-            </div>
+            <!-- Game controls (shown only when authenticated) -->
+            <div id="lobby-game-controls" class="hidden">
+                <div class="button-group">
+                    <button id="find-game-btn" class="btn btn-primary">Find Game</button>
+                </div>
 
-            <div class="button-group">
-                <button id="create-room-btn" class="btn btn-primary">Create Room</button>
-            </div>
+                <div class="divider">or</div>
 
-            <div class="divider">or</div>
+                <div class="button-group">
+                    <button id="create-room-btn" class="btn btn-secondary">Create Private Room</button>
+                </div>
 
-            <div class="form-group">
-                <label for="room-code">Room Code</label>
-                <input type="text" id="room-code" placeholder="ABCD" maxlength="4">
-            </div>
+                <div class="form-group">
+                    <label for="room-code">Join Private Room</label>
+                    <input type="text" id="room-code" placeholder="ABCD" maxlength="4">
+                </div>
 
-            <div class="button-group">
-                <button id="join-room-btn" class="btn btn-secondary">Join Room</button>
+                <div class="button-group">
+                    <button id="join-room-btn" class="btn btn-secondary">Join Room</button>
+                </div>
             </div>
 
             <p id="lobby-error" class="error"></p>
+        </div>
+
+        <!-- Matchmaking Screen -->
+        <div id="matchmaking-screen" class="screen">
+            <h2>Finding Game...</h2>
+            <div class="matchmaking-spinner"></div>
+            <p id="matchmaking-status">Searching for opponents...</p>
+            <p id="matchmaking-time" class="matchmaking-timer">0:00</p>
+            <p id="matchmaking-queue-info" class="matchmaking-info"></p>
+            <div class="button-group">
+                <button id="cancel-matchmaking-btn" class="btn btn-danger">Cancel</button>
+            </div>
         </div>
 
         <!-- Waiting Room Screen -->
@@ -717,6 +734,7 @@ TOTAL: 0 + 8 + 16 = 24 points</pre>
                     <button class="leaderboard-tab" data-metric="avg_score">Avg Score</button>
                     <button class="leaderboard-tab" data-metric="knockouts">Knockouts</button>
                     <button class="leaderboard-tab" data-metric="streak">Best Streak</button>
+                    <button class="leaderboard-tab" data-metric="rating">Rating</button>
                 </div>
 
                 <div id="leaderboard-content">
@@ -816,6 +834,9 @@ TOTAL: 0 + 8 + 16 = 24 points</pre>
             <div id="signup-form-container" class="hidden">
                 <h3>Sign Up</h3>
                 <form id="signup-form">
+                    <div class="form-group">
+                        <input type="text" id="signup-invite-code" placeholder="Invite Code" required>
+                    </div>
                     <div class="form-group">
                         <input type="text" id="signup-username" placeholder="Username" required minlength="3" maxlength="20">
                     </div>

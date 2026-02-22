@@ -11,8 +11,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel, EmailStr
 
+from config import config
 from models.user import User
 from services.auth_service import AuthService
+from services.admin_service import AdminService
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +31,7 @@ class RegisterRequest(BaseModel):
     username: str
     password: str
     email: Optional[str] = None
+    invite_code: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
@@ -111,12 +114,19 @@ class SessionResponse(BaseModel):
 
 # These will be set by main.py during startup
 _auth_service: Optional[AuthService] = None
+_admin_service: Optional[AdminService] = None
 
 
 def set_auth_service(service: AuthService) -> None:
     """Set the auth service instance (called from main.py)."""
     global _auth_service
     _auth_service = service
+
+
+def set_admin_service_for_auth(service: AdminService) -> None:
+    """Set the admin service instance for invite code validation (called from main.py)."""
+    global _admin_service
+    _admin_service = service
 
 
 def get_auth_service_dep() -> AuthService:
@@ -201,6 +211,15 @@ async def register(
     auth_service: AuthService = Depends(get_auth_service_dep),
 ):
     """Register a new user account."""
+    # Validate invite code when invite-only mode is enabled
+    if config.INVITE_ONLY:
+        if not request_body.invite_code:
+            raise HTTPException(status_code=400, detail="Invite code required")
+        if not _admin_service:
+            raise HTTPException(status_code=503, detail="Admin service not initialized")
+        if not await _admin_service.validate_invite_code(request_body.invite_code):
+            raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+
     result = await auth_service.register(
         username=request_body.username,
         password=request_body.password,
@@ -209,6 +228,10 @@ async def register(
 
     if not result.success:
         raise HTTPException(status_code=400, detail=result.error)
+
+    # Consume the invite code after successful registration
+    if config.INVITE_ONLY and request_body.invite_code:
+        await _admin_service.use_invite_code(request_body.invite_code)
 
     if result.requires_verification:
         # Return user info but note they need to verify
