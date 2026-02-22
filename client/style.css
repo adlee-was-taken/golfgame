@@ -4966,14 +4966,14 @@ body.mobile-portrait .game-header {
     display: flex;
     flex-direction: row;
     align-items: center;
-    padding: 4px 12px;
-    padding-top: calc(4px + env(safe-area-inset-top, 0px));
+    padding: 2px 0;
+    padding-top: env(safe-area-inset-top, 0px);
     font-size: 0.75rem;
     min-height: 32px;
     width: 100%;
     margin-left: 0;
     gap: 4px;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
 }
 
 body.mobile-portrait .header-col-left {
