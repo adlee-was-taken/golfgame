@@ -3608,7 +3608,8 @@ class GolfGame {
         const centerX = (deckRect.left + deckRect.right + discardRect.left + discardRect.right) / 4;
         const cardWidth = deckRect.width;
         const cardHeight = deckRect.height;
-        const overlapOffset = cardHeight * 0.35;
+        const isMobilePortrait = document.body.classList.contains('mobile-portrait');
+        const overlapOffset = cardHeight * (isMobilePortrait ? 0.15 : 0.35);
         const cardLeft = centerX - cardWidth / 2;
         const cardTop = deckRect.top - overlapOffset;
 
