@@ -5339,7 +5339,7 @@ body.mobile-portrait #mobile-bottom-bar .mobile-bar-btn.active {
 
 /* --- Mobile: Non-game screens --- */
 body.mobile-portrait #lobby-screen {
-    padding: 50px 12px 15px;
+    padding: 55px 12px 15px;
     overflow-y: auto;
     max-height: 100dvh;
 }
