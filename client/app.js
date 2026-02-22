@@ -3807,7 +3807,7 @@ class GolfGame {
             : this.gameState.current_player_id;
         const displayedPlayer = this.gameState.players.find(p => p.id === displayedPlayerId);
         if (displayedPlayer && displayedPlayerId !== this.playerId) {
-            this.setStatus(`${displayedPlayer.name}'s turn`);
+            this.setStatus(`${displayedPlayer.name}'s turn`, 'opponent-turn');
         }
 
         // Update player header (name + score like opponents)
