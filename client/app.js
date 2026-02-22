@@ -4458,6 +4458,7 @@ class GolfGame {
 document.addEventListener('DOMContentLoaded', () => {
     window.game = new GolfGame();
     window.auth = new AuthManager(window.game);
+    window.game.authManager = window.auth;
 });
 
 
