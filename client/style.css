@@ -5160,8 +5160,9 @@ body.mobile-portrait .player-area .dealer-chip {
     height: 22px;
     font-size: 11px;
     border-width: 2px;
-    bottom: -4px;
-    left: -4px;
+    bottom: auto;
+    top: -8px;
+    left: -8px;
 }
 
 body.mobile-portrait .player-area h4 {
