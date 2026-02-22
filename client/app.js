@@ -3448,15 +3448,6 @@ class GolfGame {
         // Toggle game area class for border pulse
         this.gameScreen.classList.add('final-turn-active');
 
-        // Calculate remaining turns
-        const remaining = this.countRemainingTurns();
-
-        // Update badge content
-        const remainingEl = this.finalTurnBadge.querySelector('.final-turn-remaining');
-        if (remainingEl) {
-            remainingEl.textContent = remaining === 1 ? '1 turn left' : `${remaining} turns left`;
-        }
-
         // Show badge
         this.finalTurnBadge.classList.remove('hidden');
 
