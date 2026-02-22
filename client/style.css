@@ -2856,8 +2856,7 @@ input::placeholder {
 .rules-back-btn {
     position: absolute;
     left: 0;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 0;
     width: auto;
     padding: 4px 12px;
     font-size: 0.8rem;
@@ -3543,8 +3542,7 @@ input::placeholder {
 .leaderboard-back-btn {
     position: absolute;
     left: 0;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 0;
     width: auto;
     padding: 4px 12px;
     font-size: 0.8rem;
