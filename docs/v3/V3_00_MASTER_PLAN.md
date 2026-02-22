@@ -30,6 +30,7 @@ This plan is split into independent vertical slices ordered by priority and impa
 | `V3_14_ACTIVE_RULES_CONTEXT.md` | Contextual rule highlighting | Low | Low | None |
 | `V3_15_DISCARD_PILE_HISTORY.md` | Show recent discards fanned | Low | Medium | None |
 | `V3_16_REALISTIC_CARD_SOUNDS.md` | Improved audio feedback | Nice | Medium | None |
+| `V3_17_MOBILE_PORTRAIT_LAYOUT.md` | Full mobile portrait layout + animation fixes | High | High | 02, 11 |
 
 ---
 
