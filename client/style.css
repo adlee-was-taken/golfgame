@@ -5021,7 +5021,7 @@ body.mobile-portrait .game-table {
     gap: 0 !important;
     flex: 1;
     overflow: hidden;
-    padding: 0 4px;
+    padding: 0 4px 36px;
     min-height: 0;
 }
 
@@ -5048,6 +5048,7 @@ body.mobile-portrait .player-row {
     width: 100%;
     flex: 1;
     min-height: 0;
+    overflow: hidden;
 }
 
 /* Remove all arch rotation and margin on mobile */
@@ -5105,6 +5106,7 @@ body.mobile-portrait .opponent-showing {
 body.mobile-portrait .table-center {
     padding: 5px 10px;
     border-radius: 8px;
+    margin: auto 0;
 }
 
 body.mobile-portrait .deck-area {
@@ -5147,7 +5149,7 @@ body.mobile-portrait .player-section {
 }
 
 body.mobile-portrait .player-area {
-    padding: 5px 8px;
+    padding: 5px 8px 9px;
     border-radius: 8px;
     width: auto;
     display: inline-block;
