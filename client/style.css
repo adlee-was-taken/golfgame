@@ -3315,7 +3315,9 @@ input::placeholder {
 }
 
 .auth-prompt .button-group {
+    display: flex;
     justify-content: center;
+    gap: 12px;
 }
 
 .auth-prompt.hidden {
