@@ -4939,11 +4939,12 @@ body.mobile-portrait .game-layout {
 }
 
 body.mobile-portrait .game-main {
-    flex: 1;
+    flex: 1 1 0%;
     gap: 0;
     justify-content: flex-start;
     overflow: hidden;
     min-height: 0;
+    max-height: 100%;
 }
 
 /* --- Mobile: Compact header (single row) --- */
@@ -5023,7 +5024,7 @@ body.mobile-portrait .game-table {
     gap: 0 !important;
     flex: 1 1 0%;
     overflow: hidden;
-    padding: 0 4px 36px;
+    padding: 0 4px;
     min-height: 0;
     max-height: 100%;
 }
@@ -5293,10 +5294,7 @@ body.mobile-portrait #mobile-bottom-bar {
     align-items: center;
     gap: 8px;
     background: none;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    flex-shrink: 0;
     padding: 6px 12px;
     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
     z-index: 900;
