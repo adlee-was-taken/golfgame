@@ -5102,6 +5102,7 @@ body.mobile-portrait .status-message {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-align: left;
 }
 
 body.mobile-portrait .round-info {
