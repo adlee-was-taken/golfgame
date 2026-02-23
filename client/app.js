@@ -950,7 +950,7 @@ class GolfGame {
                 // Host ended the game or player was kicked
                 this._intentionalClose = true;
                 if (this.ws) this.ws.close();
-                this.showScreen('lobby');
+                this.showLobby();
                 if (data.reason) {
                     this.showError(data.reason);
                 }
@@ -975,7 +975,7 @@ class GolfGame {
 
             case 'queue_left':
                 this.stopMatchmakingTimer();
-                this.showScreen('lobby');
+                this.showLobby();
                 break;
 
             case 'error':
@@ -995,7 +995,7 @@ class GolfGame {
     cancelMatchmaking() {
         this.send({ type: 'queue_leave' });
         this.stopMatchmakingTimer();
-        this.showScreen('lobby');
+        this.showLobby();
     }
 
     startMatchmakingTimer() {
