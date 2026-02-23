@@ -156,10 +156,18 @@ class CardAnimations {
         }
         this.activeAnimations.clear();
 
-        // Remove all animation card elements (including those marked as animating)
-        document.querySelectorAll('.draw-anim-card').forEach(el => {
+        // Remove all animation overlay elements
+        document.querySelectorAll('.draw-anim-card, .traveling-card, .deal-anim-container').forEach(el => {
             delete el.dataset.animating;
             el.remove();
+        });
+
+        // Restore visibility on any cards hidden during animations
+        document.querySelectorAll('.card[style*="opacity: 0"], .card[style*="opacity:0"]').forEach(el => {
+            el.style.opacity = '';
+        });
+        document.querySelectorAll('.card[style*="visibility: hidden"], .card[style*="visibility:hidden"]').forEach(el => {
+            el.style.visibility = '';
         });
 
         // Restore discard pile visibility if it was hidden during animation
@@ -1522,6 +1530,7 @@ class CardAnimations {
 
         // Create container for animation cards
         const container = document.createElement('div');
+        container.className = 'deal-anim-container';
         container.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:1000;';
         document.body.appendChild(container);
 

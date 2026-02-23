@@ -3060,6 +3060,11 @@ class GolfGame {
         if (window.cardAnimations) {
             window.cardAnimations.cancelAll();
         }
+        this.dealAnimationInProgress = false;
+        this.isDrawAnimating = false;
+        this.localDiscardAnimating = false;
+        this.opponentDiscardAnimating = false;
+        this.opponentSwapAnimation = false;
         this.showScreen(this.lobbyScreen);
         this.lobbyError.textContent = '';
         this.roomCode = null;
