@@ -201,6 +201,9 @@ pyvenv.cfg
 # Personal notes
 lookfah.md
 
+# Internal docs (deployment info, credentials references, etc.)
+internal/
+
 # Ruff stuff:
 .ruff_cache/
 
