@@ -5195,6 +5195,11 @@ body.mobile-portrait .opponent-area .card {
     border-radius: 3px;
 }
 
+body.mobile-portrait .opponent-area .knocker-badge {
+    top: auto;
+    bottom: -10px;
+}
+
 body.mobile-portrait .opponent-showing {
     font-size: 0.85rem;
     padding: 0px 3px;
