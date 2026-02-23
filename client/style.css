@@ -3344,7 +3344,11 @@ input::placeholder {
     display: none;
 }
 
-/* Hide global auth-bar when game screen is active */
+/* Hide global auth-bar and remove top padding when game screen is active */
+#app:has(#game-screen.active) {
+    padding-top: 0;
+}
+
 #app:has(#game-screen.active) > .auth-bar {
     display: none !important;
 }
