@@ -3057,6 +3057,9 @@ class GolfGame {
     }
 
     showLobby() {
+        if (window.cardAnimations) {
+            window.cardAnimations.cancelAll();
+        }
         this.showScreen(this.lobbyScreen);
         this.lobbyError.textContent = '';
         this.roomCode = null;
