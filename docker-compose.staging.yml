@@ -1,0 +1,146 @@
+# Staging Docker Compose for Golf Card Game
+#
+# Mirrors production but with reduced memory limits for 512MB droplet.
+#
+# Usage:
+#   docker compose -f docker-compose.staging.yml up -d --build
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - POSTGRES_URL=postgresql://golf:${DB_PASSWORD}@postgres:5432/golf
+      - DATABASE_URL=postgresql://golf:${DB_PASSWORD}@postgres:5432/golf
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=${SECRET_KEY}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM:-Golf Cards <noreply@contact.golfcards.club>}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - ENVIRONMENT=${ENVIRONMENT:-staging}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_LEVEL_GAME=${LOG_LEVEL_GAME:-}
+      - LOG_LEVEL_AI=${LOG_LEVEL_AI:-}
+      - LOG_LEVEL_HANDLERS=${LOG_LEVEL_HANDLERS:-}
+      - LOG_LEVEL_ROOM=${LOG_LEVEL_ROOM:-}
+      - LOG_LEVEL_AUTH=${LOG_LEVEL_AUTH:-}
+      - LOG_LEVEL_STORES=${LOG_LEVEL_STORES:-}
+      - BASE_URL=${BASE_URL:-https://staging.golfcards.club}
+      - RATE_LIMIT_ENABLED=false
+      - INVITE_ONLY=true
+      - BOOTSTRAP_ADMIN_USERNAME=${BOOTSTRAP_ADMIN_USERNAME:-}
+      - BOOTSTRAP_ADMIN_PASSWORD=${BOOTSTRAP_ADMIN_PASSWORD:-}
+      - MATCHMAKING_ENABLED=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 48M
+    networks:
+      - internal
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=golfgame_web"
+      - "traefik.http.routers.golf.rule=Host(`${DOMAIN:-staging.golfcards.club}`)"
+      - "traefik.http.routers.golf.entrypoints=websecure"
+      - "traefik.http.routers.golf.tls=true"
+      - "traefik.http.routers.golf.tls.certresolver=letsencrypt"
+      - "traefik.http.services.golf.loadbalancer.server.port=8000"
+      - "traefik.http.services.golf.loadbalancer.sticky.cookie=true"
+      - "traefik.http.services.golf.loadbalancer.sticky.cookie.name=golf_server"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: golf
+      POSTGRES_USER: golf
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U golf -d golf"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+        reservations:
+          memory: 48M
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 16mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+        reservations:
+          memory: 16M
+
+  traefik:
+    image: traefik:v3.6
+    environment:
+      - DOCKER_API_VERSION=1.44
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--accesslog=true"
+      - "--log.level=WARN"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - web
+    deploy:
+      resources:
+        limits:
+          memory: 48M
+
+volumes:
+  postgres_data:
+  redis_data:
+  letsencrypt:
+
+networks:
+  internal:
+    driver: bridge
+  web:
+    driver: bridge
