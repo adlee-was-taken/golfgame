@@ -3791,14 +3791,19 @@ class GolfGame {
         if (mobileTotal) mobileTotal.textContent = this.gameState.total_rounds;
 
         // Show/hide final turn badge with enhanced urgency
+        // Note: markKnocker() is deferred until after opponent areas are rebuilt below
         const isFinalTurn = this.gameState.phase === 'final_turn';
         if (isFinalTurn) {
-            this.updateFinalTurnDisplay();
+            this.gameScreen.classList.add('final-turn-active');
+            this.finalTurnBadge.classList.remove('hidden');
+            if (!this.finalTurnAnnounced) {
+                this.playSound('alert');
+                this.finalTurnAnnounced = true;
+            }
         } else {
             this.finalTurnBadge.classList.add('hidden');
             this.gameScreen.classList.remove('final-turn-active');
             this.finalTurnAnnounced = false;
-            this.clearKnockerMark();
         }
 
         // Toggle not-my-turn class to disable hover effects when it's not player's turn
@@ -4163,6 +4168,13 @@ class GolfGame {
 
         // Update scoreboard panel
         this.updateScorePanel();
+
+        // Mark knocker AFTER opponent areas are rebuilt (otherwise innerHTML='' wipes it)
+        if (this.gameState.phase === 'final_turn') {
+            this.markKnocker(this.gameState.finisher_id);
+        } else {
+            this.clearKnockerMark();
+        }
 
         // Initialize anime.js hover listeners on newly created cards
         if (window.cardAnimations) {
