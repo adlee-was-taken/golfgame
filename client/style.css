@@ -5278,8 +5278,8 @@ body.mobile-portrait .player-area .dealer-chip {
     height: 22px;
     font-size: 11px;
     border-width: 2px;
-    bottom: auto;
-    top: -8px;
+    top: auto;
+    bottom: -8px;
     left: -8px;
 }
 
@@ -5401,7 +5401,7 @@ body.mobile-portrait .game-buttons {
 /* --- Mobile: Bottom bar --- */
 body.mobile-portrait #mobile-bottom-bar {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     gap: 8px;
     background: none;
