@@ -5401,7 +5401,7 @@ body.mobile-portrait .game-buttons {
 /* --- Mobile: Bottom bar --- */
 body.mobile-portrait #mobile-bottom-bar {
     display: flex;
-    justify-content: flex-start;
+    justify-content: center;
     align-items: center;
     gap: 8px;
     background: none;
@@ -5411,10 +5411,9 @@ body.mobile-portrait #mobile-bottom-bar {
     z-index: 900;
 }
 
-/* Hole indicator — flush left edge */
+/* Hole indicator — pinned left */
 body.mobile-portrait #mobile-bottom-bar .mobile-round-info {
     margin-right: auto;
-    margin-left: -12px;
     color: rgba(255, 255, 255, 0.9);
     font-size: 0.77rem;
     font-weight: 700;
@@ -5422,20 +5421,15 @@ body.mobile-portrait #mobile-bottom-bar .mobile-round-info {
     letter-spacing: 0.03em;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.15);
-    border-left: none;
-    border-radius: 0 20px 20px 0;
-    padding: 4px 10px 4px 12px;
+    border-radius: 20px;
+    padding: 4px 9px;
 }
 
-/* End Game — flush right edge */
+/* End Game — pinned right */
 body.mobile-portrait #mobile-bottom-bar .mobile-leave-btn {
     margin-left: auto;
-    margin-right: -12px;
     background: rgba(180, 60, 60, 0.3) !important;
     border-color: rgba(220, 80, 80, 0.4) !important;
-    border-right: none !important;
-    border-radius: 20px 0 0 20px !important;
-    padding-right: 12px !important;
     color: rgba(255, 120, 120, 0.9) !important;
 }
 
