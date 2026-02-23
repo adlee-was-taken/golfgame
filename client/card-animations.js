@@ -757,22 +757,28 @@ class CardAnimations {
 
             anime({
                 targets: element,
-                translateX: [0, -8, 8, -6, 4, 0],
-                duration: 400,
+                translateX: [0, -6, 6, -4, 3, 0],
+                duration: 300,
                 easing: 'easeInOutQuad'
             });
         };
 
-        // Do initial shake, then repeat every 3 seconds
-        doShake();
-        const interval = setInterval(doShake, 3000);
-        this.activeAnimations.set(id, { interval });
+        // Delay first shake by 5 seconds, then repeat every 2 seconds
+        const timeout = setTimeout(() => {
+            if (!this.activeAnimations.has(id)) return;
+            doShake();
+            const interval = setInterval(doShake, 2000);
+            const entry = this.activeAnimations.get(id);
+            if (entry) entry.interval = interval;
+        }, 5000);
+        this.activeAnimations.set(id, { timeout });
     }
 
     stopTurnPulse(element) {
         const id = 'turnPulse';
         const existing = this.activeAnimations.get(id);
         if (existing) {
+            if (existing.timeout) clearTimeout(existing.timeout);
             if (existing.interval) clearInterval(existing.interval);
             if (existing.pause) existing.pause();
             this.activeAnimations.delete(id);
