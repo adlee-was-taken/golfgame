@@ -4449,6 +4449,13 @@ input::placeholder {
 .opponent-area.is-knocker {
     border: 2px solid #ff6b35;
     border-radius: 8px;
+    box-shadow: 0 0 12px 3px rgba(255, 107, 53, 0.4);
+    animation: knocker-glow 2s ease-in-out infinite;
+}
+
+@keyframes knocker-glow {
+    0%, 100% { box-shadow: 0 0 12px 3px rgba(255, 107, 53, 0.4); }
+    50% { box-shadow: 0 0 20px 6px rgba(255, 107, 53, 0.6); }
 }
 
 .knocker-badge {
