@@ -4373,12 +4373,12 @@ input::placeholder {
 }
 
 .player-area .dealer-chip {
-    width: 30px;
-    height: 30px;
-    font-size: 14px;
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
     border-width: 2px;
-    bottom: -13px;
-    left: -13px;
+    bottom: -18px;
+    left: -18px;
 }
 
 /* --- V3_03: Round End Reveal --- */
