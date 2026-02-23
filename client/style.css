@@ -1665,6 +1665,12 @@ input::placeholder {
     text-align: center;
     white-space: nowrap;
     color: #fff;
+    background: linear-gradient(135deg, #4a6741 0%, #3d5a35 100%);
+}
+
+/* Empty status - hide completely */
+.status-message:empty {
+    display: none;
 }
 
 .status-message.your-turn {
@@ -1681,6 +1687,19 @@ input::placeholder {
 /* CPU action status - subtle blue to indicate CPU is doing something */
 .status-message.cpu-action {
     background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    color: #fff;
+}
+
+/* Round/game over status */
+.status-message.round-over,
+.status-message.game-over {
+    background: linear-gradient(135deg, #f0c040 0%, #d4a017 100%);
+    color: #2d3436;
+}
+
+/* Reveal status */
+.status-message.reveal {
+    background: linear-gradient(135deg, #8b7eb8 0%, #6b5b95 100%);
     color: #fff;
 }
 
@@ -1701,7 +1720,7 @@ input::placeholder {
 }
 
 .final-turn-badge .final-turn-text {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
 }
 
 .final-turn-badge.hidden {
@@ -5125,9 +5144,12 @@ body.mobile-portrait .mute-btn {
 }
 
 body.mobile-portrait .final-turn-badge {
-    font-size: 0.6rem;
-    padding: 2px 6px;
+    padding: 6px 16px;
     white-space: nowrap;
+}
+
+body.mobile-portrait .final-turn-badge .final-turn-text {
+    font-size: 1.02rem;
 }
 
 /* --- Mobile: Game table — opponents pinned top, rest centered in remaining space --- */

@@ -923,16 +923,16 @@ class GolfGame {
                     this.displayHeldCard(data.card, true);
                     this.renderGame();
                 }
-                this.showToast('Swap with a card or discard', '', 3000);
+                this.showToast('Swap with a card or discard', 'your-turn', 3000);
                 break;
 
             case 'can_flip':
                 this.waitingForFlip = true;
                 this.flipIsOptional = data.optional || false;
                 if (this.flipIsOptional) {
-                    this.showToast('Flip a card or skip', '', 3000);
+                    this.showToast('Flip a card or skip', 'your-turn', 3000);
                 } else {
-                    this.showToast('Flip a face-down card', '', 3000);
+                    this.showToast('Flip a face-down card', 'your-turn', 3000);
                 }
                 this.renderGame();
                 break;
@@ -2959,7 +2959,7 @@ class GolfGame {
                 this.hideToast();
             } else {
                 const remaining = requiredFlips - uniquePositions.length;
-                this.showToast(`Select ${remaining} more card${remaining > 1 ? 's' : ''} to flip`, '', 5000);
+                this.showToast(`Select ${remaining} more card${remaining > 1 ? 's' : ''} to flip`, 'your-turn', 5000);
             }
             return;
         }
