@@ -5406,7 +5406,7 @@ body.mobile-portrait #mobile-bottom-bar {
     gap: 8px;
     background: none;
     flex-shrink: 0;
-    padding: 6px 0;
+    padding: 6px 12px;
     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
     z-index: 900;
 }
@@ -5414,6 +5414,7 @@ body.mobile-portrait #mobile-bottom-bar {
 /* Hole indicator — flush left edge */
 body.mobile-portrait #mobile-bottom-bar .mobile-round-info {
     margin-right: auto;
+    margin-left: -12px;
     color: rgba(255, 255, 255, 0.9);
     font-size: 0.77rem;
     font-weight: 700;
@@ -5423,17 +5424,18 @@ body.mobile-portrait #mobile-bottom-bar .mobile-round-info {
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-left: none;
     border-radius: 0 20px 20px 0;
-    padding: 4px 10px 4px 8px;
+    padding: 4px 10px 4px 12px;
 }
 
 /* End Game — flush right edge */
 body.mobile-portrait #mobile-bottom-bar .mobile-leave-btn {
     margin-left: auto;
+    margin-right: -12px;
     background: rgba(180, 60, 60, 0.3) !important;
     border-color: rgba(220, 80, 80, 0.4) !important;
     border-right: none !important;
     border-radius: 20px 0 0 20px !important;
-    padding-right: 8px !important;
+    padding-right: 12px !important;
     color: rgba(255, 120, 120, 0.9) !important;
 }
 
