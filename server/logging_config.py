@@ -148,6 +148,39 @@ class DevelopmentFormatter(logging.Formatter):
         return output
 
 
+# Per-module log level overrides via env vars.
+# Key: env var suffix, Value: list of Python logger names to apply to.
+MODULE_LOGGER_MAP = {
+    "GAME": ["game"],
+    "AI": ["ai"],
+    "HANDLERS": ["handlers"],
+    "ROOM": ["room"],
+    "AUTH": ["auth", "routers.auth", "services.auth_service"],
+    "STORES": ["stores"],
+}
+
+
+def _apply_module_overrides() -> dict[str, str]:
+    """
+    Apply per-module log level overrides from LOG_LEVEL_{MODULE} env vars.
+
+    Returns:
+        Dict of module name -> level for any overrides that were applied.
+    """
+    active = {}
+    for module, logger_names in MODULE_LOGGER_MAP.items():
+        env_val = os.environ.get(f"LOG_LEVEL_{module}", "").upper()
+        if not env_val:
+            continue
+        level = getattr(logging, env_val, None)
+        if level is None:
+            continue
+        active[module] = env_val
+        for name in logger_names:
+            logging.getLogger(name).setLevel(level)
+    return active
+
+
 def setup_logging(
     level: str = "INFO",
     environment: str = "development",
@@ -182,12 +215,19 @@ def setup_logging(
     logging.getLogger("websockets").setLevel(logging.WARNING)
     logging.getLogger("asyncio").setLevel(logging.WARNING)
 
+    # Apply per-module overrides from env vars
+    overrides = _apply_module_overrides()
+
     # Log startup
     logger = logging.getLogger(__name__)
     logger.info(
         f"Logging configured: level={level}, environment={environment}",
         extra={"level": level, "environment": environment},
     )
+    if overrides:
+        logger.info(
+            f"Per-module log level overrides: {', '.join(f'{m}={l}' for m, l in overrides.items())}",
+        )
 
 
 class ContextLogger(logging.LoggerAdapter):
