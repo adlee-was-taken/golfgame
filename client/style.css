@@ -5406,12 +5406,12 @@ body.mobile-portrait #mobile-bottom-bar {
     gap: 8px;
     background: none;
     flex-shrink: 0;
-    padding: 6px 12px;
+    padding: 6px 0;
     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
     z-index: 900;
 }
 
-/* Hole indicator — pinned left with pill background */
+/* Hole indicator — flush left */
 body.mobile-portrait #mobile-bottom-bar .mobile-round-info {
     margin-right: auto;
     color: rgba(255, 255, 255, 0.9);
@@ -5421,15 +5421,19 @@ body.mobile-portrait #mobile-bottom-bar .mobile-round-info {
     letter-spacing: 0.03em;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 20px;
-    padding: 4px 9px;
+    border-left: none;
+    border-radius: 0 20px 20px 0;
+    padding: 4px 9px 4px 12px;
 }
 
-/* End Game — pinned right */
+/* End Game — flush right */
 body.mobile-portrait #mobile-bottom-bar .mobile-leave-btn {
     margin-left: auto;
     background: rgba(180, 60, 60, 0.3) !important;
     border-color: rgba(220, 80, 80, 0.4) !important;
+    border-right: none !important;
+    border-radius: 20px 0 0 20px !important;
+    padding-right: 12px !important;
     color: rgba(255, 120, 120, 0.9) !important;
 }
 
