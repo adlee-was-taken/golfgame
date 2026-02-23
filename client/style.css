@@ -5464,6 +5464,59 @@ body.mobile-portrait #mobile-bottom-bar .mobile-bar-btn.active {
     box-shadow: 0 2px 12px rgba(244, 164, 96, 0.4);
 }
 
+/* --- Mobile: Rules indicator button --- */
+body.mobile-portrait #mobile-bottom-bar .mobile-rules-btn {
+    padding: 4px 9px;
+    font-size: 0.77rem;
+    font-weight: 700;
+    min-width: unset;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+body.mobile-portrait #mobile-bottom-bar .mobile-rules-btn.house-rules {
+    background: rgba(244, 164, 96, 0.25);
+    border-color: rgba(244, 164, 96, 0.4);
+    color: #f4a460;
+}
+
+/* --- Mobile: Rules drawer content --- */
+#rules-drawer {
+    display: none;
+}
+
+body.mobile-portrait #rules-drawer {
+    display: block;
+}
+
+body.mobile-portrait .rules-drawer-panel .mobile-rules-content-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+body.mobile-portrait .rules-drawer-panel .rule-tag {
+    background: rgba(244, 164, 96, 0.3);
+    color: #f4a460;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+body.mobile-portrait .rules-drawer-panel .rule-tag.standard {
+    background: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+body.mobile-portrait .rules-drawer-panel .rule-tag.unranked {
+    background: rgba(220, 80, 80, 0.3);
+    color: #f08080;
+    border: 1px solid rgba(220, 80, 80, 0.4);
+}
+
 /* --- Mobile: Non-game screens --- */
 body.mobile-portrait #lobby-screen {
     padding: 55px 12px 15px;

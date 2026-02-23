@@ -406,9 +406,16 @@
                 </div>
             </div>
 
+            <!-- Mobile rules drawer -->
+            <div id="rules-drawer" class="side-panel rules-drawer-panel">
+                <h4>Active Rules</h4>
+                <div id="mobile-rules-content"></div>
+            </div>
+
             <!-- Mobile bottom bar (hidden on desktop) -->
             <div id="mobile-bottom-bar">
                 <div class="mobile-round-info">Hole <span id="mobile-current-round">1</span>/<span id="mobile-total-rounds">9</span></div>
+                <button class="mobile-bar-btn mobile-rules-btn" id="mobile-rules-btn" data-drawer="rules-drawer"><span id="mobile-rules-icon">S</span></button>
                 <button class="mobile-bar-btn" data-drawer="standings-panel">Standings</button>
                 <button class="mobile-bar-btn" data-drawer="scoreboard">Scores</button>
                 <button id="mobile-leave-btn" class="mobile-bar-btn mobile-leave-btn">End Game</button>

@@ -3138,6 +3138,24 @@ class GolfGame {
                 `<span class="rule-tag rule-more" title="${tooltip}">+${moreCount} more</span>`;
         }
         this.activeRulesBar.classList.remove('hidden');
+
+        // Update mobile rules indicator
+        const mobileRulesBtn = document.getElementById('mobile-rules-btn');
+        const mobileRulesIcon = document.getElementById('mobile-rules-icon');
+        const mobileRulesContent = document.getElementById('mobile-rules-content');
+        if (mobileRulesBtn && mobileRulesIcon && mobileRulesContent) {
+            const isHouseRules = rules.length > 0;
+            mobileRulesIcon.textContent = isHouseRules ? '!' : 'S';
+            mobileRulesBtn.classList.toggle('house-rules', isHouseRules);
+
+            if (!isHouseRules) {
+                mobileRulesContent.innerHTML = '<div class="mobile-rules-content-list"><span class="rule-tag standard">Standard Rules</span></div>';
+            } else {
+                const tagHtml = (unrankedTag ? '<span class="rule-tag unranked">Unranked</span>' : '') +
+                    rules.map(renderTag).join('');
+                mobileRulesContent.innerHTML = `<div class="mobile-rules-content-list">${tagHtml}</div>`;
+            }
+        }
     }
 
     // V3_14: Map display names to rule keys
