@@ -4372,6 +4372,15 @@ input::placeholder {
     text-shadow: 0 1px 1px rgba(255, 255, 255, 0.3);
 }
 
+.player-area .dealer-chip {
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
+    border-width: 2px;
+    bottom: -8px;
+    left: -8px;
+}
+
 /* --- V3_03: Round End Reveal --- */
 .reveal-prompt {
     position: fixed;
