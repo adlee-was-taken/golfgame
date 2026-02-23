@@ -28,8 +28,14 @@ services:
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - EMAIL_FROM=${EMAIL_FROM:-Golf Cards <noreply@contact.golfcards.club>}
       - SENTRY_DSN=${SENTRY_DSN:-}
-      - ENVIRONMENT=production
-      - LOG_LEVEL=INFO
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_LEVEL_GAME=${LOG_LEVEL_GAME:-}
+      - LOG_LEVEL_AI=${LOG_LEVEL_AI:-}
+      - LOG_LEVEL_HANDLERS=${LOG_LEVEL_HANDLERS:-}
+      - LOG_LEVEL_ROOM=${LOG_LEVEL_ROOM:-}
+      - LOG_LEVEL_AUTH=${LOG_LEVEL_AUTH:-}
+      - LOG_LEVEL_STORES=${LOG_LEVEL_STORES:-}
       - BASE_URL=${BASE_URL:-https://golf.example.com}
       - RATE_LIMIT_ENABLED=true
       - INVITE_ONLY=true
