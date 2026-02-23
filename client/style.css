@@ -5002,14 +5002,21 @@ body.screen-shake {
 }
 
 body.mobile-portrait {
-    height: var(--app-height, 100vh);
-    overflow: hidden;
     overscroll-behavior: contain;
     touch-action: manipulation;
 }
 
 body.mobile-portrait #app {
     padding: 0;
+}
+
+/* Lock viewport only when game screen is active (allow scrolling on rules, lobby, etc.) */
+body.mobile-portrait:has(#game-screen.active) {
+    height: var(--app-height, 100vh);
+    overflow: hidden;
+}
+
+body.mobile-portrait:has(#game-screen.active) #app {
     height: var(--app-height, 100vh);
     overflow: hidden;
 }
