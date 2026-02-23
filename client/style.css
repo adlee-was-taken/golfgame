@@ -1691,8 +1691,8 @@ input::placeholder {
     gap: 6px;
     background: linear-gradient(135deg, #ff6b35 0%, #d63031 100%);
     color: #fff;
-    padding: 6px 14px;
-    border-radius: 8px;
+    padding: 6px 16px;
+    border-radius: 4px;
     font-weight: 700;
     letter-spacing: 0.05em;
     white-space: nowrap;
@@ -5097,12 +5097,15 @@ body.mobile-portrait #matchmaking-screen {
     margin-top: 50px;
 }
 
+body.mobile-portrait .header-col-center {
+    justify-content: flex-start;
+}
+
 body.mobile-portrait .status-message {
     font-size: 1.02rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    text-align: left;
 }
 
 body.mobile-portrait .round-info {
