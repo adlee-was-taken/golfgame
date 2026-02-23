@@ -2812,26 +2812,63 @@ input::placeholder {
 /* Mobile adjustments for final results modal */
 @media (max-width: 500px) {
     .final-results-content {
-        padding: 20px 25px;
+        padding: 15px 12px;
+        width: 95%;
     }
 
     .final-results-content h2 {
-        font-size: 1.5rem;
+        font-size: 1.3rem;
+        margin-bottom: 10px;
+    }
+
+    .double-victory-banner {
+        padding: 8px 12px;
+        font-size: 0.95rem;
+        margin-bottom: 12px;
     }
 
     .final-rankings {
-        flex-direction: column;
-        gap: 15px;
+        flex-direction: row;
+        gap: 8px;
+        margin-bottom: 15px;
+    }
+
+    .final-ranking-section {
+        padding: 8px;
+    }
+
+    .final-ranking-section h3 {
+        font-size: 0.7rem;
+        margin-bottom: 6px;
+        padding-bottom: 4px;
     }
 
     .final-rank-row {
+        font-size: 0.8rem;
+        padding: 4px 5px;
+        margin-bottom: 2px;
+    }
+
+    .final-rank-row .rank-pos {
+        width: 22px;
         font-size: 0.9rem;
-        padding: 6px 8px;
+    }
+
+    .final-rank-row .rank-val {
+        font-size: 0.8rem;
+    }
+
+    .final-actions {
+        flex-direction: row;
+        gap: 8px;
+        padding-bottom: 60px;
     }
 
     .final-actions .btn {
-        min-width: 120px;
-        padding: 12px 20px;
+        min-width: 0;
+        flex: 1;
+        padding: 10px 12px;
+        font-size: 0.9rem;
     }
 }
 
