@@ -3145,7 +3145,7 @@ class GolfGame {
         const mobileRulesContent = document.getElementById('mobile-rules-content');
         if (mobileRulesBtn && mobileRulesIcon && mobileRulesContent) {
             const isHouseRules = rules.length > 0;
-            mobileRulesIcon.textContent = isHouseRules ? '!' : 'S';
+            mobileRulesIcon.textContent = isHouseRules ? '!' : 'RULES';
             mobileRulesBtn.classList.toggle('house-rules', isHouseRules);
 
             if (!isHouseRules) {
