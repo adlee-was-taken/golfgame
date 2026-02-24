@@ -111,7 +111,7 @@ body {
     margin-bottom: -0.3em;
 }
 
-@media (max-width: 479px) {
+@media (max-width: 749px) {
     #lobby-screen h1,
     #lobby-screen .logo-row {
         text-align: center;
