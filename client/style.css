@@ -101,9 +101,13 @@ body {
     filter: drop-shadow(1px 2px 2px rgba(0,0,0,0.25));
 }
 
+.logo-row {
+    display: inline-block;
+}
+
 @media (orientation: landscape) {
-    .golfball-logo {
-        margin-left: -3.5rem;
+    .logo-row {
+        transform: translateX(-4.5rem);
     }
 }
 
