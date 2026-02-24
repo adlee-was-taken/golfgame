@@ -112,7 +112,10 @@ body {
 }
 
 @media (max-width: 749px) {
-    #lobby-screen h1,
+    #lobby-screen h1 {
+        text-align: center;
+        text-indent: -18px;
+    }
     #lobby-screen .logo-row {
         text-align: center;
     }
