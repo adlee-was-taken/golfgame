@@ -29,7 +29,7 @@ services:
       - EMAIL_FROM=${EMAIL_FROM:-Golf Cards <noreply@contact.golfcards.club>}
       - SENTRY_DSN=${SENTRY_DSN:-}
       - ENVIRONMENT=${ENVIRONMENT:-production}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_LEVEL=${LOG_LEVEL:-WARNING}
       - LOG_LEVEL_GAME=${LOG_LEVEL_GAME:-}
       - LOG_LEVEL_AI=${LOG_LEVEL_AI:-}
       - LOG_LEVEL_HANDLERS=${LOG_LEVEL_HANDLERS:-}
