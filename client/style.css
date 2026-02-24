@@ -106,7 +106,7 @@ body {
     margin-bottom: -0.3em;
 }
 
-@media (min-width: 500px) {
+@media (min-width: 768px) {
     .logo-row {
         transform: translateX(-5.5rem);
     }
