@@ -107,7 +107,7 @@ body {
     transform: translateX(-5.5rem);
 }
 
-@media (max-width: 749px) {
+@media (max-width: 449px) {
     .logo-row {
         display: inline;
         margin-bottom: 0;
