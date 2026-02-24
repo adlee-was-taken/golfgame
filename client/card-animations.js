@@ -220,6 +220,7 @@ class CardAnimations {
     }
 
     _animateDrawDeckCard(cardData, deckRect, holdingRect, onComplete) {
+        console.log('[DEBUG] _animateDrawDeckCard called with cardData:', cardData ? `${cardData.rank} of ${cardData.suit}` : 'NULL');
         const deckColor = this.getDeckColor();
         const animCard = this.createAnimCard(deckRect, true, deckColor);
         animCard.dataset.animating = 'true'; // Mark as actively animating
@@ -228,6 +229,9 @@ class CardAnimations {
 
         if (cardData) {
             this.setCardContent(animCard, cardData);
+            // Debug: verify what was actually set on the front face
+            const front = animCard.querySelector('.draw-anim-front');
+            console.log('[DEBUG] Draw anim card front content:', front?.innerHTML);
         }
 
         this.playSound('draw-deck');
@@ -759,26 +763,28 @@ class CardAnimations {
         const id = 'turnPulse';
         this.stopTurnPulse(element);
 
-        // Quick shake animation
+        // Quick shake animation - target cards only, not labels
+        const T = window.TIMING?.turnPulse || {};
+        const cards = element.querySelectorAll(':scope > .pile-wrapper > .card, :scope > .pile-wrapper > .discard-stack');
         const doShake = () => {
             if (!this.activeAnimations.has(id)) return;
 
             anime({
-                targets: element,
+                targets: cards.length ? cards : element,
                 translateX: [0, -6, 6, -4, 3, 0],
-                duration: 300,
+                duration: T.duration || 300,
                 easing: 'easeInOutQuad'
             });
         };
 
-        // Delay first shake by 5 seconds, then repeat every 2 seconds
+        // Delay first shake, then repeat at interval
         const timeout = setTimeout(() => {
             if (!this.activeAnimations.has(id)) return;
             doShake();
-            const interval = setInterval(doShake, 2000);
+            const interval = setInterval(doShake, T.interval || 3000);
             const entry = this.activeAnimations.get(id);
             if (entry) entry.interval = interval;
-        }, 5000);
+        }, T.initialDelay || 5000);
         this.activeAnimations.set(id, { timeout });
     }
 

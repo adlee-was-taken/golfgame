@@ -1739,8 +1739,22 @@ class GolfAI:
         expected_hidden_total = len(face_down) * EXPECTED_HIDDEN_VALUE
         projected_score = visible_score + expected_hidden_total
 
+        # Hard cap: never knock with projected score > 10
+        if projected_score > 10:
+            ai_log(f"  Knock rejected: projected score {projected_score:.1f} > 10 hard cap")
+            return False
+
         # Tighter threshold: range 5 to 9 based on aggression
         max_acceptable = 5 + int(profile.aggression * 4)
+
+        # Check opponent threat - don't knock if an opponent likely beats us
+        opponent_min = estimate_opponent_min_score(player, game, optimistic=False)
+        if opponent_min < projected_score:
+            # Opponent is likely beating us - penalize threshold
+            threat_margin = projected_score - opponent_min
+            max_acceptable -= int(threat_margin * 0.75)
+            ai_log(f"  Knock threat penalty: opponent est {opponent_min}, "
+                   f"margin {threat_margin:.1f}, threshold now {max_acceptable}")
 
         # Exception: if all opponents are showing terrible scores, relax threshold
         all_opponents_bad = all(
@@ -1752,12 +1766,14 @@ class GolfAI:
 
         if projected_score <= max_acceptable:
             # Scale knock chance by how good the projected score is
-            if projected_score <= 5:
-                knock_chance = profile.aggression * 0.3  # Max 30%
-            elif projected_score <= 7:
+            if projected_score <= 4:
+                knock_chance = profile.aggression * 0.35  # Max 35%
+            elif projected_score <= 6:
                 knock_chance = profile.aggression * 0.15  # Max 15%
-            else:
-                knock_chance = profile.aggression * 0.05  # Max 5% (very rare)
+            elif projected_score <= 8:
+                knock_chance = profile.aggression * 0.06  # Max 6%
+            else:  # 9-10
+                knock_chance = profile.aggression * 0.02  # Max 2% (very rare)
 
             if random.random() < knock_chance:
                 ai_log(f"  Knock early: taking the gamble! (projected {projected_score:.1f})")
@@ -1966,10 +1982,8 @@ async def process_cpu_turn(
     await asyncio.sleep(thinking_time)
     ai_log(f"{cpu_player.name} done thinking, making decision")
 
-    # Check if we should try to go out early
-    GolfAI.should_go_out_early(cpu_player, game, profile)
-
     # Check if we should knock early (flip all remaining cards at once)
+    # (Opponent threat logic consolidated into should_knock_early)
     if GolfAI.should_knock_early(game, cpu_player, profile):
         if game.knock_early(cpu_player.id):
             _log_cpu_action(logger, game_id, cpu_player, game,

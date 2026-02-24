@@ -822,11 +822,29 @@ class GolfGame {
                                        newState.phase === 'round_over';
 
                 if (roundJustEnded && oldState) {
-                    // Save pre-reveal state for the reveal animation
-                    this.preRevealState = JSON.parse(JSON.stringify(oldState));
-                    this.postRevealState = newState;
-                    // Update state but DON'T render yet - reveal animation will handle it
+                    // Update state first so animations can read new card data
                     this.gameState = newState;
+
+                    // Fire animations for the last turn (swap/discard) before deferring
+                    try {
+                        this.triggerAnimationsForStateChange(oldState, newState);
+                    } catch (e) {
+                        console.error('Animation error on round end:', e);
+                    }
+
+                    // Build preRevealState from oldState, but mark swap position as
+                    // already handled so reveal animation doesn't double-flip it
+                    const preReveal = JSON.parse(JSON.stringify(oldState));
+                    if (this.opponentSwapAnimation) {
+                        const { playerId, position } = this.opponentSwapAnimation;
+                        const player = preReveal.players.find(p => p.id === playerId);
+                        if (player?.cards[position]) {
+                            player.cards[position].face_up = true;
+                        }
+                    }
+
+                    this.preRevealState = preReveal;
+                    this.postRevealState = newState;
                     break;
                 }
 
@@ -1431,8 +1449,9 @@ class GolfGame {
         this.swapAnimationCardEl = handCardEl;
         this.swapAnimationHandCardEl = handCardEl;
 
-        // Hide originals during animation
+        // Hide originals and UI during animation
         handCardEl.classList.add('swap-out');
+        this.discardBtn.classList.add('hidden');
         if (this.heldCardFloating) {
             this.heldCardFloating.style.visibility = 'hidden';
         }
@@ -2087,6 +2106,22 @@ class GolfGame {
         const knockerId = newState.finisher_id;
         const revealOrder = this.getRevealOrder(newState.players, knockerId);
 
+        // Wait for the last player's animation (swap/discard/draw) to finish
+        // so the final play is visible before the reveal sequence starts
+        const maxWait = 3000;
+        const start = Date.now();
+        while (Date.now() - start < maxWait) {
+            if (!this.isDrawAnimating && !this.opponentSwapAnimation &&
+                !this.opponentDiscardAnimating && !this.localDiscardAnimating &&
+                !this.swapAnimationInProgress) {
+                break;
+            }
+            await this.delay(100);
+        }
+
+        // Extra pause so the final play registers before reveals start
+        await this.delay(T.lastPlayPause || 2500);
+
         // Initial pause
         this.setStatus('Revealing cards...', 'reveal');
         await this.delay(T.initialPause || 500);
@@ -2425,7 +2460,7 @@ class GolfGame {
                     this.opponentSwapAnimation = null;
                     this.opponentDiscardAnimating = false;
                     this.isDrawAnimating = true;
-                    console.log('[DEBUG] Opponent draw from deck - setting isDrawAnimating=true');
+                    console.log('[DEBUG] Opponent draw from deck - setting isDrawAnimating=true, drawnCard:', drawnCard ? `${drawnCard.rank} of ${drawnCard.suit}` : 'NULL', 'discardTop:', newDiscard ? `${newDiscard.rank} of ${newDiscard.suit}` : 'EMPTY');
                     window.drawAnimations.animateDrawDeck(drawnCard, () => {
                         console.log('[DEBUG] Opponent draw from deck complete - clearing isDrawAnimating');
                         this.isDrawAnimating = false;
@@ -2506,6 +2541,7 @@ class GolfGame {
                 const cardsIdentical = wasOtherPlayer && JSON.stringify(oldPlayer.cards) === JSON.stringify(newPlayer.cards);
 
                 if (swappedPosition >= 0 && wasOtherPlayer) {
+                    console.log('[DEBUG] Swap detected:', { playerId: previousPlayerId, position: swappedPosition, wasFaceUp, newDiscard: newDiscard?.rank });
                     // Opponent swapped - animate from the actual position that changed
                     this.fireSwapAnimation(previousPlayerId, newDiscard, swappedPosition, wasFaceUp);
                     // Show CPU swap announcement
@@ -2818,22 +2854,28 @@ class GolfGame {
                     rotation: sourceRotation,
                     wasHandFaceDown: !wasFaceUp,
                     onComplete: () => {
-                        sourceCardEl.classList.remove('swap-out');
+                        if (sourceCardEl) sourceCardEl.classList.remove('swap-out');
                         this.opponentSwapAnimation = null;
                         this.opponentDiscardAnimating = false;
                         console.log('[DEBUG] Swap animation complete - clearing opponentSwapAnimation and opponentDiscardAnimating');
-                        this.renderGame();
+                        // Don't re-render during reveal animation - it handles its own rendering
+                        if (!this.revealAnimationInProgress) {
+                            this.renderGame();
+                        }
                     }
                 }
             );
         } else {
             // Fallback
             setTimeout(() => {
-                sourceCardEl.classList.remove('swap-out');
+                if (sourceCardEl) sourceCardEl.classList.remove('swap-out');
                 this.opponentSwapAnimation = null;
                 this.opponentDiscardAnimating = false;
                 console.log('[DEBUG] Swap animation fallback complete - clearing flags');
-                this.renderGame();
+                // Don't re-render during reveal animation - it handles its own rendering
+                if (!this.revealAnimationInProgress) {
+                    this.renderGame();
+                }
             }, 500);
         }
     }
