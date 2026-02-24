@@ -208,10 +208,11 @@ body {
     background: rgba(0,0,0,0.2);
     border-radius: 10px;
     padding: 15px;
+    margin-bottom: 0;
 }
 
 .waiting-left-col .players-list h3 {
-    margin: 0 0 10px 0;
+    margin: 0;
     font-size: 1rem;
 }
 
@@ -330,29 +331,36 @@ body {
 .deck-cyan { background: linear-gradient(135deg, #00bcd4 0%, #0097a7 100%); }
 .deck-brown { background: linear-gradient(135deg, #8b4513 0%, #5d2f0d 100%); }
 
-/* CPU Controls Section - below players list */
-.cpu-controls-section {
-    background: rgba(0,0,0,0.2);
-    border-radius: 8px;
-    padding: 10px 12px;
-}
-
-.cpu-controls-section h4 {
-    margin: 0 0 6px 0;
-    font-size: 0.8rem;
-    color: #f4a460;
-}
-
-.cpu-controls-section .cpu-controls {
+/* Players List Header with inline CPU controls */
+.players-list-header {
     display: flex;
-    gap: 6px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
 }
 
-.cpu-controls-section .cpu-controls .btn {
-    flex: 1;
-    padding: 6px 0;
-    font-size: 1rem;
+.cpu-ctrl-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    color: white;
+    font-size: 1.1rem;
     font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.15s;
+    line-height: 1;
+}
+
+.cpu-ctrl-btn:hover {
+    opacity: 0.85;
+}
+
+.cpu-ctrl-btn:active {
+    opacity: 0.7;
 }
 
 #waiting-message {
@@ -363,12 +371,76 @@ body {
 
 /* Mobile: stack vertically */
 @media (max-width: 700px) {
+    #waiting-screen {
+        padding: 10px 15px;
+    }
+
     .waiting-layout {
         grid-template-columns: 1fr;
+        gap: 10px;
+        padding-top: 72px;
+    }
+
+    .waiting-left-col {
+        gap: 10px;
+    }
+
+    .waiting-left-col .players-list {
+        padding: 12px;
+    }
+
+    .players-list li {
+        padding: 8px 10px;
+        margin-bottom: 6px;
+    }
+
+    #waiting-screen .settings {
+        padding: 15px;
+    }
+
+    #waiting-screen .settings h3 {
+        margin-bottom: 10px;
+    }
+
+    #leave-room-btn {
+        padding: 10px 16px;
+        font-size: 0.9rem;
     }
 
     .basic-settings-row {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: auto minmax(80px, auto) 1fr;
+        gap: 8px;
+    }
+
+    .basic-settings-row .form-group label {
+        font-size: 0.75rem;
+    }
+
+    .stepper-control {
+        gap: 4px;
+        padding: 4px 4px;
+    }
+
+    .stepper-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 1rem;
+    }
+
+    .stepper-value {
+        min-width: 18px;
+        font-size: 0.95rem;
+    }
+
+    .basic-settings-row select {
+        padding: 6px 2px;
+        font-size: 0.85rem;
+        text-align: center;
+    }
+
+
+    .deck-color-selector select {
+        min-width: 0;
     }
 }
 
@@ -376,7 +448,7 @@ body {
 .room-code-banner {
     position: fixed;
     top: 0;
-    left: 20px;
+    left: 7px;
     z-index: 100;
     background: linear-gradient(180deg, #d4845a 0%, #c4723f 50%, #b8663a 100%);
     padding: 10px 14px 18px;
@@ -668,7 +740,15 @@ input::placeholder {
 
 .cpu-controls {
     display: flex;
-    gap: 10px;
+    align-items: center;
+    gap: 4px;
+}
+
+.cpu-controls-label {
+    font-size: 0.8rem;
+    color: #f4a460;
+    font-weight: 600;
+    margin-right: 2px;
 }
 
 .checkbox-group {
@@ -3348,7 +3428,7 @@ input::placeholder {
 .auth-bar {
     position: fixed;
     top: 10px;
-    right: 15px;
+    right: 7px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -5559,10 +5639,11 @@ body.mobile-portrait #lobby-screen {
 }
 
 body.mobile-portrait #waiting-screen {
-    padding: 10px 12px;
+    padding: 10px 15px;
     overflow-y: auto;
     max-height: 100dvh;
 }
+
 
 /* --- Mobile: Compact scoresheet modal --- */
 body.mobile-portrait .scoresheet-content {

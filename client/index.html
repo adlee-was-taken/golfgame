@@ -80,15 +80,15 @@
             <div class="waiting-layout">
                 <div class="waiting-left-col">
                     <div class="players-list">
-                        <h3>Players</h3>
-                        <ul id="players-list"></ul>
-                    </div>
-                    <div id="cpu-controls-section" class="cpu-controls-section hidden">
-                        <h4>Add CPU Opponents</h4>
-                        <div class="cpu-controls">
-                            <button id="remove-cpu-btn" class="btn btn-small btn-danger" title="Remove last CPU">−</button>
-                            <button id="add-cpu-btn" class="btn btn-small btn-success" title="Add CPU player">+</button>
+                        <div class="players-list-header">
+                            <h3>Players</h3>
+                            <div id="cpu-controls-section" class="cpu-controls hidden">
+                                <span class="cpu-controls-label">CPU:</span>
+                                <button id="remove-cpu-btn" class="cpu-ctrl-btn btn-danger" title="Remove CPU">−</button>
+                                <button id="add-cpu-btn" class="cpu-ctrl-btn btn-success" title="Add CPU">+</button>
+                            </div>
                         </div>
+                        <ul id="players-list"></ul>
                     </div>
                     <button id="leave-room-btn" class="btn btn-danger">Leave Room</button>
                 </div>
