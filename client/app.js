@@ -1594,10 +1594,26 @@ class GolfGame {
 
         if (this.pendingGameState) {
             const oldState = this.gameState;
-            this.gameState = this.pendingGameState;
+            const newState = this.pendingGameState;
             this.pendingGameState = null;
-            this.checkForNewPairs(oldState, this.gameState);
-            this.renderGame();
+
+            // Check if the deferred state is a round_over transition
+            const roundJustEnded = oldState?.phase !== 'round_over' &&
+                                   newState.phase === 'round_over';
+
+            if (roundJustEnded && oldState) {
+                // Same intercept as the game_state handler: store pre/post
+                // reveal states so runRoundEndReveal can animate the reveal
+                this.gameState = newState;
+                const preReveal = JSON.parse(JSON.stringify(oldState));
+                this.preRevealState = preReveal;
+                this.postRevealState = newState;
+                // Don't renderGame - let the reveal sequence handle it
+            } else {
+                this.gameState = newState;
+                this.checkForNewPairs(oldState, newState);
+                this.renderGame();
+            }
         }
     }
 
@@ -2083,6 +2099,16 @@ class GolfGame {
 
     async runRoundEndReveal(scores, rankings) {
         const T = window.TIMING?.reveal || {};
+
+        // preRevealState may not be set yet if the game_state was deferred
+        // (e.g., local swap animation was in progress). Wait briefly for it.
+        if (!this.preRevealState) {
+            const waitStart = Date.now();
+            while (!this.preRevealState && Date.now() - waitStart < 3000) {
+                await this.delay(100);
+            }
+        }
+
         const oldState = this.preRevealState;
         const newState = this.postRevealState || this.gameState;
 
@@ -2092,15 +2118,7 @@ class GolfGame {
             return;
         }
 
-        // First, render the game with the OLD state (pre-reveal) so cards show face-down
-        this.gameState = newState;
-        // But render with pre-reveal card visuals
-        this.revealAnimationInProgress = true;
-
-        // Render game to show current layout (opponents, etc)
-        this.renderGame();
-
-        // Compute what needs revealing
+        // Compute what needs revealing (before renderGame changes the DOM)
         const revealsByPlayer = this.getCardsToReveal(oldState, newState);
 
         // Get reveal order: knocker first, then clockwise
@@ -2120,10 +2138,15 @@ class GolfGame {
             await this.delay(100);
         }
 
-        // Extra pause so the final play registers before reveals start
+        // Extra pause so the final play registers visually before we
+        // re-render the board (renderGame below resets card positions)
         await this.delay(T.lastPlayPause || 2500);
 
-        // Initial pause
+        // Now render with pre-reveal state (face-down cards) for the reveal sequence
+        this.gameState = newState;
+        this.revealAnimationInProgress = true;
+        this.renderGame();
+
         this.setStatus('Revealing cards...', 'reveal');
         await this.delay(T.initialPause || 500);
 
