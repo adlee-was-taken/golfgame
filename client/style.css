@@ -108,7 +108,7 @@ body {
 }
 
 .logo-row {
-    display: inline-block;
+    display: block;
     margin-bottom: -0.3em;
 }
 
