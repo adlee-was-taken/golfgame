@@ -5,6 +5,7 @@ Provides endpoints for user registration, login, password management,
 and session handling.
 """
 
+import hashlib
 import logging
 from typing import Optional
 
@@ -15,6 +16,7 @@ from config import config
 from models.user import User
 from services.auth_service import AuthService
 from services.admin_service import AdminService
+from services.ratelimit import SignupLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +117,7 @@ class SessionResponse(BaseModel):
 # These will be set by main.py during startup
 _auth_service: Optional[AuthService] = None
 _admin_service: Optional[AdminService] = None
+_signup_limiter: Optional[SignupLimiter] = None
 
 
 def set_auth_service(service: AuthService) -> None:
@@ -127,6 +130,12 @@ def set_admin_service_for_auth(service: AdminService) -> None:
     """Set the admin service instance for invite code validation (called from main.py)."""
     global _admin_service
     _admin_service = service
+
+
+def set_signup_limiter(limiter: SignupLimiter) -> None:
+    """Set the signup limiter instance (called from main.py)."""
+    global _signup_limiter
+    _signup_limiter = limiter
 
 
 def get_auth_service_dep() -> AuthService:
@@ -211,15 +220,51 @@ async def register(
     auth_service: AuthService = Depends(get_auth_service_dep),
 ):
     """Register a new user account."""
-    # Validate invite code when invite-only mode is enabled
-    if config.INVITE_ONLY:
-        if not request_body.invite_code:
-            raise HTTPException(status_code=400, detail="Invite code required")
+    has_invite = bool(request_body.invite_code)
+    is_open_signup = not has_invite
+    client_ip = get_client_ip(request)
+    ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()[:16] if client_ip else "unknown"
+
+    # --- Per-IP daily signup limit (applies to ALL signups) ---
+    if config.DAILY_SIGNUPS_PER_IP > 0 and _signup_limiter:
+        ip_allowed, ip_remaining = await _signup_limiter.check_ip_limit(
+            ip_hash, config.DAILY_SIGNUPS_PER_IP
+        )
+        if not ip_allowed:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many signups from this address today. Please try again tomorrow.",
+            )
+
+    # --- Invite code validation ---
+    if has_invite:
         if not _admin_service:
             raise HTTPException(status_code=503, detail="Admin service not initialized")
         if not await _admin_service.validate_invite_code(request_body.invite_code):
             raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+    else:
+        # No invite code — check if open signups are allowed
+        if config.INVITE_ONLY and config.DAILY_OPEN_SIGNUPS == 0:
+            raise HTTPException(status_code=400, detail="Invite code required")
 
+        # Check daily open signup limit
+        if config.DAILY_OPEN_SIGNUPS != 0 and _signup_limiter:
+            daily_allowed, daily_remaining = await _signup_limiter.check_daily_limit(
+                config.DAILY_OPEN_SIGNUPS
+            )
+            if not daily_allowed:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Daily signup limit reached. Please try again tomorrow or use an invite code.",
+                )
+        elif config.DAILY_OPEN_SIGNUPS != 0 and not _signup_limiter:
+            # Signup limiter requires Redis — fail closed
+            raise HTTPException(
+                status_code=503,
+                detail="Registration temporarily unavailable. Please try again later.",
+            )
+
+    # --- Create the account ---
     result = await auth_service.register(
         username=request_body.username,
         password=request_body.password,
@@ -229,12 +274,19 @@ async def register(
     if not result.success:
         raise HTTPException(status_code=400, detail=result.error)
 
-    # Consume the invite code after successful registration
-    if config.INVITE_ONLY and request_body.invite_code:
+    # --- Post-registration bookkeeping ---
+    # Consume invite code if used
+    if has_invite and _admin_service:
         await _admin_service.use_invite_code(request_body.invite_code)
 
+    # Increment signup counters
+    if _signup_limiter:
+        if is_open_signup and config.DAILY_OPEN_SIGNUPS != 0:
+            await _signup_limiter.increment_daily()
+        if config.DAILY_SIGNUPS_PER_IP > 0:
+            await _signup_limiter.increment_ip(ip_hash)
+
     if result.requires_verification:
-        # Return user info but note they need to verify
         return {
             "user": _user_to_response(result.user),
             "token": "",
@@ -247,7 +299,7 @@ async def register(
         username=request_body.username,
         password=request_body.password,
         device_info=get_device_info(request),
-        ip_address=get_client_ip(request),
+        ip_address=client_ip,
     )
 
     if not login_result.success:
@@ -257,6 +309,32 @@ async def register(
         "user": _user_to_response(login_result.user),
         "token": login_result.token,
         "expires_at": login_result.expires_at.isoformat(),
+    }
+
+
+@router.get("/signup-info")
+async def signup_info():
+    """
+    Public endpoint: returns signup availability info.
+
+    Tells the client whether invite codes are required,
+    and how many open signup slots remain today.
+    """
+    open_signups_enabled = config.DAILY_OPEN_SIGNUPS != 0
+    invite_required = config.INVITE_ONLY and not open_signups_enabled
+    unlimited = config.DAILY_OPEN_SIGNUPS < 0
+
+    remaining = None
+    if open_signups_enabled and not unlimited and _signup_limiter:
+        daily_count = await _signup_limiter.get_daily_count()
+        remaining = max(0, config.DAILY_OPEN_SIGNUPS - daily_count)
+
+    return {
+        "invite_required": invite_required,
+        "open_signups_enabled": open_signups_enabled,
+        "daily_limit": config.DAILY_OPEN_SIGNUPS if not unlimited else None,
+        "remaining_today": remaining,
+        "unlimited": unlimited,
     }
 
 

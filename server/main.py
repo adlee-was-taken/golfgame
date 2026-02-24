@@ -84,7 +84,7 @@ async def _periodic_leaderboard_refresh():
 
 
 async def _init_redis():
-    """Initialize Redis client and rate limiter."""
+    """Initialize Redis client, rate limiter, and signup limiter."""
     global _redis_client, _rate_limiter
     try:
         _redis_client = redis.from_url(config.REDIS_URL, decode_responses=False)
@@ -95,6 +95,17 @@ async def _init_redis():
             from services.ratelimit import get_rate_limiter
             _rate_limiter = await get_rate_limiter(_redis_client)
             logger.info("Rate limiter initialized")
+
+        # Initialize signup limiter for metered open signups
+        if config.DAILY_OPEN_SIGNUPS != 0 or config.DAILY_SIGNUPS_PER_IP > 0:
+            from services.ratelimit import get_signup_limiter
+            signup_limiter = await get_signup_limiter(_redis_client)
+            from routers.auth import set_signup_limiter
+            set_signup_limiter(signup_limiter)
+            logger.info(
+                f"Signup limiter initialized "
+                f"(daily={config.DAILY_OPEN_SIGNUPS}, per_ip={config.DAILY_SIGNUPS_PER_IP})"
+            )
     except Exception as e:
         logger.warning(f"Redis connection failed: {e} - rate limiting disabled")
         _redis_client = None

@@ -893,8 +893,9 @@ TOTAL: 0 + 8 + 16 = 24 points</pre>
             <div id="signup-form-container" class="hidden">
                 <h3>Sign Up</h3>
                 <form id="signup-form">
-                    <div class="form-group">
-                        <input type="text" id="signup-invite-code" placeholder="Invite Code" required>
+                    <div class="form-group" id="invite-code-group">
+                        <input type="text" id="signup-invite-code" placeholder="Invite Code">
+                        <small id="invite-code-hint" class="form-hint"></small>
                     </div>
                     <div class="form-group">
                         <input type="text" id="signup-username" placeholder="Username" required minlength="3" maxlength="20">

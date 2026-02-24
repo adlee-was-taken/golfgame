@@ -3605,6 +3605,13 @@ input::placeholder {
     width: 100%;
 }
 
+.form-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.45);
+}
+
 .auth-switch {
     text-align: center;
     margin-top: 15px;

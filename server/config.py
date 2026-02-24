@@ -147,6 +147,12 @@ class ServerConfig:
     SECRET_KEY: str = ""
     INVITE_ONLY: bool = True
 
+    # Metered open signups (public beta)
+    # 0 = disabled (invite-only), -1 = unlimited, N = max per day
+    DAILY_OPEN_SIGNUPS: int = 0
+    # Max signups per IP per day (0 = unlimited)
+    DAILY_SIGNUPS_PER_IP: int = 3
+
     # Bootstrap admin (for first-time setup when INVITE_ONLY=true)
     BOOTSTRAP_ADMIN_USERNAME: str = ""
     BOOTSTRAP_ADMIN_PASSWORD: str = ""
@@ -194,6 +200,8 @@ class ServerConfig:
             ROOM_CODE_LENGTH=get_env_int("ROOM_CODE_LENGTH", 4),
             SECRET_KEY=get_env("SECRET_KEY", ""),
             INVITE_ONLY=get_env_bool("INVITE_ONLY", True),
+            DAILY_OPEN_SIGNUPS=get_env_int("DAILY_OPEN_SIGNUPS", 0),
+            DAILY_SIGNUPS_PER_IP=get_env_int("DAILY_SIGNUPS_PER_IP", 3),
             BOOTSTRAP_ADMIN_USERNAME=get_env("BOOTSTRAP_ADMIN_USERNAME", ""),
             BOOTSTRAP_ADMIN_PASSWORD=get_env("BOOTSTRAP_ADMIN_PASSWORD", ""),
             MATCHMAKING_ENABLED=get_env_bool("MATCHMAKING_ENABLED", True),

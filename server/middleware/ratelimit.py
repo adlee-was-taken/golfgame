@@ -81,11 +81,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Generate client key
         client_key = self.limiter.get_client_key(request, user_id)
 
-        # Check rate limit
+        # Check rate limit (fail closed for auth endpoints)
         endpoint_key = self._get_endpoint_key(path)
         full_key = f"{endpoint_key}:{client_key}"
 
-        allowed, info = await self.limiter.is_allowed(full_key, limit, window)
+        is_auth_endpoint = path.startswith("/api/auth")
+        if is_auth_endpoint:
+            allowed, info = await self.limiter.is_allowed_strict(full_key, limit, window)
+        else:
+            allowed, info = await self.limiter.is_allowed(full_key, limit, window)
 
         # Build response
         if allowed:

@@ -4762,11 +4762,14 @@ class AuthManager {
         this.signupFormContainer = document.getElementById('signup-form-container');
         this.signupForm = document.getElementById('signup-form');
         this.signupInviteCode = document.getElementById('signup-invite-code');
+        this.inviteCodeGroup = document.getElementById('invite-code-group');
+        this.inviteCodeHint = document.getElementById('invite-code-hint');
         this.signupUsername = document.getElementById('signup-username');
         this.signupEmail = document.getElementById('signup-email');
         this.signupPassword = document.getElementById('signup-password');
         this.signupError = document.getElementById('signup-error');
         this.showSignupLink = document.getElementById('show-signup');
+        this.signupInfo = null;  // populated by fetchSignupInfo()
         this.showLoginLink = document.getElementById('show-login');
         this.showForgotLink = document.getElementById('show-forgot');
         this.forgotFormContainer = document.getElementById('forgot-form-container');
@@ -4815,6 +4818,9 @@ class AuthManager {
         // Check URL for reset token or invite code on page load
         this.checkResetToken();
         this.checkInviteCode();
+
+        // Fetch signup availability info (metered open signups)
+        this.fetchSignupInfo();
     }
 
     showModal(form = 'login') {
@@ -4976,6 +4982,44 @@ class AuthManager {
             this.showModal('signup');
             // Clean URL
             window.history.replaceState({}, '', '/');
+        }
+    }
+
+    async fetchSignupInfo() {
+        try {
+            const resp = await fetch('/api/auth/signup-info');
+            if (resp.ok) {
+                this.signupInfo = await resp.json();
+                this.updateInviteCodeField();
+            }
+        } catch (err) {
+            // Fail silently — invite field stays required by default
+        }
+    }
+
+    updateInviteCodeField() {
+        if (!this.signupInfo || !this.signupInviteCode) return;
+
+        const { invite_required, open_signups_enabled, remaining_today, unlimited } = this.signupInfo;
+
+        if (invite_required) {
+            this.signupInviteCode.required = true;
+            this.signupInviteCode.placeholder = 'Invite Code (required)';
+            if (this.inviteCodeHint) this.inviteCodeHint.textContent = '';
+        } else if (open_signups_enabled) {
+            this.signupInviteCode.required = false;
+            this.signupInviteCode.placeholder = 'Invite Code (optional)';
+            if (this.inviteCodeHint) {
+                if (unlimited) {
+                    this.inviteCodeHint.textContent = 'Open registration — no invite needed';
+                } else if (remaining_today !== null && remaining_today > 0) {
+                    this.inviteCodeHint.textContent = `${remaining_today} open signup${remaining_today !== 1 ? 's' : ''} left today`;
+                } else if (remaining_today === 0) {
+                    this.signupInviteCode.required = true;
+                    this.signupInviteCode.placeholder = 'Invite Code (required)';
+                    this.inviteCodeHint.textContent = 'Daily signups full — invite code required';
+                }
+            }
         }
     }
 
