@@ -70,12 +70,8 @@ The golfer emoji is roughly 30-40px wide at this viewport. Since `scaleX(-1)` fl
 - `client/style.css` — `.kicked-ball`, `@keyframes ball-kicked`, `.golfer-swing`
 - `client/index.html` — line 19: `<span class="golfer-swing">🏌️</span><span class="kicked-ball">⚪</span>`
 
-## Current state (reverted to clean)
+## Resolution (v3.1.6)
 
-All debug styles removed. Base keyframes restored to original `translate(-30px, 8px)` start. No mobile override keyframes. The bug still exists but the code is clean.
+**Fixed** by wrapping `.golfer-swing` + `.kicked-ball` in a `.golfer-container` span with `position: relative`, and changing `.kicked-ball` from `position: relative` to `position: absolute; right: -8px; bottom: 30%`. This anchors the ball to the golfer's front foot regardless of viewport width or inline flow layout.
 
-## Extracted frames for reference
-
-- `/tmp/golf-frames-good/` — good landscape behavior (from `good.mp4`)
-- `/tmp/golf-frames-bad/` — bad behavior (from old video)
-- `/tmp/golf-frames-new/` — debug session with red outline (from `Screencast_20260224_013326.mp4`)
+Also fixed a **CSS source order bug** where the base `.golfer-container` rule was defined after the `@media (max-width: 500px)` override, clobbering the mobile margin-left value.

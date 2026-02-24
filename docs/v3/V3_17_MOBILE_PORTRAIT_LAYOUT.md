@@ -1,6 +1,6 @@
 # V3.17: Mobile Portrait Layout
 
-**Version:** 3.1.1
+**Version:** 3.1.6
 **Commits:** `4fcdf13`, `fb3bd53`
 
 ## Overview
