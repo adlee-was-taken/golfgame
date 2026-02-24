@@ -104,12 +104,13 @@ body {
 .logo-row {
     display: inline-block;
     margin-bottom: -0.3em;
+    transform: translateX(-5.5rem);
 }
 
-#lobby-screen h1 {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
+@media (max-width: 749px) {
+    .logo-row {
+        transform: none;
+    }
 }
 
 /* Golfer swing animation */
