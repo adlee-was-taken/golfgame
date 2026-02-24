@@ -103,9 +103,10 @@ body {
 
 .logo-row {
     display: inline-block;
+    margin-bottom: -0.3em;
 }
 
-@media (orientation: landscape) {
+@media (min-width: 500px) {
     .logo-row {
         transform: translateX(-5.5rem);
     }
