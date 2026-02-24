@@ -43,8 +43,9 @@ CPU_TIMING = {
     # Delay before CPU "looks at" the discard pile
     "initial_look": (0.3, 0.5),
     # Brief pause after draw broadcast - let draw animation complete
-    # Must be >= client draw animation duration (~1s for deck, ~0.4s for discard)
-    "post_draw_settle": 1.1,
+    # Must be >= client draw animation duration (~1.09s for deck, ~0.4s for discard)
+    # Extra margin prevents swap message from arriving before draw flip completes
+    "post_draw_settle": 1.3,
     # Consideration time after drawing (before swap/discard decision)
     "post_draw_consider": (0.2, 0.4),
     # Variance multiplier range for chaotic personality players
@@ -1301,12 +1302,28 @@ class GolfAI:
 
         max_acceptable_go_out = 14 + int(profile.aggression * 4)
 
+        # Check opponent scores - don't go out if we'd lose badly
+        opponent_min = estimate_opponent_min_score(player, game, optimistic=False)
+        # Aggressive players tolerate a bigger gap; conservative ones less
+        opponent_margin = 4 + int(profile.aggression * 4)  # 4-8 points
+        opponent_cap = opponent_min + opponent_margin
+
+        # Use the more restrictive of the two thresholds
+        effective_max = min(max_acceptable_go_out, opponent_cap)
+
         ai_log(f"  Go-out safety check: visible_base={visible_score}, "
                f"score_if_swap={score_if_swap}, score_if_flip={score_if_flip}, "
-               f"max_acceptable={max_acceptable_go_out}")
+               f"max_acceptable={max_acceptable_go_out}, opponent_min={opponent_min}, "
+               f"opponent_cap={opponent_cap}, effective_max={effective_max}")
+
+        # High-card safety: don't swap 8+ into hidden position unless it makes a pair
+        creates_pair = (last_partner.face_up and last_partner.rank == drawn_card.rank)
+        if drawn_value >= HIGH_CARD_THRESHOLD and not creates_pair:
+            ai_log(f"  >> GO-OUT: high card ({drawn_value}) into hidden, preferring flip")
+            return None  # Fall through to normal scoring (will flip)
 
         # If BOTH options are bad, choose the better one
-        if score_if_swap > max_acceptable_go_out and score_if_flip > max_acceptable_go_out:
+        if score_if_swap > effective_max and score_if_flip > effective_max:
             if score_if_swap <= score_if_flip:
                 ai_log(f"  >> SAFETY: both options bad, but swap ({score_if_swap}) "
                        f"<= flip ({score_if_flip}), forcing swap")
@@ -1322,7 +1339,7 @@ class GolfAI:
             return None
 
         # If swap is good, prefer it (known outcome vs unknown flip)
-        elif score_if_swap <= max_acceptable_go_out and score_if_swap <= score_if_flip:
+        elif score_if_swap <= effective_max and score_if_swap <= score_if_flip:
             ai_log(f"  >> SAFETY: swap gives acceptable score {score_if_swap}")
             return last_pos
 

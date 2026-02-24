@@ -1127,7 +1127,7 @@ class CardAnimations {
                 });
                 // Now run the swap animation
                 this._runUnifiedSwap(handCardData, heldCardData, handRect, heldRect, discardRect, T, rotation, wasHandFaceDown, onComplete);
-            }, 100);
+            }, 350);
             return;
         }
 
