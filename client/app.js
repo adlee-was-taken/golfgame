@@ -2450,8 +2450,13 @@ class GolfGame {
                     this.opponentDiscardAnimating = false;
                     // Set isDrawAnimating to block renderGame from updating discard pile
                     this.isDrawAnimating = true;
+                    // Force discard DOM to show the card being drawn before animation starts
+                    // (previous animation may have blocked renderGame from updating it)
+                    if (oldDiscard) {
+                        this.updateDiscardPileDisplay(oldDiscard);
+                    }
                     console.log('[DEBUG] Opponent draw from discard - setting isDrawAnimating=true');
-                    window.drawAnimations.animateDrawDiscard(drawnCard, () => {
+                    window.drawAnimations.animateDrawDiscard(oldDiscard || drawnCard, () => {
                         console.log('[DEBUG] Opponent draw from discard complete - clearing isDrawAnimating');
                         this.isDrawAnimating = false;
                         onAnimComplete();
