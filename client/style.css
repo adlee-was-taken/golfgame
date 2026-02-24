@@ -42,7 +42,7 @@ body {
 
 /* Lobby Screen */
 #lobby-screen {
-    max-width: 400px;
+    max-width: 550px;
     margin: 0 auto;
     padding: 20px;
     text-align: center;
@@ -59,6 +59,7 @@ body {
 
 /* Golf title - golf ball with dimples and shine */
 .golf-title {
+    display: block;
     font-size: 1.05em;
     font-weight: 800;
     letter-spacing: 0.02em;
@@ -102,25 +103,36 @@ body {
 }
 
 #lobby-screen h1 {
-    width: fit-content;
-    margin: 0 auto;
+    display: inline-grid;
+    grid-template-columns: auto;
+    justify-items: start;
     text-align: left;
+    row-gap: 2px;
 }
 
 .logo-row {
-    display: block;
-    margin-bottom: -0.3em;
+    margin-bottom: 0;
 }
 
-@media (max-width: 749px) {
+#lobby-game-controls,
+#auth-prompt {
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@media (max-width: 500px) {
     #lobby-screen h1 {
-        width: auto;
+        display: block;
         text-align: center;
         text-indent: -18px;
     }
     .logo-row {
         display: inline;
         margin-bottom: 0;
+    }
+    .golf-title {
+        display: inline;
     }
 }
 
