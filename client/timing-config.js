@@ -77,7 +77,7 @@ const TIMING = {
 
     // V3_03: Round end reveal timing
     reveal: {
-        lastPlayPause: 2500,      // Pause after last play animation before reveals
+        lastPlayPause: 2000,      // Pause after last play animation before reveals
         voluntaryWindow: 2000,    // Time for players to flip their own cards
         initialPause: 250,        // Pause before auto-reveals start
         cardStagger: 50,          // Between cards in same hand
@@ -132,7 +132,7 @@ const TIMING = {
     // Turn pulse (deck shake)
     turnPulse: {
         initialDelay: 5000,       // Delay before first shake
-        interval: 3000,           // Time between shakes
+        interval: 5400,           // Time between shakes
         duration: 300,            // Shake animation duration
     },
 
