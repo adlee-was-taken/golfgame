@@ -765,7 +765,7 @@ class CardAnimations {
 
         // Quick shake animation - target cards only, not labels
         const T = window.TIMING?.turnPulse || {};
-        const cards = element.querySelectorAll(':scope > .pile-wrapper > .card, :scope > .pile-wrapper > .discard-stack');
+        const cards = element.querySelectorAll(':scope > .pile-wrapper > .card, :scope > .pile-wrapper > .discard-stack > #discard');
         const doShake = () => {
             if (!this.activeAnimations.has(id)) return;
 

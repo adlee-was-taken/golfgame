@@ -379,7 +379,7 @@ class GolfGame {
         // Only show tooltips on your turn
         if (!this.isMyTurn() && !this.gameState?.waiting_for_initial_flip) return;
 
-        const value = this.getCardPointValue(cardData);
+        const value = this.getCardPointValueForTooltip(cardData);
         const special = this.getCardSpecialNote(cardData);
 
         let content = `<span class="tooltip-value ${value < 0 ? 'negative' : ''}">${value} pts</span>`;
@@ -409,14 +409,15 @@ class GolfGame {
         if (this.tooltip) this.tooltip.classList.add('hidden');
     }
 
-    getCardPointValue(cardData) {
+    getCardPointValueForTooltip(cardData) {
         const values = this.gameState?.card_values || this.getDefaultCardValues();
-        return values[cardData.rank] ?? 0;
+        const rules = this.gameState?.scoring_rules || {};
+        return this.getCardPointValue(cardData, values, rules);
     }
 
     getCardSpecialNote(cardData) {
         const rank = cardData.rank;
-        const value = this.getCardPointValue(cardData);
+        const value = this.getCardPointValueForTooltip(cardData);
         if (value < 0) return 'Negative - keep it!';
         if (rank === 'K' && value === 0) return 'Safe card';
         if (rank === 'K' && value === -2) return 'Super King!';
