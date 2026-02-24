@@ -114,6 +114,13 @@ body {
     margin-bottom: 0;
 }
 
+/* Golfer + ball container */
+.golfer-container {
+    position: relative;
+    display: inline-block;
+    margin-left: -2px;
+}
+
 #lobby-game-controls,
 #auth-prompt {
     max-width: 400px;
@@ -142,15 +149,8 @@ body {
         margin-right: 10px;
     }
     .golfer-container {
-        margin-left: 15px;
+        margin-left: 12px;
     }
-}
-
-/* Golfer + ball container */
-.golfer-container {
-    position: relative;
-    display: inline-block;
-    margin-left: 0;
 }
 
 /* Golfer swing animation */
