@@ -109,6 +109,8 @@ body {
 
 @media (max-width: 749px) {
     .logo-row {
+        display: inline;
+        margin-bottom: 0;
         transform: none;
     }
 }
