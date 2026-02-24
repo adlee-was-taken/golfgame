@@ -420,6 +420,7 @@ class CardAnimations {
     }
 
     // Animate initial flip at game start - smooth flip only, no lift
+    // Uses overlay sized to match the source card exactly
     animateInitialFlip(cardElement, cardData, onComplete) {
         if (!cardElement) {
             if (onComplete) onComplete();
@@ -433,8 +434,16 @@ class CardAnimations {
         const animCard = this.createAnimCard(rect, true, deckColor);
         this.setCardContent(animCard, cardData);
 
-        // Hide original card during animation
-        cardElement.style.opacity = '0';
+        // Match the front face styling to player hand cards (not deck/discard cards)
+        const front = animCard.querySelector('.draw-anim-front');
+        if (front) {
+            front.style.background = 'linear-gradient(145deg, #fff 0%, #f5f5f5 100%)';
+            front.style.border = '2px solid #ddd';
+            front.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+        }
+
+        // Hide original card during animation (overlay covers it)
+        cardElement.style.visibility = 'hidden';
 
         const inner = animCard.querySelector('.draw-anim-inner');
         const duration = window.TIMING?.card?.flip || 320;
@@ -449,7 +458,7 @@ class CardAnimations {
                 begin: () => this.playSound('flip'),
                 complete: () => {
                     animCard.remove();
-                    cardElement.style.opacity = '1';
+                    cardElement.style.visibility = '';
                     if (onComplete) onComplete();
                 }
             });
@@ -458,7 +467,7 @@ class CardAnimations {
         } catch (e) {
             console.error('Initial flip animation error:', e);
             animCard.remove();
-            cardElement.style.opacity = '1';
+            cardElement.style.visibility = '';
             if (onComplete) onComplete();
         }
     }

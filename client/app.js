@@ -2898,6 +2898,11 @@ class GolfGame {
         if (window.cardAnimations) {
             window.cardAnimations.animateInitialFlip(cardEl, cardData, () => {
                 this.animatingPositions.delete(key);
+                // Unhide the current card element (may have been rebuilt by renderGame)
+                const currentCards = this.playerCards.querySelectorAll('.card');
+                if (currentCards[position]) {
+                    currentCards[position].style.visibility = '';
+                }
             });
         } else {
             // Fallback if card animations not available
@@ -4172,7 +4177,13 @@ class GolfGame {
                 cardEl.firstChild.addEventListener('click', () => this.handleCardClick(index));
                 // V3_13: Bind tooltip events for face-up cards
                 this.bindCardTooltipEvents(cardEl.firstChild, displayCard);
-                this.playerCards.appendChild(cardEl.firstChild);
+                const appendedCard = cardEl.firstChild;
+                this.playerCards.appendChild(appendedCard);
+
+                // Hide card if flip animation overlay is active on this position
+                if (this.animatingPositions.has(`local-${index}`)) {
+                    appendedCard.style.visibility = 'hidden';
+                }
             });
         }
 
