@@ -143,6 +143,12 @@ body {
     }
 }
 
+/* Golfer + ball container */
+.golfer-container {
+    position: relative;
+    display: inline-block;
+}
+
 /* Golfer swing animation */
 .golfer-swing {
     display: inline-block;
@@ -181,44 +187,46 @@ body {
 .kicked-ball {
     display: inline-block;
     font-size: 0.2em;
-    position: relative;
+    position: absolute;
+    right: -8px;
+    bottom: 30%;
     opacity: 0;
     animation: ball-kicked 0.7s linear forwards;
     animation-delay: 0.72s;
 }
 
-/* Trajectory: y = 0.0124x² - 1.42x (parabola with peak at x=57) */
+/* Trajectory: parabolic arc from golfer's front foot, up and to the right */
 @keyframes ball-kicked {
     0% {
-        transform: translate(-12px, 8px) scale(1);
+        transform: translate(0, 0) scale(1);
         opacity: 1;
     }
     15% {
-        transform: translate(8px, -16px) scale(1);
+        transform: translate(20px, -24px) scale(1);
         opacity: 1;
     }
     30% {
-        transform: translate(28px, -31px) scale(1);
+        transform: translate(40px, -39px) scale(1);
         opacity: 1;
     }
     45% {
-        transform: translate(48px, -38px) scale(0.95);
+        transform: translate(60px, -46px) scale(0.95);
         opacity: 1;
     }
     55% {
-        transform: translate(63px, -38px) scale(0.9);
+        transform: translate(75px, -46px) scale(0.9);
         opacity: 1;
     }
     70% {
-        transform: translate(83px, -27px) scale(0.85);
+        transform: translate(95px, -35px) scale(0.85);
         opacity: 0.9;
     }
     85% {
-        transform: translate(103px, -6px) scale(0.75);
+        transform: translate(115px, -14px) scale(0.75);
         opacity: 0.6;
     }
     100% {
-        transform: translate(118px, 25px) scale(0.65);
+        transform: translate(130px, 17px) scale(0.65);
         opacity: 0;
     }
 }
