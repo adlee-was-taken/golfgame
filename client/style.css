@@ -107,7 +107,7 @@ body {
     grid-template-columns: auto;
     justify-items: start;
     text-align: left;
-    row-gap: 2px;
+    row-gap: 0;
 }
 
 .logo-row {
@@ -133,6 +133,13 @@ body {
     }
     .golf-title {
         display: inline;
+    }
+    .golfball-logo {
+        margin-right: 6px;
+    }
+    .golfer-swing {
+        margin-left: 0;
+        margin-right: 10px;
     }
 }
 
