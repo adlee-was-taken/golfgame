@@ -59,7 +59,7 @@ body {
 
 /* Golf title - golf ball with dimples and shine */
 .golf-title {
-    font-size: 1.3em;
+    font-size: 1.05em;
     font-weight: 800;
     letter-spacing: 0.02em;
     /* Shiny gradient like a golf ball surface */
@@ -84,6 +84,14 @@ body {
         2px 2px 4px rgba(0, 0, 0, 0.2),
         -1px -1px 0 rgba(255, 255, 255, 0.4);
     filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.15));
+}
+
+.golf-title-tld {
+    display: block;
+    font-size: 0.45em;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    margin-top: -0.3em;
 }
 
 /* Golf ball logo with card suits */
