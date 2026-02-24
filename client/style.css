@@ -4894,10 +4894,10 @@ body.screen-shake {
 .scoresheet-content {
     background: linear-gradient(145deg, #1a472a 0%, #0d3320 100%);
     border-radius: 16px;
-    padding: 24px 28px;
+    padding: 14px 18px;
     max-width: 520px;
     width: 92%;
-    max-height: 85vh;
+    max-height: 90vh;
     overflow-y: auto;
     box-shadow:
         0 16px 50px rgba(0, 0, 0, 0.6),
@@ -4909,23 +4909,23 @@ body.screen-shake {
 
 .ss-header {
     text-align: center;
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 700;
     color: #f4a460;
-    margin-bottom: 18px;
+    margin-bottom: 10px;
     letter-spacing: 0.05em;
 }
 
 .ss-players {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 8px;
 }
 
 .ss-player-row {
     background: rgba(0, 0, 0, 0.2);
     border-radius: 10px;
-    padding: 12px 14px;
+    padding: 8px 10px;
     border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -4933,7 +4933,7 @@ body.screen-shake {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 .ss-player-name {
@@ -4997,10 +4997,10 @@ body.screen-shake {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 28px;
+    width: 32px;
+    height: 24px;
     border-radius: 3px;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 700;
     line-height: 1;
     background: #f5f0e8;
@@ -5075,9 +5075,9 @@ body.screen-shake {
 .ss-next-btn {
     display: block;
     width: 100%;
-    margin-top: 18px;
-    padding: 10px;
-    font-size: 0.95rem;
+    margin-top: 10px;
+    padding: 8px;
+    font-size: 0.9rem;
 }
 
 /* --- V3_11: Swap Animation --- */
@@ -5704,6 +5704,7 @@ body.mobile-portrait .ss-next-btn {
     padding: 8px;
     font-size: 0.85rem;
 }
+
 
 /* --- Mobile: Very short screens (e.g. iPhone SE) --- */
 @media (max-height: 600px) {
