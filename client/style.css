@@ -141,13 +141,16 @@ body {
         margin-left: 0;
         margin-right: 10px;
     }
+    .golfer-container {
+        margin-left: 10px;
+    }
 }
 
 /* Golfer + ball container */
 .golfer-container {
     position: relative;
     display: inline-block;
-    margin-left: 10px;
+    margin-left: 4px;
 }
 
 /* Golfer swing animation */
