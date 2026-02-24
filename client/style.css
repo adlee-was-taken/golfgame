@@ -147,6 +147,7 @@ body {
 .golfer-container {
     position: relative;
     display: inline-block;
+    margin-left: 10px;
 }
 
 /* Golfer swing animation */
