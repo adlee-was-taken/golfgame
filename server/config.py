@@ -142,6 +142,7 @@ class ServerConfig:
     MAX_PLAYERS_PER_ROOM: int = 6
     ROOM_TIMEOUT_MINUTES: int = 60
     ROOM_CODE_LENGTH: int = 4
+    ROOM_IDLE_TIMEOUT_SECONDS: int = 300  # 5 minutes of inactivity
 
     # Security (for future auth system)
     SECRET_KEY: str = ""
@@ -198,6 +199,7 @@ class ServerConfig:
             MAX_PLAYERS_PER_ROOM=get_env_int("MAX_PLAYERS_PER_ROOM", 6),
             ROOM_TIMEOUT_MINUTES=get_env_int("ROOM_TIMEOUT_MINUTES", 60),
             ROOM_CODE_LENGTH=get_env_int("ROOM_CODE_LENGTH", 4),
+            ROOM_IDLE_TIMEOUT_SECONDS=get_env_int("ROOM_IDLE_TIMEOUT_SECONDS", 300),
             SECRET_KEY=get_env("SECRET_KEY", ""),
             INVITE_ONLY=get_env_bool("INVITE_ONLY", True),
             DAILY_OPEN_SIGNUPS=get_env_int("DAILY_OPEN_SIGNUPS", 0),

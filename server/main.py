@@ -64,6 +64,7 @@ _matchmaking_service = None
 _replay_service = None
 _spectator_manager = None
 _leaderboard_refresh_task = None
+_room_cleanup_task = None
 _redis_client = None
 _rate_limiter = None
 _shutdown_event = asyncio.Event()
@@ -81,6 +82,60 @@ async def _periodic_leaderboard_refresh():
             break
         except Exception as e:
             logger.error(f"Leaderboard refresh failed: {e}")
+
+
+async def _periodic_room_cleanup():
+    """Periodic task to clean up rooms idle for longer than ROOM_IDLE_TIMEOUT_SECONDS."""
+    import time
+    while True:
+        try:
+            await asyncio.sleep(60)
+            now = time.time()
+            timeout = config.ROOM_IDLE_TIMEOUT_SECONDS
+            stale_rooms = [
+                room for room in room_manager.rooms.values()
+                if now - room.last_activity > timeout
+            ]
+            for room in stale_rooms:
+                logger.info(
+                    f"Cleaning up stale room {room.code} "
+                    f"(idle {int(now - room.last_activity)}s, "
+                    f"{len(room.players)} players)"
+                )
+                # Cancel CPU turn task
+                if room.cpu_turn_task:
+                    room.cpu_turn_task.cancel()
+                    try:
+                        await room.cpu_turn_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                    room.cpu_turn_task = None
+
+                # Notify and close human WebSocket connections
+                for player in list(room.players.values()):
+                    if player.websocket and not player.is_cpu:
+                        try:
+                            await player.websocket.send_json({
+                                "type": "room_expired",
+                                "message": "Room closed due to inactivity",
+                            })
+                            await player.websocket.close(code=4002, reason="Room expired")
+                        except Exception:
+                            pass
+
+                # Clean up players and profiles
+                room_code = room.code
+                for cpu in list(room.get_cpu_players()):
+                    room.remove_player(cpu.id)
+                cleanup_room_profiles(room_code)
+                room_manager.remove_room(room_code)
+
+            if stale_rooms:
+                logger.info(f"Cleaned up {len(stale_rooms)} stale room(s)")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Room cleanup failed: {e}")
 
 
 async def _init_redis():
@@ -254,6 +309,14 @@ async def _shutdown_services():
     reset_all_profiles()
     logger.info("All rooms and CPU profiles cleaned up")
 
+    if _room_cleanup_task:
+        _room_cleanup_task.cancel()
+        try:
+            await _room_cleanup_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("Room cleanup task stopped")
+
     if _leaderboard_refresh_task:
         _leaderboard_refresh_task.cancel()
         try:
@@ -311,6 +374,11 @@ async def lifespan(app: FastAPI):
         redis_client=_redis_client,
         room_manager=room_manager,
     )
+
+    # Start periodic room cleanup
+    global _room_cleanup_task
+    _room_cleanup_task = asyncio.create_task(_periodic_room_cleanup())
+    logger.info(f"Room cleanup task started (timeout={config.ROOM_IDLE_TIMEOUT_SECONDS}s)")
 
     logger.info(f"Golf server started (environment={config.ENVIRONMENT})")
 
@@ -760,6 +828,8 @@ async def _run_cpu_chain(room: Room):
         room_player = room.get_player(current.id)
         if not room_player or not room_player.is_cpu:
             return
+
+        room.touch()
 
         # Brief pause before CPU starts - animations are faster now
         await asyncio.sleep(0.25)

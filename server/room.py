@@ -14,6 +14,7 @@ A Room contains:
 import asyncio
 import random
 import string
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -70,6 +71,11 @@ class Room:
     game_log_id: Optional[str] = None
     game_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     cpu_turn_task: Optional[asyncio.Task] = None
+    last_activity: float = field(default_factory=time.time)
+
+    def touch(self) -> None:
+        """Update last_activity timestamp to mark room as active."""
+        self.last_activity = time.time()
 
     def add_player(
         self,

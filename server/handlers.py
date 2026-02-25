@@ -69,6 +69,7 @@ async def handle_create_room(data: dict, ctx: ConnectionContext, *, room_manager
     player_name = ctx.authenticated_user.username if ctx.authenticated_user else data.get("player_name", "Player")
     room = room_manager.create_room()
     room.add_player(ctx.player_id, player_name, ctx.websocket, ctx.auth_user_id)
+    room.touch()
     ctx.current_room = room
 
     await ctx.websocket.send_json({
@@ -114,6 +115,7 @@ async def handle_join_room(data: dict, ctx: ConnectionContext, *, room_manager, 
         return
 
     room.add_player(ctx.player_id, player_name, ctx.websocket, ctx.auth_user_id)
+    room.touch()
     ctx.current_room = room
 
     await ctx.websocket.send_json({
@@ -189,6 +191,7 @@ async def handle_remove_cpu(data: dict, ctx: ConnectionContext, **kw) -> None:
 async def handle_start_game(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
     if not ctx.current_room:
         return
+    ctx.current_room.touch()
 
     room_player = ctx.current_room.get_player(ctx.player_id)
     if not room_player or not room_player.is_host:
@@ -235,6 +238,7 @@ async def handle_start_game(data: dict, ctx: ConnectionContext, *, broadcast_gam
 async def handle_flip_initial(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
     if not ctx.current_room:
         return
+    ctx.current_room.touch()
 
     positions = data.get("positions", [])
     async with ctx.current_room.game_lock:
@@ -250,6 +254,7 @@ async def handle_flip_initial(data: dict, ctx: ConnectionContext, *, broadcast_g
 async def handle_draw(data: dict, ctx: ConnectionContext, *, broadcast_game_state, **kw) -> None:
     if not ctx.current_room:
         return
+    ctx.current_room.touch()
 
     source = data.get("source", "deck")
     async with ctx.current_room.game_lock:
@@ -277,6 +282,7 @@ async def handle_draw(data: dict, ctx: ConnectionContext, *, broadcast_game_stat
 async def handle_swap(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
     if not ctx.current_room:
         return
+    ctx.current_room.touch()
 
     position = data.get("position", 0)
     async with ctx.current_room.game_lock:
@@ -303,6 +309,7 @@ async def handle_swap(data: dict, ctx: ConnectionContext, *, broadcast_game_stat
 async def handle_discard(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
     if not ctx.current_room:
         return
+    ctx.current_room.touch()
 
     async with ctx.current_room.game_lock:
         drawn_card = ctx.current_room.game.drawn_card
@@ -349,6 +356,7 @@ async def handle_cancel_draw(data: dict, ctx: ConnectionContext, *, broadcast_ga
 async def handle_flip_card(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
     if not ctx.current_room:
         return
+    ctx.current_room.touch()
 
     position = data.get("position", 0)
     async with ctx.current_room.game_lock:
@@ -370,6 +378,7 @@ async def handle_flip_card(data: dict, ctx: ConnectionContext, *, broadcast_game
 async def handle_skip_flip(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
     if not ctx.current_room:
         return
+    ctx.current_room.touch()
 
     async with ctx.current_room.game_lock:
         player = ctx.current_room.game.get_player(ctx.player_id)
@@ -386,6 +395,7 @@ async def handle_skip_flip(data: dict, ctx: ConnectionContext, *, broadcast_game
 async def handle_flip_as_action(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
     if not ctx.current_room:
         return
+    ctx.current_room.touch()
 
     position = data.get("position", 0)
     async with ctx.current_room.game_lock:
@@ -406,6 +416,7 @@ async def handle_flip_as_action(data: dict, ctx: ConnectionContext, *, broadcast
 async def handle_knock_early(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
     if not ctx.current_room:
         return
+    ctx.current_room.touch()
 
     async with ctx.current_room.game_lock:
         player = ctx.current_room.game.get_player(ctx.player_id)
@@ -424,6 +435,7 @@ async def handle_knock_early(data: dict, ctx: ConnectionContext, *, broadcast_ga
 async def handle_next_round(data: dict, ctx: ConnectionContext, *, broadcast_game_state, check_and_run_cpu_turn, **kw) -> None:
     if not ctx.current_room:
         return
+    ctx.current_room.touch()
 
     room_player = ctx.current_room.get_player(ctx.player_id)
     if not room_player or not room_player.is_host:
@@ -467,6 +479,7 @@ async def handle_leave_game(data: dict, ctx: ConnectionContext, *, handle_player
 async def handle_end_game(data: dict, ctx: ConnectionContext, *, room_manager, cleanup_room_profiles, **kw) -> None:
     if not ctx.current_room:
         return
+    ctx.current_room.touch()
 
     room_player = ctx.current_room.get_player(ctx.player_id)
     if not room_player or not room_player.is_host:
