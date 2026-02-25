@@ -75,12 +75,16 @@ class GolfApp(App):
             handler(msg)
 
     def action_esc_pressed(self) -> None:
-        """Double-escape to hard quit. Single escape does nothing."""
+        """Single escape goes back, double-escape quits."""
         now = time.monotonic()
         if now - self._last_escape < 0.5:
             self.exit()
         else:
             self._last_escape = now
+            # Let the active screen handle single escape
+            handler = getattr(self.screen, "handle_escape", None)
+            if handler:
+                handler()
 
     def _update_keymap(self) -> None:
         """Update the keymap bar based on current screen."""
@@ -89,11 +93,11 @@ class GolfApp(App):
         if keymap:
             text = keymap
         elif screen_name == "ConnectScreen":
-            text = "[Tab] Navigate  [Enter] Submit  [Esc Esc] Quit"
+            text = "[Tab] Navigate  [Enter] Submit  [Esc][Esc] Quit"
         elif screen_name == "LobbyScreen":
-            text = "[Tab] Navigate  [Enter] Submit  [Esc Esc] Quit"
+            text = "[Esc] Back  [Tab] Navigate  [Enter] Submit  [Esc][Esc] Quit"
         else:
-            text = "[Esc Esc] Quit"
+            text = "[Esc][Esc] Quit"
         try:
             self.query_one("#keymap-bar", KeymapBar).update(text)
         except Exception:
@@ -104,8 +108,8 @@ class GolfApp(App):
 
         Always appends [Esc Esc] Quit on the right for discoverability.
         """
-        if "[Esc Esc]" not in text:
-            text = f"{text}  [Esc Esc] Quit"
+        if "[Esc]" not in text.replace("[Esc][Esc]", ""):
+            text = f"{text}  [Esc][Esc] Quit"
         try:
             self.query_one("#keymap-bar", KeymapBar).update(text)
         except Exception:

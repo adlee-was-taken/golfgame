@@ -231,13 +231,21 @@ class LobbyScreen(Screen):
     def _update_keymap(self) -> None:
         try:
             if self._in_room and self._is_host:
-                self.app.set_keymap("[+] Add CPU  [−] Remove CPU  [Enter] Start Game  [Esc Esc] Quit")
+                self.app.set_keymap("[Esc] Leave  [+] Add CPU  [−] Remove  [Enter] Start  [Esc][Esc] Quit")
             elif self._in_room:
-                self.app.set_keymap("Waiting for host to start...  [Esc Esc] Quit")
+                self.app.set_keymap("[Esc] Leave  Waiting for host...  [Esc][Esc] Quit")
             else:
-                self.app.set_keymap("[Tab] Navigate  [Enter] Create/Join  [Esc Esc] Quit")
+                self.app.set_keymap("[Esc] Back  [Tab] Navigate  [Enter] Create/Join  [Esc][Esc] Quit")
         except Exception:
             pass
+
+    def handle_escape(self) -> None:
+        """Single escape: leave room → pre-room, or pre-room → back to connect."""
+        if self._in_room:
+            self.run_worker(self._send("leave_game"))
+            self.reset_to_pre_room()
+        else:
+            self.app.pop_screen()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-create":

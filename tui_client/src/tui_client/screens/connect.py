@@ -85,7 +85,7 @@ class ConnectScreen(Screen):
             self._set_status("")
             self._update_form_visibility()
 
-    def key_escape(self) -> None:
+    def handle_escape(self) -> None:
         """Escape goes back to login if on signup form."""
         if self._mode == "signup":
             self._mode = "login"
