@@ -123,6 +123,18 @@ async def _periodic_room_cleanup():
                         except Exception:
                             pass
 
+                # Mark game as abandoned in DB
+                if room.game_log_id:
+                    try:
+                        async with _user_store.pool.acquire() as conn:
+                            await conn.execute(
+                                "UPDATE games_v2 SET status = 'abandoned', completed_at = NOW() WHERE id = $1 AND status = 'active'",
+                                room.game_log_id,
+                            )
+                        logger.info(f"Marked game {room.game_log_id} as abandoned in DB")
+                    except Exception as e:
+                        logger.error(f"Failed to mark game {room.game_log_id} as abandoned: {e}")
+
                 # Clean up players and profiles
                 room_code = room.code
                 for cpu in list(room.get_cpu_players()):
@@ -374,6 +386,19 @@ async def lifespan(app: FastAPI):
         redis_client=_redis_client,
         room_manager=room_manager,
     )
+
+    # Mark any orphaned active games as abandoned (in-memory state lost on restart)
+    if _user_store:
+        try:
+            async with _user_store.pool.acquire() as conn:
+                result = await conn.execute(
+                    "UPDATE games_v2 SET status = 'abandoned', completed_at = NOW() WHERE status = 'active'"
+                )
+                count = int(result.split()[-1]) if result else 0
+                if count > 0:
+                    logger.info(f"Marked {count} orphaned active game(s) as abandoned on startup")
+        except Exception as e:
+            logger.error(f"Failed to clean up orphaned games on startup: {e}")
 
     # Start periodic room cleanup
     global _room_cleanup_task
