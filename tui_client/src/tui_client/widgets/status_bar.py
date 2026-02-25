@@ -34,15 +34,15 @@ class StatusBarWidget(Static):
         parts = []
 
         # Round info
-        parts.append(f"Round {state.current_round}/{state.total_rounds}")
+        parts.append(f"⛳ {state.current_round}/{state.total_rounds}")
 
         # Phase
         phase_display = {
             "waiting": "Waiting",
             "initial_flip": "[bold white on #6a0dad] Flip Phase [/bold white on #6a0dad]",
-            "playing": "Playing",
+            "playing": "",
             "final_turn": "[bold white on #c62828] FINAL TURN [/bold white on #c62828]",
-            "round_over": "[white on #555555] Round Over [/white on #555555]",
+            "round_over": "[white on #555555] Hole Over [/white on #555555]",
             "game_over": "[bold white on #b8860b] Game Over [/bold white on #b8860b]",
         }.get(state.phase, state.phase)
         parts.append(phase_display)
@@ -50,7 +50,7 @@ class StatusBarWidget(Static):
         # Turn info (skip during initial flip - it's misleading)
         if state.current_player_id and state.players and state.phase != "initial_flip":
             if state.current_player_id == self._player_id:
-                parts.append("[bold white on #2e7d32] YOUR TURN [/bold white on #2e7d32]")
+                parts.append("[bold #111111 on #ffd700] YOUR TURN! [/bold #111111 on #ffd700]")
             else:
                 for p in state.players:
                     if p.id == state.current_player_id:
@@ -68,7 +68,7 @@ class StatusBarWidget(Static):
         if state.active_rules:
             parts.append(f"Rules: {', '.join(state.active_rules)}")
 
-        text = " │ ".join(parts)
+        text = " │ ".join(p for p in parts if p)
         if self._extra:
             text += f"  {self._extra}"
 

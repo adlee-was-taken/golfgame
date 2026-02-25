@@ -69,6 +69,7 @@ def _render_card_lines(
     is_local: bool = False,
     deck_colors: list[str] | None = None,
     matched: list[bool] | None = None,
+    highlight: bool = False,
 ) -> list[str]:
     """Render the 2x3 card grid as a list of text lines (no box).
 
@@ -94,6 +95,7 @@ def _render_card_lines(
                 position=pos,
                 deck_colors=deck_colors,
                 dim=matched[idx],
+                highlight=highlight,
             )
             card_lines = text.split("\n")
             while len(row_line_parts) < len(card_lines):
@@ -131,6 +133,8 @@ class HandWidget(Static):
         self._is_knocker: bool = False
         self._is_dealer: bool = False
         self._has_connector: bool = False
+        self._highlight: bool = False
+        self._box_width: int = 0
 
     def update_player(
         self,
@@ -140,6 +144,7 @@ class HandWidget(Static):
         is_current_turn: bool = False,
         is_knocker: bool = False,
         is_dealer: bool = False,
+        highlight: bool = False,
     ) -> None:
         self._player = player
         if deck_colors is not None:
@@ -147,6 +152,7 @@ class HandWidget(Static):
         self._is_current_turn = is_current_turn
         self._is_knocker = is_knocker
         self._is_dealer = is_dealer
+        self._highlight = highlight
         self._refresh()
 
     def on_mount(self) -> None:
@@ -154,8 +160,13 @@ class HandWidget(Static):
 
     def on_click(self, event: Click) -> None:
         """Map click coordinates to card position (0-5)."""
-        if not self._is_local:
+        if not self._is_local or not self._box_width:
             return
+
+        # The content is centered in the widget — compute the x offset
+        x_offset = max(0, (self.size.width - self._box_width) // 2)
+        x = event.x - x_offset
+        y = event.y
 
         # Box layout:
         # Line 0: top border
@@ -165,8 +176,6 @@ class HandWidget(Static):
         # Last line: bottom border
         #
         # Content x: │ <space> then cards at x offsets 2, 8, 14 (each 5 wide, 1 gap)
-
-        x, y = event.x, event.y
 
         # Determine column from x (content starts at x=2 inside box)
         # Card 0: x 2-6, Card 1: x 8-12, Card 2: x 14-18
@@ -202,7 +211,7 @@ class HandWidget(Static):
             self.update("")
             return
 
-        from tui_client.widgets.player_box import render_player_box
+        from tui_client.widgets.player_box import _visible_len, render_player_box
 
         cards = self._player.cards
         matched = _check_column_match(cards)
@@ -213,6 +222,7 @@ class HandWidget(Static):
             is_local=self._is_local,
             deck_colors=self._deck_colors,
             matched=matched,
+            highlight=self._highlight,
         )
 
         box_lines = render_player_box(
@@ -226,5 +236,9 @@ class HandWidget(Static):
             is_local=self._is_local,
             all_face_up=self._player.all_face_up,
         )
+
+        # Store box width for click coordinate mapping
+        if box_lines:
+            self._box_width = _visible_len(box_lines[0])
 
         self.update("\n".join(box_lines))

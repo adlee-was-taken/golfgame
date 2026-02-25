@@ -58,13 +58,15 @@ class PlayAreaWidget(Static):
 
     def on_click(self, event: Click) -> None:
         """Map click to deck or discard column."""
-        x = event.x
-        # Layout: DECK (col 0..11) [HOLDING (col 12..23)] DISCARD (last col)
-        if x < _COL_WIDTH:
+        # Content is always 3 columns wide; account for centering within widget
+        content_width = 3 * _COL_WIDTH
+        x_offset = max(0, (self.content_size.width - content_width) // 2)
+        x = event.x - x_offset
+
+        # Layout: DECK (col 0..11) | HOLDING (col 12..23) | DISCARD (col 24..35)
+        if 0 <= x < _COL_WIDTH:
             self.post_message(self.DeckClicked())
-        elif self._has_holding and x >= 2 * _COL_WIDTH:
-            self.post_message(self.DiscardClicked())
-        elif not self._has_holding and x >= _COL_WIDTH:
+        elif 2 * _COL_WIDTH <= x < 3 * _COL_WIDTH:
             self.post_message(self.DiscardClicked())
 
     def _refresh(self) -> None:
@@ -114,7 +116,7 @@ class PlayAreaWidget(Static):
             lines.append(row)
 
         # Labels row — always 3 columns
-        deck_label = f"DECK:{state.deck_remaining}"
+        deck_label = f"DECK [dim]{state.deck_remaining}[/dim]"
         discard_label = "DISCARD"
         label = _pad_center(deck_label, _COL_WIDTH)
         if held_lines:

@@ -83,7 +83,7 @@ class LobbyScreen(Screen):
                 with Vertical(id="host-settings"):
                     with Collapsible(title="Game Settings", collapsed=True, id="coll-game"):
                         with Horizontal(classes="setting-row"):
-                            yield Label("Rounds")
+                            yield Label("Holes")
                             yield Select(
                                 [(str(v), v) for v in (1, 3, 9, 18)],
                                 value=9,
@@ -197,6 +197,23 @@ class LobbyScreen(Screen):
             yield Static("", id="lobby-status")
 
     def on_mount(self) -> None:
+        self._update_visibility()
+        self._update_keymap()
+
+    def reset_to_pre_room(self) -> None:
+        """Reset lobby back to create/join state after leaving a game."""
+        self._room_code = None
+        self._player_id = None
+        self._is_host = False
+        self._players = []
+        self._in_room = False
+        self._set_room_info("")
+        self._set_status("")
+        try:
+            self.query_one("#input-room-code", Input).value = ""
+            self.query_one("#player-list", Static).update("")
+        except Exception:
+            pass
         self._update_visibility()
         self._update_keymap()
 

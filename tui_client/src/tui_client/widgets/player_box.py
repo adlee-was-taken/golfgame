@@ -9,7 +9,6 @@ _BORDER_NORMAL = "#555555"
 _BORDER_TURN_LOCAL = "#9ab973"    # green — your turn
 _BORDER_TURN_OPPONENT = "#f4a460"  # sandy orange — opponent's turn
 _BORDER_KNOCKER = "#ff6b35"        # red-orange — went out
-
 _NAME_COLOR = "#e0e0e0"
 
 

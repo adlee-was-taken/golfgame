@@ -65,6 +65,28 @@ class GameClient:
             self._username = data["user"]["username"]
             return data
 
+    async def register(
+        self, username: str, password: str, invite_code: str = "", email: str = ""
+    ) -> dict:
+        """Register a new account via HTTP and store JWT token."""
+        payload: dict = {"username": username, "password": password}
+        if invite_code:
+            payload["invite_code"] = invite_code
+        if email:
+            payload["email"] = email
+        async with httpx.AsyncClient(verify=self.use_tls) as http:
+            resp = await http.post(
+                f"{self.http_base}/api/auth/register",
+                json=payload,
+            )
+            if resp.status_code != 200:
+                detail = resp.json().get("detail", "Registration failed")
+                raise ConnectionError(detail)
+            data = resp.json()
+            self._token = data["token"]
+            self._username = data["user"]["username"]
+            return data
+
     async def connect(self) -> None:
         """Open WebSocket connection to the server."""
         self._ws = await websockets.connect(self.ws_url)

@@ -30,6 +30,7 @@ JOKER_COLOR = "#9b59b6"   # purple
 BORDER_COLOR = "#888888"  # card border
 EMPTY_COLOR = "#555555"   # empty card slot
 POSITION_COLOR = "#f0e68c"  # pale yellow — distinct from suits and card backs
+HIGHLIGHT_COLOR = "#ffaa00"  # bright amber — initial flip / attention
 
 
 def _back_color_for_card(card: CardData, deck_colors: list[str] | None = None) -> str:
@@ -41,9 +42,12 @@ def _back_color_for_card(card: CardData, deck_colors: list[str] | None = None) -
     return BACK_COLORS.get(name, BACK_COLORS["red"])
 
 
-def _top_border(position: int | None, d: str, color: str) -> str:
+def _top_border(position: int | None, d: str, color: str, highlight: bool = False) -> str:
     """Top border line, with position number replacing ┌ when present."""
     if position is not None:
+        if highlight:
+            hc = HIGHLIGHT_COLOR
+            return f"[bold {hc}]{position}[/][{d}{color}]───┐[/{d}{color}]"
         return f"[{d}{color}]{position}───┐[/{d}{color}]"
     return f"[{d}{color}]┌───┐[/{d}{color}]"
 
@@ -54,6 +58,7 @@ def render_card(
     position: int | None = None,
     deck_colors: list[str] | None = None,
     dim: bool = False,
+    highlight: bool = False,
 ) -> str:
     """Render a card as a 4-line Rich-markup string.
 
@@ -64,7 +69,7 @@ def render_card(
     └───┘       └───┘        └───┘
     """
     d = "dim " if dim else ""
-    bc = BORDER_COLOR
+    bc = HIGHLIGHT_COLOR if highlight else BORDER_COLOR
 
     # Empty slot
     if card is None:
@@ -76,7 +81,7 @@ def render_card(
             f"[{d}{c}]└───┘[/{d}{c}]"
         )
 
-    top = _top_border(position, d, bc)
+    top = _top_border(position, d, bc, highlight=highlight)
 
     # Face-down card with colored back
     if not card.face_up:

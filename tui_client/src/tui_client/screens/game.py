@@ -5,14 +5,138 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal
 from textual.events import Resize
-from textual.screen import Screen
-from textual.widgets import Static
+from textual.screen import ModalScreen, Screen
+from textual.widgets import Button, Static
 
 from tui_client.models import GameState, PlayerData
 from tui_client.widgets.hand import HandWidget
 from tui_client.widgets.play_area import PlayAreaWidget
 from tui_client.widgets.scoreboard import ScoreboardScreen
 from tui_client.widgets.status_bar import StatusBarWidget
+
+
+class ConfirmQuitScreen(ModalScreen[bool]):
+    """Modal confirmation for quitting/leaving a game."""
+
+    BINDINGS = [
+        ("y", "confirm", "Yes"),
+        ("n", "cancel", "No"),
+        ("escape", "cancel", "Cancel"),
+    ]
+
+    def __init__(self, message: str) -> None:
+        super().__init__()
+        self._message = message
+
+    def compose(self) -> ComposeResult:
+        with Container(id="confirm-dialog"):
+            yield Static(self._message, id="confirm-message")
+            with Horizontal(id="confirm-buttons"):
+                yield Button("Yes [Y]", id="btn-yes", variant="error")
+                yield Button("No [N]", id="btn-no", variant="primary")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-yes":
+            self.dismiss(True)
+        else:
+            self.dismiss(False)
+
+    def action_confirm(self) -> None:
+        self.dismiss(True)
+
+    def action_cancel(self) -> None:
+        self.dismiss(False)
+
+
+_HELP_TEXT = """\
+[bold]Keyboard Commands[/bold]
+
+[bold]Drawing[/bold]
+  \\[d]  Draw from deck
+  \\[s]  Pick from discard pile
+
+[bold]Card Actions[/bold]
+  \\[1]-\\[6]  Select card position
+         (flip, swap, or initial flip)
+  \\[x]  Discard held card
+  \\[c]  Cancel draw (from discard)
+
+[bold]Special Actions[/bold]
+  \\[f]  Flip a card (when enabled)
+  \\[p]  Skip optional flip
+  \\[k]  Knock early (when enabled)
+
+[bold]Game Flow[/bold]
+  \\[n]    Next hole
+  \\[tab]  Standings
+  \\[q]    Quit / leave game
+  \\[h]    This help screen
+
+[dim]Press any key or click to close[/dim]\
+"""
+
+
+class StandingsScreen(ModalScreen):
+    """Modal overlay showing current game standings."""
+
+    BINDINGS = [
+        ("escape", "close", "Close"),
+        ("tab", "close", "Close"),
+    ]
+
+    def __init__(self, players: list, current_round: int, total_rounds: int) -> None:
+        super().__init__()
+        self._players = players
+        self._current_round = current_round
+        self._total_rounds = total_rounds
+
+    def compose(self) -> ComposeResult:
+        with Container(id="standings-dialog"):
+            yield Static(
+                f"[bold]Standings — Hole {self._current_round}/{self._total_rounds}[/bold]",
+                id="standings-title",
+            )
+            yield Static(self._build_table(), id="standings-body")
+            yield Static("[dim]Press any key to close[/dim]", id="standings-hint")
+
+    def _build_table(self) -> str:
+        sorted_players = sorted(self._players, key=lambda p: p.total_score)
+        lines = []
+        for i, p in enumerate(sorted_players, 1):
+            score_str = f"{p.total_score:>4}"
+            lines.append(f"  {i}. {p.name:<16} {score_str}")
+        return "\n".join(lines)
+
+    def on_key(self, event) -> None:
+        self.dismiss()
+
+    def on_click(self, event) -> None:
+        self.dismiss()
+
+    def action_close(self) -> None:
+        self.dismiss()
+
+
+class HelpScreen(ModalScreen):
+    """Modal help overlay showing all keyboard commands."""
+
+    BINDINGS = [
+        ("escape", "close", "Close"),
+        ("h", "close", "Close"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        with Container(id="help-dialog"):
+            yield Static(_HELP_TEXT, id="help-text")
+
+    def on_key(self, event) -> None:
+        self.dismiss()
+
+    def on_click(self, event) -> None:
+        self.dismiss()
+
+    def action_close(self) -> None:
+        self.dismiss()
 
 
 class GameScreen(Screen):
@@ -33,6 +157,9 @@ class GameScreen(Screen):
         ("p", "skip_flip", "Skip flip"),
         ("k", "knock_early", "Knock early"),
         ("n", "next_round", "Next round"),
+        ("q", "quit_game", "Quit game"),
+        ("h", "show_help", "Help"),
+        ("tab", "show_standings", "Standings"),
     ]
 
     def __init__(self, initial_state: dict, is_host: bool = False):
@@ -55,7 +182,10 @@ class GameScreen(Screen):
                 yield PlayAreaWidget(id="play-area")
             yield Static("", id="local-hand-label")
             yield HandWidget(id="local-hand")
-            yield Static("", id="action-bar")
+        with Horizontal(id="game-footer"):
+            yield Static("\\[h]elp  \\[q]uit", id="footer-left")
+            yield Static("", id="footer-center")
+            yield Static("\\[tab] standings", id="footer-right")
 
     def on_mount(self) -> None:
         self._player_id = self.app.player_id or ""
@@ -97,12 +227,12 @@ class GameScreen(Screen):
 
         if source == "discard":
             self._set_action(
-                f"Holding {rank}{suit} — Choose spot \[1] thru \[6] or \[c]ancel"
+                f"Holding {rank}{suit} — Choose spot \\[1] thru \\[6] or \\[c]ancel", active=True
             )
             self._set_keymap("[1-6] Swap  [C] Cancel")
         else:
             self._set_action(
-                f"Holding {rank}{suit} — Choose spot \[1] thru \[6] or \[x] to discard"
+                f"Holding {rank}{suit} — Choose spot \\[1] thru \\[6] or \\[x] to discard", active=True
             )
             self._set_keymap("[1-6] Swap  [X] Discard")
 
@@ -111,10 +241,10 @@ class GameScreen(Screen):
         optional = data.get("optional", False)
         self._can_flip_optional = optional
         if optional:
-            self._set_action("Keyboard: Flip a card \[1] thru \[6] or \[p] to skip")
+            self._set_action("Flip a card \\[1] thru \\[6] or \\[p] to skip", active=True)
             self._set_keymap("[1-6] Flip card  [P] Skip")
         else:
-            self._set_action("Keyboard: Flip a face-down card \[1] thru \[6]")
+            self._set_action("Flip a face-down card \\[1] thru \\[6]", active=True)
             self._set_keymap("[1-6] Flip card")
 
     def _handle_round_over(self, data: dict) -> None:
@@ -125,7 +255,7 @@ class GameScreen(Screen):
         self.app.push_screen(
             ScoreboardScreen(
                 scores=scores,
-                title=f"Round {round_num} Complete",
+                title=f"Hole {round_num} Complete",
                 is_game_over=False,
                 is_host=self._is_host,
                 round_num=round_num,
@@ -172,6 +302,10 @@ class GameScreen(Screen):
         elif result == "lobby":
             self.run_worker(self._send("leave_game"))
             self.app.pop_screen()
+            # Reset lobby back to create/join state
+            lobby = self.app.screen
+            if hasattr(lobby, "reset_to_pre_room"):
+                lobby.reset_to_pre_room()
 
     # ------------------------------------------------------------------
     # Click handlers (from widget messages)
@@ -256,9 +390,10 @@ class GameScreen(Screen):
             hand.update_player(
                 me,
                 deck_colors=self._state.deck_colors,
-                is_current_turn=(me.id == self._state.current_player_id),
-                is_knocker=(me.id == self._state.finisher_id and self._state.phase == "final_turn"),
+                is_current_turn=False,
+                is_knocker=False,
                 is_dealer=(me.id == self._state.dealer_id),
+                highlight=True,
             )
 
         needed = self._state.initial_flips
@@ -272,7 +407,7 @@ class GameScreen(Screen):
             self._initial_flip_positions = []
         else:
             self._set_action(
-                f"Keyboard: Choose {needed - selected} more card(s) to flip ({selected}/{needed})"
+                f"Choose {needed - selected} more card(s) to flip ({selected}/{needed})", active=True
             )
 
     def _do_flip(self, pos: int) -> None:
@@ -299,7 +434,7 @@ class GameScreen(Screen):
     def action_flip_mode(self) -> None:
         if self._state.flip_as_action and self._is_my_turn() and not self._state.has_drawn_card:
             self._awaiting_flip = True
-            self._set_action("Flip mode: select a face-down card [1-6]")
+            self._set_action("Flip mode: select a face-down card [1-6]", active=True)
 
     def action_skip_flip(self) -> None:
         if self._awaiting_flip and self._can_flip_optional:
@@ -317,9 +452,34 @@ class GameScreen(Screen):
         if self._is_host and self._state.phase == "round_over":
             self.run_worker(self._send("next_round"))
 
+    def action_show_help(self) -> None:
+        self.app.push_screen(HelpScreen())
+
+    def action_show_standings(self) -> None:
+        self.app.push_screen(StandingsScreen(
+            self._state.players,
+            self._state.current_round,
+            self._state.total_rounds,
+        ))
+
+    def action_quit_game(self) -> None:
+        if self._is_host:
+            msg = "End the game for everyone?"
+        else:
+            msg = "Leave this game?"
+        self.app.push_screen(ConfirmQuitScreen(msg), callback=self._on_quit_confirm)
+
+    def _on_quit_confirm(self, confirmed: bool) -> None:
+        if confirmed:
+            self.action_leave_game()
+
     def action_leave_game(self) -> None:
         self.run_worker(self._send("leave_game"))
         self.app.pop_screen()
+        # Reset lobby back to create/join state
+        lobby = self.app.screen
+        if hasattr(lobby, "reset_to_pre_room"):
+            lobby.reset_to_pre_room()
 
     # ------------------------------------------------------------------
     # Helpers
@@ -340,9 +500,21 @@ class GameScreen(Screen):
         except Exception as e:
             self._set_action(f"[red]Send error: {e}[/red]")
 
-    def _set_action(self, text: str) -> None:
+    def _set_action(self, text: str, active: bool = False) -> None:
+        import re
         try:
-            self.query_one("#action-bar", Static).update(text)
+            if active:
+                # Highlight bracketed keys and parenthesized counts in amber,
+                # rest in bold white
+                ac = "#ffaa00"
+                # Color \\[...] key hints and (...) counts
+                text = re.sub(
+                    r"(\\?\[.*?\]|\([\d/]+\))",
+                    rf"[bold {ac}]\1[/]",
+                    text,
+                )
+                text = f"[bold white]{text}[/]"
+            self.query_one("#footer-center", Static).update(text)
         except Exception:
             pass
 
@@ -361,6 +533,8 @@ class GameScreen(Screen):
         # Play area
         play_area = self.query_one("#play-area", PlayAreaWidget)
         play_area.update_state(state, local_player_id=self._player_id)
+        is_active = self._is_my_turn() and not state.waiting_for_initial_flip
+        play_area.set_class(is_active, "my-turn")
 
         # Local player hand (in bordered box with turn/knocker indicators)
         me = self._get_local_player()
@@ -368,12 +542,15 @@ class GameScreen(Screen):
             self.query_one("#local-hand-label", Static).update("")
             hand = self.query_one("#local-hand", HandWidget)
             hand._is_local = True
+            # During initial flip, don't show current_turn borders (no one is "taking a turn")
+            show_turn = not state.waiting_for_initial_flip and me.id == state.current_player_id
             hand.update_player(
                 me,
                 deck_colors=state.deck_colors,
-                is_current_turn=(me.id == state.current_player_id),
+                is_current_turn=show_turn,
                 is_knocker=(me.id == state.finisher_id and state.phase == "final_turn"),
                 is_dealer=(me.id == state.dealer_id),
+                highlight=state.waiting_for_initial_flip,
             )
         else:
             self.query_one("#local-hand-label", Static).update("")
@@ -413,12 +590,13 @@ class GameScreen(Screen):
                 cards, deck_colors=deck_colors, matched=matched,
             )
 
+            opp_turn = not state.waiting_for_initial_flip and opp.id == state.current_player_id
             box = render_player_box(
                 opp.name,
                 score=opp.score,
                 total_score=opp.total_score,
                 content_lines=card_lines,
-                is_current_turn=(opp.id == state.current_player_id),
+                is_current_turn=opp_turn,
                 is_knocker=(opp.id == state.finisher_id and state.phase == "final_turn"),
                 is_dealer=(opp.id == state.dealer_id),
                 all_face_up=opp.all_face_up,
@@ -426,17 +604,22 @@ class GameScreen(Screen):
             opp_blocks.append(box)
 
         # Determine how many opponents fit per row
-        # Each box is ~21-24 chars wide
-        opp_width = 22
-        if width < 80:
-            per_row = 1
-            gap = "  "
-        elif width < 120:
-            gap = "  "
-            per_row = max(1, (width - 4) // (opp_width + len(gap)))
-        else:
-            gap = "   "
-            per_row = max(1, (min(width, 120) - 4) // (opp_width + len(gap)))
+        # Each box is ~21-24 chars wide; use actual widths for accuracy
+        box_widths = [_visible_len(b[0]) if b else 22 for b in opp_blocks]
+        gap = "  " if width < 120 else "   "
+        gap_len = len(gap)
+
+        # Greedily fit as many as possible in one row
+        per_row = 0
+        row_width = 0
+        for bw in box_widths:
+            needed_width = bw if per_row == 0 else gap_len + bw
+            if row_width + needed_width <= width:
+                row_width += needed_width
+                per_row += 1
+            else:
+                break
+        per_row = max(1, per_row)
 
         # Render in rows of per_row opponents
         all_row_lines: list[str] = []
@@ -469,15 +652,15 @@ class GameScreen(Screen):
         state = self._state
 
         if state.phase in ("round_over", "game_over"):
-            self._set_action("Keyboard: \[n]ext round")
-            self._set_keymap("[N] Next round")
+            self._set_action("\\[n]ext hole", active=True)
+            self._set_keymap("[N] Next hole")
             return
 
         if state.waiting_for_initial_flip:
             needed = state.initial_flips
             selected = len(self._initial_flip_positions)
             self._set_action(
-                f"Keyboard: Choose {needed} cards \[1] thru \[6] to flip ({selected}/{needed})"
+                f"Choose {needed} cards \\[1] thru \\[6] to flip ({selected}/{needed})", active=True
             )
             self._set_keymap("[1-6] Select card")
             return
@@ -496,23 +679,23 @@ class GameScreen(Screen):
         if state.has_drawn_card:
             keys = ["[1-6] Swap"]
             if state.can_discard:
-                self._set_action("Keyboard: Choose spot \[1] thru \[6] or \[x] to discard")
+                self._set_action("Choose spot \\[1] thru \\[6] or \\[x] to discard", active=True)
                 keys.append("[X] Discard")
             else:
-                self._set_action("Keyboard: Choose spot \[1] thru \[6] or \[c]ancel")
+                self._set_action("Choose spot \\[1] thru \\[6] or \\[c]ancel", active=True)
                 keys.append("[C] Cancel")
             self._set_keymap("  ".join(keys))
             return
 
-        parts = ["Choose \[d]eck or di\[s]card pile"]
+        parts = ["Choose \\[d]eck or di\\[s]card pile"]
         keys = ["[D] Draw", "[S] Pick discard"]
         if state.flip_as_action:
-            parts.append("\[f]lip a card")
+            parts.append("\\[f]lip a card")
             keys.append("[F] Flip")
         if state.knock_early:
-            parts.append("\[k]nock early")
+            parts.append("\\[k]nock early")
             keys.append("[K] Knock")
-        self._set_action("Keyboard: " + " or ".join(parts))
+        self._set_action(" or ".join(parts), active=True)
         self._set_keymap("  ".join(keys))
 
     def _set_keymap(self, text: str) -> None:
