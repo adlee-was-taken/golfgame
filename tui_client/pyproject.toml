@@ -1,0 +1,20 @@
+[project]
+name = "golf-tui"
+version = "0.1.0"
+description = "Terminal client for the Golf card game"
+requires-python = ">=3.11"
+dependencies = [
+    "textual>=0.47.0",
+    "websockets>=12.0",
+    "httpx>=0.25.0",
+]
+
+[project.scripts]
+golf-tui = "tui_client.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
