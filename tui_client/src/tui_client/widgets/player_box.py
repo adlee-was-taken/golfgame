@@ -57,8 +57,6 @@ def render_player_box(
 
     # Build display name
     display_name = name
-    if is_dealer:
-        display_name = f"Ⓓ {display_name}"
     # Score text
     score_val = f"{score}" if score is not None else f"{total_score}"
     score_text = f"{score_val}"
@@ -103,17 +101,17 @@ def render_player_box(
             f"[{bc}]│[/] {line}{' ' * right_pad}[{bc}]│[/]"
         )
 
-    # Bottom border
-    if is_knocker:
-        out_label = " OUT "
-        left_fill = 1
-        right_fill = inner - left_fill - len(out_label)
-        result.append(
-            f"[{bc}]╰{'─' * left_fill}[/]"
-            f"[bold {bc}]{out_label}[/]"
-            f"[{bc}]{'─' * max(1, right_fill)}╯[/]"
-        )
-    else:
-        result.append(f"[{bc}]╰{'─' * inner}╯[/]")
+    # Bottom border — dealer Ⓓ on left, OUT on right
+    left_label = " Ⓓ " if is_dealer else ""
+    right_label = " OUT " if is_knocker else ""
+    mid_fill = max(1, inner - len(left_label) - len(right_label))
+    parts = f"[{bc}]╰[/]"
+    if left_label:
+        parts += f"[bold {bc}]{left_label}[/]"
+    parts += f"[{bc}]{'─' * mid_fill}[/]"
+    if right_label:
+        parts += f"[bold {bc}]{right_label}[/]"
+    parts += f"[{bc}]╯[/]"
+    result.append(parts)
 
     return result

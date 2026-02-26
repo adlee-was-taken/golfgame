@@ -19,6 +19,7 @@ class ScoreboardScreen(ModalScreen[str]):
         is_host: bool = False,
         round_num: int = 1,
         total_rounds: int = 1,
+        finisher_id: str | None = None,
     ):
         super().__init__()
         self._scores = scores
@@ -27,6 +28,7 @@ class ScoreboardScreen(ModalScreen[str]):
         self._is_host = is_host
         self._round_num = round_num
         self._total_rounds = total_rounds
+        self._finisher_id = finisher_id
 
     def compose(self) -> ComposeResult:
         with Container(id="scoreboard-container"):
@@ -43,6 +45,12 @@ class ScoreboardScreen(ModalScreen[str]):
     def on_mount(self) -> None:
         table = self.query_one("#scoreboard-table", DataTable)
 
+        # Find lowest hole score for tagging
+        if not self._is_game_over and self._scores:
+            min_score = min(s.get("score", 999) for s in self._scores)
+        else:
+            min_score = None
+
         if self._is_game_over:
             table.add_columns("Rank", "Player", "Total", "Holes Won")
             for i, s in enumerate(self._scores, 1):
@@ -53,13 +61,24 @@ class ScoreboardScreen(ModalScreen[str]):
                     str(s.get("rounds_won", 0)),
                 )
         else:
-            table.add_columns("Player", "Hole Score", "Total", "Holes Won")
+            table.add_columns("Player", "Hole Score", "Total", "Holes Won", "")
             for s in self._scores:
+                # Build tags
+                tags = []
+                pid = s.get("id")
+                score = s.get("score", 0)
+                if pid and pid == self._finisher_id:
+                    tags.append("OUT")
+                if min_score is not None and score == min_score:
+                    tags.append("⭐")
+                tag_str = " ".join(tags)
+
                 table.add_row(
                     s.get("name", "?"),
-                    str(s.get("score", 0)),
+                    str(score),
                     str(s.get("total", 0)),
                     str(s.get("rounds_won", 0)),
+                    tag_str,
                 )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

@@ -9,43 +9,11 @@ from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Static
 
 from tui_client.models import GameState, PlayerData
+from tui_client.screens.confirm import ConfirmScreen
 from tui_client.widgets.hand import HandWidget
 from tui_client.widgets.play_area import PlayAreaWidget
 from tui_client.widgets.scoreboard import ScoreboardScreen
 from tui_client.widgets.status_bar import StatusBarWidget
-
-
-class ConfirmQuitScreen(ModalScreen[bool]):
-    """Modal confirmation for quitting/leaving a game."""
-
-    BINDINGS = [
-        ("y", "confirm", "Yes"),
-        ("n", "cancel", "No"),
-        ("escape", "cancel", "Cancel"),
-    ]
-
-    def __init__(self, message: str) -> None:
-        super().__init__()
-        self._message = message
-
-    def compose(self) -> ComposeResult:
-        with Container(id="confirm-dialog"):
-            yield Static(self._message, id="confirm-message")
-            with Horizontal(id="confirm-buttons"):
-                yield Button("Yes [Y]", id="btn-yes", variant="error")
-                yield Button("No [N]", id="btn-no", variant="primary")
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-yes":
-            self.dismiss(True)
-        else:
-            self.dismiss(False)
-
-    def action_confirm(self) -> None:
-        self.dismiss(True)
-
-    def action_cancel(self) -> None:
-        self.dismiss(False)
 
 
 _HELP_TEXT = """\
@@ -72,7 +40,7 @@ _HELP_TEXT = """\
   \\[q]    Quit / leave game
   \\[h]    This help screen
 
-[dim]Press any key or click to close[/dim]\
+[dim]\\[esc] to close[/dim]\
 """
 
 
@@ -97,7 +65,7 @@ class StandingsScreen(ModalScreen):
                 id="standings-title",
             )
             yield Static(self._build_table(), id="standings-body")
-            yield Static("[dim]Press any key to close[/dim]", id="standings-hint")
+            yield Static("[dim]\\[esc] to close[/dim]", id="standings-hint")
 
     def _build_table(self) -> str:
         sorted_players = sorted(self._players, key=lambda p: p.total_score)
@@ -106,12 +74,6 @@ class StandingsScreen(ModalScreen):
             score_str = f"{p.total_score:>4}"
             lines.append(f"  {i}. {p.name:<16} {score_str}")
         return "\n".join(lines)
-
-    def on_key(self, event) -> None:
-        self.dismiss()
-
-    def on_click(self, event) -> None:
-        self.dismiss()
 
     def action_close(self) -> None:
         self.dismiss()
@@ -128,12 +90,6 @@ class HelpScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         with Container(id="help-dialog"):
             yield Static(_HELP_TEXT, id="help-text")
-
-    def on_key(self, event) -> None:
-        self.dismiss()
-
-    def on_click(self, event) -> None:
-        self.dismiss()
 
     def action_close(self) -> None:
         self.dismiss()
@@ -185,9 +141,9 @@ class GameScreen(Screen):
             yield Static("", id="local-hand-label")
             yield HandWidget(id="local-hand")
         with Horizontal(id="game-footer"):
-            yield Static("\\[h]elp  \\[q]uit", id="footer-left")
+            yield Static("s\\[⇥]andings  \\[h]elp", id="footer-left")
             yield Static("", id="footer-center")
-            yield Static("\\[tab] standings", id="footer-right")
+            yield Static("\\[q]uit", id="footer-right")
 
     def on_mount(self) -> None:
         self._player_id = self.app.player_id or ""
@@ -256,6 +212,7 @@ class GameScreen(Screen):
         scores = data.get("scores", [])
         round_num = data.get("round", 1)
         total_rounds = data.get("total_rounds", 1)
+        finisher_id = data.get("finisher_id")
 
         self.app.push_screen(
             ScoreboardScreen(
@@ -265,6 +222,7 @@ class GameScreen(Screen):
                 is_host=self._is_host,
                 round_num=round_num,
                 total_rounds=total_rounds,
+                finisher_id=finisher_id,
             ),
             callback=self._on_scoreboard_dismiss,
         )
@@ -478,7 +436,7 @@ class GameScreen(Screen):
             msg = "End the game for everyone?"
         else:
             msg = "Leave this game?"
-        self.app.push_screen(ConfirmQuitScreen(msg), callback=self._on_quit_confirm)
+        self.app.push_screen(ConfirmScreen(msg), callback=self._on_quit_confirm)
 
     def _on_quit_confirm(self, confirmed: bool) -> None:
         if confirmed:

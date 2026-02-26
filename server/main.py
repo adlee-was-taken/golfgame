@@ -756,7 +756,7 @@ async def broadcast_game_state(room: Room):
         # Check for round over
         if room.game.phase == GamePhase.ROUND_OVER:
             scores = [
-                {"name": p.name, "score": p.score, "total": p.total_score, "rounds_won": p.rounds_won}
+                {"id": p.id, "name": p.name, "score": p.score, "total": p.total_score, "rounds_won": p.rounds_won}
                 for p in room.game.players
             ]
             # Build rankings
@@ -765,6 +765,7 @@ async def broadcast_game_state(room: Room):
             await player.websocket.send_json({
                 "type": "round_over",
                 "scores": scores,
+                "finisher_id": room.game.finisher_id,
                 "round": room.game.current_round,
                 "total_rounds": room.game.num_rounds,
                 "rankings": {

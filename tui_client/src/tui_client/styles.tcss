@@ -24,7 +24,8 @@ ConnectScreen {
     max-width: 64;
     min-width: 40;
     height: auto;
-    border: thick $primary;
+    border: thick #f4a460;
+    background: #0a2a1a;
     padding: 1 2;
 }
 
@@ -103,7 +104,8 @@ LobbyScreen {
     max-width: 72;
     min-width: 40;
     height: auto;
-    border: thick $primary;
+    border: thick #f4a460;
+    background: #0a2a1a;
     padding: 1 2;
 }
 
@@ -118,6 +120,8 @@ LobbyScreen {
     text-align: center;
     height: auto;
     margin-bottom: 1;
+    border: tall #f4a460;
+    padding: 0 1;
 }
 
 /* Pre-room: join/create controls */
@@ -201,7 +205,9 @@ LobbyScreen {
 
 #deck-preview {
     width: auto;
+    height: auto;
     padding: 1 1 0 1;
+    text-align: center;
 }
 
 .rule-row {
@@ -333,7 +339,7 @@ ScoreboardScreen {
 }
 
 /* Confirm quit dialog */
-ConfirmQuitScreen {
+ConfirmScreen, ConfirmQuitScreen {
     align: center middle;
     background: $surface 80%;
 }

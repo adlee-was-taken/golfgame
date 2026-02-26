@@ -54,9 +54,14 @@ class LobbyScreen(Screen):
 
     def compose(self) -> ComposeResult:
         with Container(id="lobby-container"):
-            yield Static("[bold]GolfCards.club[/bold]", id="lobby-title")
-            yield Static("", id="room-info")
-
+            yield Static(
+                "⛳🏌️ [bold]GolfCards.club[/bold]  "
+                "[bold #aaaaaa]♠[/bold #aaaaaa]"
+                "[bold #cc0000]♥[/bold #cc0000]"
+                "[bold #aaaaaa]♣[/bold #aaaaaa]"
+                "[bold #cc0000]♦[/bold #cc0000]",
+                id="lobby-title",
+            )
             # Pre-room: join/create
             with Vertical(id="pre-room"):
                 yield Input(placeholder="Room code (leave blank to create new)", id="input-room-code")
@@ -66,6 +71,7 @@ class LobbyScreen(Screen):
 
             # In-room: player list + controls + settings
             with Vertical(id="in-room"):
+                yield Static("", id="room-info")
                 yield Static("[bold]Players[/bold]", id="player-list-label")
                 yield Static("", id="player-list")
 
@@ -198,7 +204,7 @@ class LobbyScreen(Screen):
 
         with Horizontal(classes="screen-footer"):  # Outside lobby-container
             yield Static("\\[esc] back", id="lobby-footer-left", classes="screen-footer-left")
-            yield Static("\\[esc]\\[esc] quit", id="lobby-footer-right", classes="screen-footer-right")
+            yield Static("\\[q] quit", id="lobby-footer-right", classes="screen-footer-right")
 
     def on_mount(self) -> None:
         self._update_visibility()
@@ -237,9 +243,9 @@ class LobbyScreen(Screen):
         try:
             left = self.query_one("#lobby-footer-left", Static)
             if self._in_room:
-                left.update("\\[esc] leave")
+                left.update("\\[esc] leave room")
             else:
-                left.update("\\[esc] back")
+                left.update("\\[esc] log out")
         except Exception:
             pass
 
@@ -247,21 +253,47 @@ class LobbyScreen(Screen):
         self._update_footer()
         try:
             if self._in_room and self._is_host:
-                self.app.set_keymap("[Esc] Leave  [+] Add CPU  [−] Remove  [Enter] Start  [Esc][Esc] Quit")
+                self.app.set_keymap("[Esc] Leave  [+] Add CPU  [−] Remove  [Enter] Start  [q] Quit")
             elif self._in_room:
-                self.app.set_keymap("[Esc] Leave  Waiting for host...  [Esc][Esc] Quit")
+                self.app.set_keymap("[Esc] Leave  Waiting for host...  [q] Quit")
             else:
-                self.app.set_keymap("[Esc] Back  [Tab] Navigate  [Enter] Create/Join  [Esc][Esc] Quit")
+                self.app.set_keymap("[Esc] Log out  [Tab] Navigate  [Enter] Create/Join  [q] Quit")
         except Exception:
             pass
 
     def handle_escape(self) -> None:
-        """Single escape: leave room → pre-room, or pre-room → back to connect."""
+        """Single escape: leave room (with confirm if host), or log out."""
         if self._in_room:
+            if self._is_host:
+                from tui_client.screens.confirm import ConfirmScreen
+                self.app.push_screen(
+                    ConfirmScreen("End the game for everyone?"),
+                    callback=self._on_leave_confirm,
+                )
+            else:
+                self.run_worker(self._send("leave_game"))
+                self.reset_to_pre_room()
+        else:
+            from tui_client.screens.confirm import ConfirmScreen
+            self.app.push_screen(
+                ConfirmScreen("Log out and return to login?"),
+                callback=self._on_logout_confirm,
+            )
+
+    def _on_leave_confirm(self, confirmed: bool) -> None:
+        if confirmed:
             self.run_worker(self._send("leave_game"))
             self.reset_to_pre_room()
-        else:
-            self.app.pop_screen()
+
+    def _on_logout_confirm(self, confirmed: bool) -> None:
+        if confirmed:
+            from tui_client.client import GameClient
+            from tui_client.screens.connect import ConnectScreen
+
+            GameClient.clear_session()
+            self.app.client._token = None
+            self.app.client._username = None
+            self.app.switch_screen(ConnectScreen())
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-create":
@@ -332,7 +364,7 @@ class LobbyScreen(Screen):
     @staticmethod
     def _render_deck_preview(preset_name: str) -> str:
         """Render mini card-back swatches for a deck color preset."""
-        from tui_client.widgets.card import BACK_COLORS
+        from tui_client.widgets.card import BACK_COLORS, BORDER_COLOR
 
         colors = DECK_PRESETS.get(preset_name, ["red", "blue", "gold"])
         # Show unique colors only (e.g. all-red shows one wider swatch)
@@ -341,11 +373,40 @@ class LobbyScreen(Screen):
             if c not in seen:
                 seen.append(c)
 
+        bc = BORDER_COLOR
         parts: list[str] = []
         for color_name in seen:
-            hex_color = BACK_COLORS.get(color_name, BACK_COLORS["red"])
-            parts.append(f"[{hex_color}]░░░[/]")
-        return " ".join(parts)
+            hc = BACK_COLORS.get(color_name, BACK_COLORS["red"])
+            parts.append(
+                f"[{bc}]┌───┐[/{bc}] "
+            )
+        line1 = "".join(parts)
+
+        parts2: list[str] = []
+        for color_name in seen:
+            hc = BACK_COLORS.get(color_name, BACK_COLORS["red"])
+            parts2.append(
+                f"[{bc}]│[/{bc}][{hc}]▓▒▓[/{hc}][{bc}]│[/{bc}] "
+            )
+        line2 = "".join(parts2)
+
+        parts3: list[str] = []
+        for color_name in seen:
+            hc = BACK_COLORS.get(color_name, BACK_COLORS["red"])
+            parts3.append(
+                f"[{bc}]│[/{bc}][{hc}]▒▓▒[/{hc}][{bc}]│[/{bc}] "
+            )
+        line3 = "".join(parts3)
+
+        parts4: list[str] = []
+        for color_name in seen:
+            hc = BACK_COLORS.get(color_name, BACK_COLORS["red"])
+            parts4.append(
+                f"[{bc}]└───┘[/{bc}] "
+            )
+        line4 = "".join(parts4)
+
+        return f"{line1}\n{line2}\n{line3}\n{line4}"
 
     def _add_random_cpu(self) -> None:
         """Add a random CPU (server picks the profile)."""
@@ -439,7 +500,7 @@ class LobbyScreen(Screen):
         self.app.player_id = self._player_id
         self._is_host = True
         self._in_room = True
-        self._set_room_info(f"Room [bold]{self._room_code}[/bold]  (You are host)")
+        self._set_room_info(f"Room Code: [bold]{self._room_code}[/bold]  (You are host)")
         self._set_status("Add CPU opponents, then start when ready.")
         self._update_visibility()
         self._update_keymap()
@@ -449,7 +510,7 @@ class LobbyScreen(Screen):
         self._player_id = data.get("player_id", "")
         self.app.player_id = self._player_id
         self._in_room = True
-        self._set_room_info(f"Room [bold]{self._room_code}[/bold]")
+        self._set_room_info(f"Room Code: [bold]{self._room_code}[/bold]")
         self._set_status("Waiting for host to start the game.")
         self._update_visibility()
         self._update_keymap()

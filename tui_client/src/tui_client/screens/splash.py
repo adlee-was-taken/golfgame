@@ -29,7 +29,7 @@ class SplashScreen(Screen):
 
         with Horizontal(classes="screen-footer"):
             yield Static("", classes="screen-footer-left")
-            yield Static("\\[esc]\\[esc] quit", classes="screen-footer-right")
+            yield Static("\\[q] quit", classes="screen-footer-right")
 
     def on_mount(self) -> None:
         self.run_worker(self._check_session(), exclusive=True)

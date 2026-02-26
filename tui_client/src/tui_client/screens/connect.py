@@ -9,7 +9,7 @@ from textual.widgets import Button, Input, Static
 
 
 _TITLE = (
-    "⛳🏌️ [bold]GolfCards.club[/bold] "
+    "⛳🏌️ [bold]GolfCards.club[/bold]  "
     "[bold #aaaaaa]♠[/bold #aaaaaa]"
     "[bold #cc0000]♥[/bold #cc0000]"
     "[bold #aaaaaa]♣[/bold #aaaaaa]"
@@ -64,7 +64,7 @@ class ConnectScreen(Screen):
 
         with Horizontal(classes="screen-footer"):
             yield Static("", id="connect-footer-left", classes="screen-footer-left")
-            yield Static("\\[esc]\\[esc] quit", id="connect-footer-right", classes="screen-footer-right")
+            yield Static("\\[q] quit", id="connect-footer-right", classes="screen-footer-right")
 
     def on_mount(self) -> None:
         self._update_form_visibility()
@@ -170,7 +170,7 @@ class ConnectScreen(Screen):
         client.save_session()
         self._set_status("Connected!")
         from tui_client.screens.lobby import LobbyScreen
-        self.app.push_screen(LobbyScreen())
+        self.app.switch_screen(LobbyScreen())
 
     def _set_status(self, text: str) -> None:
         self.query_one("#connect-status", Static).update(text)
