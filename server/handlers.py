@@ -290,6 +290,18 @@ async def handle_swap(data: dict, ctx: ConnectionContext, *, broadcast_game_stat
         player = ctx.current_room.game.get_player(ctx.player_id)
         old_card = player.cards[position] if player and 0 <= position < len(player.cards) else None
 
+        # Capture old card info BEFORE the swap mutates the player's hand.
+        # game.swap_card() overwrites player.cards[position] in place, so if we
+        # read it after, we'd get the new card. The client needs the old card data
+        # to animate the outgoing card correctly.
+        old_was_face_down = old_card and not old_card.face_up if old_card else False
+        old_card_data = None
+        if old_card and old_was_face_down:
+            old_card_data = {
+                "rank": old_card.rank.value if old_card.rank else None,
+                "suit": old_card.suit.value if old_card.suit else None,
+            }
+
         discarded = ctx.current_room.game.swap_card(ctx.player_id, position)
 
         if discarded:
@@ -300,6 +312,22 @@ async def handle_swap(data: dict, ctx: ConnectionContext, *, broadcast_game_stat
                     card=drawn_card, position=position,
                     reason=f"swapped {drawn_card.rank.value} into position {position}, replaced {old_rank}",
                 )
+
+            # Broadcast reveal of old face-down card before state update
+            if old_card_data:
+                reveal_msg = {
+                    "type": "card_revealed",
+                    "player_id": ctx.player_id,
+                    "position": position,
+                    "card": old_card_data,
+                }
+                for pid, p in ctx.current_room.players.items():
+                    if not p.is_cpu and p.websocket:
+                        try:
+                            await p.websocket.send_json(reveal_msg)
+                        except Exception:
+                            pass
+                await asyncio.sleep(1.0)
 
             await broadcast_game_state(ctx.current_room)
             await asyncio.sleep(1.0)

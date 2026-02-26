@@ -394,6 +394,8 @@ async def lifespan(app: FastAPI):
                 result = await conn.execute(
                     "UPDATE games_v2 SET status = 'abandoned', completed_at = NOW() WHERE status = 'active'"
                 )
+                # PostgreSQL returns command tags like "UPDATE 3" — the last word is
+                # the affected row count. This is a documented protocol behavior.
                 count = int(result.split()[-1]) if result else 0
                 if count > 0:
                     logger.info(f"Marked {count} orphaned active game(s) as abandoned on startup")
@@ -613,6 +615,8 @@ async def reset_cpu_profiles():
     return {"status": "ok", "message": "All CPU profiles reset"}
 
 
+# Per-user game limit. Prevents a single account from creating dozens of rooms
+# and exhausting server memory. 4 is generous — most people play 1 at a time.
 MAX_CONCURRENT_GAMES = 4
 
 
@@ -653,6 +657,10 @@ async def websocket_endpoint(websocket: WebSocket):
     else:
         logger.debug(f"WebSocket connected anonymously as {connection_id}")
 
+    # player_id = connection_id by design. Originally these were separate concepts
+    # (connection vs game identity), but in practice a player IS their connection.
+    # Reconnection creates a new connection_id, and the room layer handles the
+    # identity mapping. Keeping both fields lets handlers be explicit about intent.
     ctx = ConnectionContext(
         websocket=websocket,
         connection_id=connection_id,
@@ -857,14 +865,30 @@ async def _run_cpu_chain(room: Room):
 
         room.touch()
 
-        # Brief pause before CPU starts - animations are faster now
+        # Brief pause before CPU starts. Without this, the CPU's draw message arrives
+        # before the client has finished processing the previous turn's state update,
+        # and animations overlap. 0.25s is enough for the client to settle.
         await asyncio.sleep(0.25)
 
         # Run CPU turn
         async def broadcast_cb():
             await broadcast_game_state(room)
 
-        await process_cpu_turn(room.game, current, broadcast_cb, game_id=room.game_log_id)
+        async def reveal_cb(player_id, position, card_data):
+            reveal_msg = {
+                "type": "card_revealed",
+                "player_id": player_id,
+                "position": position,
+                "card": card_data,
+            }
+            for pid, p in room.players.items():
+                if not p.is_cpu and p.websocket:
+                    try:
+                        await p.websocket.send_json(reveal_msg)
+                    except Exception:
+                        pass
+
+        await process_cpu_turn(room.game, current, broadcast_cb, game_id=room.game_log_id, reveal_callback=reveal_cb)
 
 
 async def handle_player_leave(room: Room, player_id: str):
@@ -881,7 +905,8 @@ async def handle_player_leave(room: Room, player_id: str):
     room_code = room.code
     room_player = room.remove_player(player_id)
 
-    # If no human players left, clean up the room entirely
+    # Check both is_empty() AND human_player_count() — CPU players keep rooms
+    # technically non-empty, but a room with only CPUs is an abandoned room.
     if room.is_empty() or room.human_player_count() == 0:
         # Remove all remaining CPU players to release their profiles
         for cpu in list(room.get_cpu_players()):

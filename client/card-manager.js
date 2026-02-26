@@ -100,12 +100,14 @@ class CardManager {
         }
     }
 
-    // Get the deck color class for a card based on its deck_id
+    // Get the deck color class for a card based on its deck_id.
+    // Reads from window.currentDeckColors, which app.js sets from game state.
+    // This global coupling is intentional — card-manager shouldn't know about
+    // game state directly, and passing it through every call site isn't worth it.
     getDeckColorClass(cardData) {
         if (!cardData || cardData.deck_id === undefined || cardData.deck_id === null) {
             return null;
         }
-        // Get deck colors from game state (set by app.js)
         const deckColors = window.currentDeckColors || ['red', 'blue', 'gold'];
         const colorName = deckColors[cardData.deck_id] || deckColors[0] || 'red';
         return `deck-${colorName}`;
@@ -126,7 +128,10 @@ class CardManager {
         cardEl.style.width = `${rect.width}px`;
         cardEl.style.height = `${rect.height}px`;
 
-        // On mobile, scale font proportional to card width so rank/suit fit
+        // On mobile, scale font proportional to card width so rank/suit fit.
+        // This must stay in sync with the CSS .card font-size on desktop — if CSS
+        // sets a fixed size and we set an inline style, the inline wins. Clearing
+        // fontSize on desktop lets the CSS rule take over.
         if (document.body.classList.contains('mobile-portrait')) {
             cardEl.style.fontSize = `${rect.width * 0.35}px`;
         } else {
@@ -235,7 +240,9 @@ class CardManager {
             await this.delay(flipDuration);
         }
 
-        // Step 2: Move card to discard
+        // Step 2: Move card to discard.
+        // The +50ms buffer accounts for CSS transition timing jitter — without it,
+        // we occasionally remove the 'moving' class before the transition finishes.
         cardEl.classList.add('moving');
         this.positionCard(cardEl, discardRect);
         await this.delay(duration + 50);

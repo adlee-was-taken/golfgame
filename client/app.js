@@ -30,7 +30,14 @@ class GolfGame {
         this.soundEnabled = true;
         this.audioCtx = null;
 
-        // Swap animation state
+        // --- Animation coordination flags ---
+        // These flags form a system: they block renderGame() from touching the discard pile
+        // while an animation is in flight. If any flag gets stuck true, the discard pile
+        // freezes and the UI looks broken. Every flag MUST be cleared in every code path:
+        // animation callbacks, error handlers, fallbacks, and the `your_turn` safety net.
+        // If you're debugging a frozen discard pile, check these first.
+
+        // Swap animation state — local player's swap defers state updates until animation completes
         this.swapAnimationInProgress = false;
         this.swapAnimationCardEl = null;
         this.swapAnimationFront = null;
@@ -44,19 +51,19 @@ class GolfGame {
         // Animation lock - prevent overlapping animations on same elements
         this.animatingPositions = new Set();
 
-        // Track opponent swap animation in progress (to apply swap-out class after render)
+        // Blocks discard update: opponent swap animation in progress
         this.opponentSwapAnimation = null; // { playerId, position }
 
-        // Track draw pulse animation in progress (defer held card display until pulse completes)
+        // Blocks held card display: draw pulse animation hasn't finished yet
         this.drawPulseAnimation = false;
 
-        // Track local discard animation in progress (prevent renderGame from updating discard)
+        // Blocks discard update: local player discarding drawn card to pile
         this.localDiscardAnimating = false;
 
-        // Track opponent discard animation in progress (prevent renderGame from updating discard)
+        // Blocks discard update: opponent discarding without swap
         this.opponentDiscardAnimating = false;
 
-        // Track deal animation in progress (suppress flip prompts until dealing complete)
+        // Blocks discard update + suppresses flip prompts: deal animation in progress
         this.dealAnimationInProgress = false;
 
         // Track round winners for visual highlight
@@ -818,7 +825,11 @@ class GolfGame {
                     hasDrawn: newState.has_drawn_card
                 });
 
-                // V3_03: Intercept round_over transition to defer card reveals
+                // V3_03: Intercept round_over transition to defer card reveals.
+                // The problem: the last turn's swap animation flips a card, and then
+                // the round-end reveal animation would flip it again. We snapshot the
+                // old state, patch it to mark the swap position as already face-up,
+                // and use that as the "before" for the reveal animation.
                 const roundJustEnded = oldState?.phase !== 'round_over' &&
                                        newState.phase === 'round_over';
 
@@ -834,7 +845,8 @@ class GolfGame {
                     }
 
                     // Build preRevealState from oldState, but mark swap position as
-                    // already handled so reveal animation doesn't double-flip it
+                    // already handled so reveal animation doesn't double-flip it.
+                    // Without this patch, the card visually flips twice in a row.
                     const preReveal = JSON.parse(JSON.stringify(oldState));
                     if (this.opponentSwapAnimation) {
                         const { playerId, position } = this.opponentSwapAnimation;
@@ -1332,14 +1344,16 @@ class GolfGame {
         this.heldCardFloating.classList.add('hidden');
         this.heldCardFloating.style.cssText = '';
 
-        // Pre-emptively skip the flip animation - the server may broadcast the new state
-        // before our animation completes, and we don't want renderGame() to trigger
-        // the flip-in animation (which starts with opacity: 0, causing a flash)
+        // Three-part race guard. All three are needed, and they protect different things:
+        // 1. skipNextDiscardFlip: prevents the CSS flip-in animation from firing
+        //    (it starts at opacity:0, which causes a visible flash)
+        // 2. lastDiscardKey: prevents renderGame() from detecting a "change" to the
+        //    discard pile and re-rendering it mid-animation
+        // 3. localDiscardAnimating: blocks renderGame() from touching the discard DOM
+        //    entirely until our animation callback fires
+        // Remove any one of these and you get a different flavor of visual glitch.
         this.skipNextDiscardFlip = true;
-        // Also update lastDiscardKey so renderGame() won't see a "change"
         this.lastDiscardKey = `${discardedCard.rank}-${discardedCard.suit}`;
-
-        // Block renderGame from updating discard during animation (prevents race condition)
         this.localDiscardAnimating = true;
 
         // Animate held card to discard using anime.js
@@ -2414,7 +2428,13 @@ class GolfGame {
         };
     }
 
-    // Fire-and-forget animation triggers based on state changes
+    // Fire-and-forget animation triggers based on state diffs.
+    // Two-step detection:
+    //   STEP 1: Did someone draw? (drawn_card goes null -> something)
+    //   STEP 2: Did someone finish their turn? (discard pile changed + turn advanced)
+    // Critical: if STEP 1 detects a draw-from-discard, STEP 2 must be skipped.
+    // The discard pile changed because a card was REMOVED, not ADDED. Without this
+    // suppression, we'd fire a phantom discard animation for a card nobody discarded.
     triggerAnimationsForStateChange(oldState, newState) {
         if (!oldState) return;
 
@@ -2522,18 +2542,18 @@ class GolfGame {
         }
 
         // STEP 2: Detect when someone FINISHES their turn (discard changes, turn advances)
-        // Skip if we just detected a draw - the discard change was from REMOVING a card, not adding one
+        // Skip if we just detected a draw — see comment at top of function.
         if (discardChanged && wasOtherPlayer && !justDetectedDraw) {
-            // Check if the previous player actually SWAPPED (has a new face-up card)
-            // vs just discarding the drawn card (no hand change)
+            // Figure out if the previous player SWAPPED (a card in their hand changed)
+            // or just discarded their drawn card (hand is identical).
+            // Three cases to detect a swap:
+            //   Case 1: face-down -> face-up (normal swap into hidden position)
+            //   Case 2: both face-up but different card (swap into already-revealed position)
+            //   Case 3: card identity null -> known (race condition: face_up flag lagging behind)
             const oldPlayer = oldState.players.find(p => p.id === previousPlayerId);
             const newPlayer = newState.players.find(p => p.id === previousPlayerId);
 
             if (oldPlayer && newPlayer) {
-                // Find the position that changed
-                // Could be: face-down -> face-up (new reveal)
-                // Or: different card at same position (replaced visible card)
-                // Or: card identity became known (null -> value, indicates swap)
                 let swappedPosition = -1;
                 let wasFaceUp = false;  // Track if old card was already face-up
 
@@ -3993,7 +4013,11 @@ class GolfGame {
             // Not holding - show normal discard pile
             this.discard.classList.remove('picked-up');
 
-            // Skip discard update during any discard-related animation - animation handles the visual
+            // The discard pile is touched by four different animation paths.
+            // Each flag represents a different in-flight animation that "owns" the discard DOM.
+            // renderGame() must not update the discard while any of these are active, or you'll
+            // see the card content flash/change underneath the animation overlay.
+            // Priority order doesn't matter — any one of them is reason enough to skip.
             const skipReason = this.localDiscardAnimating ? 'localDiscardAnimating' :
                               this.opponentSwapAnimation ? 'opponentSwapAnimation' :
                               this.opponentDiscardAnimating ? 'opponentDiscardAnimating' :
@@ -4017,7 +4041,9 @@ class GolfGame {
                 const discardCard = this.gameState.discard_top;
                 const cardKey = `${discardCard.rank}-${discardCard.suit}`;
 
-                // Only animate discard flip during active gameplay, not at round/game end
+                // Only animate discard flip during active gameplay, not at round/game end.
+                // lastDiscardKey is pre-set by discardDrawn() to prevent a false "change"
+                // detection when the server confirms what we already animated locally.
                 const isActivePlay = this.gameState.phase !== 'round_over' &&
                                      this.gameState.phase !== 'game_over';
                 const shouldAnimate = isActivePlay && this.lastDiscardKey &&

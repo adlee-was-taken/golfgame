@@ -358,6 +358,13 @@ class Player:
         jack_pairs = 0  # Track paired Jacks for Wolfpack bonus
         paired_ranks: list[Rank] = []  # Track all paired ranks for four-of-a-kind
 
+        # Evaluation order matters here. We check special-case pairs BEFORE the
+        # default "pairs cancel to 0" rule, because house rules can override that:
+        #   1. Eagle Eye joker pairs -> -4 (better than 0, exit early)
+        #   2. Negative pairs keep value -> sum of negatives (worse than 0, exit early)
+        #   3. Normal pairs -> 0 (skip both cards)
+        #   4. Non-matching -> sum both values
+        # Bonuses (wolfpack, four-of-a-kind) are applied after all columns are scored.
         for col in range(3):
             top_idx = col
             bottom_idx = col + 3
@@ -932,7 +939,8 @@ class Game:
         if self.current_round > 1:
             self.dealer_idx = (self.dealer_idx + 1) % len(self.players)
 
-        # First player is to the left of dealer (next in order)
+        # "Left of dealer goes first" — standard card game convention.
+        # In our circular list, "left" is the next index.
         self.current_player_index = (self.dealer_idx + 1) % len(self.players)
 
         # Emit round_started event with deck seed and all dealt cards
@@ -1415,6 +1423,9 @@ class Game:
         Args:
             player: The player whose turn just ended.
         """
+        # This method and _next_turn() are tightly coupled. _check_end_turn populates
+        # players_with_final_turn BEFORE calling _next_turn(), which reads it to decide
+        # whether the round is over. Reordering these calls will break end-of-round logic.
         if player.all_face_up() and self.finisher_id is None:
             self.finisher_id = player.id
             self.phase = GamePhase.FINAL_TURN
@@ -1431,7 +1442,8 @@ class Game:
         Advance to the next player's turn.
 
         In FINAL_TURN phase, tracks which players have had their final turn
-        and ends the round when everyone has played.
+        and ends the round when everyone has played. Depends on _check_end_turn()
+        having already added the current player to players_with_final_turn.
         """
         if self.phase == GamePhase.FINAL_TURN:
             next_index = (self.current_player_index + 1) % len(self.players)
@@ -1474,6 +1486,10 @@ class Game:
             player.calculate_score(self.options)
 
         # --- Apply House Rule Bonuses/Penalties ---
+        # Order matters. Blackjack converts 21->0 first, so knock penalty checks
+        # against the post-blackjack score. Knock penalty before knock bonus so they
+        # can stack (you get penalized AND rewarded, net +5). Underdog before tied shame
+        # so the -3 bonus can create new ties that then get punished. It's mean by design.
 
         # Blackjack: exact score of 21 becomes 0
         if self.options.blackjack:
@@ -1597,6 +1613,10 @@ class Game:
         """
         current = self.current_player()
 
+        # Card visibility has three cases:
+        #   1. Round/game over: all cards revealed to everyone (reveal=True)
+        #   2. Your own cards: always revealed to you (is_self=True)
+        #   3. Opponent cards mid-game: only face-up cards shown, hidden cards are redacted
         players_data = []
         for player in self.players:
             reveal = self.phase in (GamePhase.ROUND_OVER, GamePhase.GAME_OVER)

@@ -43,10 +43,14 @@ class CardAnimations {
         const discardRect = this.getDiscardRect();
         if (!deckRect || !discardRect) return null;
 
+        // Center the held card between deck and discard pile
         const centerX = (deckRect.left + deckRect.right + discardRect.left + discardRect.right) / 4;
         const cardWidth = deckRect.width;
         const cardHeight = deckRect.height;
         const isMobilePortrait = document.body.classList.contains('mobile-portrait');
+        // Overlap percentages: how much the held card peeks above the deck/discard row.
+        // 48% on mobile (tighter vertical space, needs more overlap to fit),
+        // 35% on desktop (more breathing room). Tuned by eye, not by math.
         const overlapOffset = cardHeight * (isMobilePortrait ? 0.48 : 0.35);
 
         return {
@@ -463,6 +467,9 @@ class CardAnimations {
                 }
             });
 
+            // Register a no-op entry so cancelAll() can find and stop this animation.
+            // The actual anime.js instance doesn't need to be tracked (fire-and-forget),
+            // but we need SOMETHING in the map or cleanup won't know we're animating.
             this.activeAnimations.set(`initialFlip-${Date.now()}`, { pause: () => {} });
         } catch (e) {
             console.error('Initial flip animation error:', e);
@@ -786,7 +793,11 @@ class CardAnimations {
             });
         };
 
-        // Delay first shake, then repeat at interval
+        // Two-phase timing: wait initialDelay, then shake on an interval.
+        // Edge case: if stopTurnPulse() is called between the timeout firing and
+        // the interval being stored on the entry, the interval would leak. That's
+        // why we re-check activeAnimations.has(id) after the timeout fires — if
+        // stop was called during the delay, we bail before creating the interval.
         const timeout = setTimeout(() => {
             if (!this.activeAnimations.has(id)) return;
             doShake();
@@ -1114,18 +1125,18 @@ class CardAnimations {
             return;
         }
 
-        // Wait for any in-progress draw animation to complete
-        // Check if there's an active draw animation by looking for overlay cards
+        // Collision detection: if a draw animation is still in flight (its overlay cards
+        // are still in the DOM), we can't start the swap yet — both animations touch the
+        // same visual space. 350ms is enough for the draw to finish its arc and land.
+        // This happens when the server sends the swap state update before the draw
+        // animation's callback fires (network is faster than anime.js, sometimes).
         const existingDrawCards = document.querySelectorAll('.draw-anim-card[data-animating="true"]');
         if (existingDrawCards.length > 0) {
-            // Draw animation still in progress - wait a bit and retry
             setTimeout(() => {
-                // Clean up the draw animation overlay
                 existingDrawCards.forEach(el => {
                     delete el.dataset.animating;
                     el.remove();
                 });
-                // Now run the swap animation
                 this._runUnifiedSwap(handCardData, heldCardData, handRect, heldRect, discardRect, T, rotation, wasHandFaceDown, onComplete);
             }, 350);
             return;
@@ -1208,6 +1219,9 @@ class CardAnimations {
                 ],
                 width: discardRect.width,
                 height: discardRect.height,
+                // Counter-rotate from the card's grid tilt back to 0. The -3 intermediate
+                // value adds a slight overshoot that makes the arc feel physical.
+                // Do not "simplify" this to [rotation, 0]. It will look robotic.
                 rotate: [rotation, rotation - 3, 0],
                 duration: T.arc,
                 easing: this.getEasing('arc'),

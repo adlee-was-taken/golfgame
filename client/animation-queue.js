@@ -31,14 +31,17 @@ class AnimationQueue {
         };
     }
 
-    // Add movements to the queue and start processing
+    // Add movements to the queue and start processing.
+    // The onComplete callback only fires after the LAST movement in this batch —
+    // intermediate movements don't trigger it. This is intentional: callers want
+    // to know when the whole sequence is done, not each individual step.
     async enqueue(movements, onComplete) {
         if (!movements || movements.length === 0) {
             if (onComplete) onComplete();
             return;
         }
 
-        // Add completion callback to last movement
+        // Attach callback to last movement only
         const movementsWithCallback = movements.map((m, i) => ({
             ...m,
             onComplete: i === movements.length - 1 ? onComplete : null
@@ -185,7 +188,9 @@ class AnimationQueue {
             await this.delay(this.timing.flipDuration);
         }
 
-        // Step 2: Quick crossfade swap
+        // Step 2: Quick crossfade swap.
+        // 150ms is short enough to feel instant but long enough for the eye to
+        // register the transition. Shorter looks like a glitch, longer looks laggy.
         handCard.classList.add('fade-out');
         heldCard.classList.add('fade-out');
         await this.delay(150);

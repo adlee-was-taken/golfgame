@@ -55,17 +55,15 @@ CPU_TIMING = {
     "post_action_pause": (0.5, 0.7),
 }
 
-# Thinking time ranges by card difficulty (seconds)
+# Thinking time ranges by card difficulty (seconds).
+# Yes, these are all identical. That's intentional — the categories exist so we
+# CAN tune them independently later, but right now a uniform 0.15-0.3s feels
+# natural enough. The structure is the point, not the current values.
 THINKING_TIME = {
-    # Obviously good cards (Jokers, Kings, 2s, Aces) - easy take
     "easy_good": (0.15, 0.3),
-    # Obviously bad cards (10s, Jacks, Queens) - easy pass
     "easy_bad": (0.15, 0.3),
-    # Medium difficulty (3, 4, 8, 9)
     "medium": (0.15, 0.3),
-    # Hardest decisions (5, 6, 7 - middle of range)
     "hard": (0.15, 0.3),
-    # No discard available - quick decision
     "no_card": (0.15, 0.3),
 }
 
@@ -800,7 +798,9 @@ class GolfAI:
                 ai_log(f"  >> TAKE: {discard_card.rank.value} for four-of-a-kind ({rank_count} visible)")
                 return True
 
-        # Take card if it could make a column pair (but NOT for negative value cards)
+        # Take card if it could make a column pair (but NOT for negative value cards).
+        # Why exclude negatives: a Joker (-2) paired in a column scores 0, which is
+        # worse than keeping it unpaired at -2. Same logic for 2s with default values.
         if discard_value > 0:
             for i, card in enumerate(player.cards):
                 pair_pos = (i + 3) % 6 if i < 3 else i - 3
@@ -1031,7 +1031,11 @@ class GolfAI:
             if not creates_negative_pair:
                 expected_hidden = EXPECTED_HIDDEN_VALUE
                 point_gain = expected_hidden - drawn_value
-                discount = 0.5 + (profile.swap_threshold / 16)  # Range: 0.5 to 1.0
+                # Personality discount: swap_threshold ranges 0-8, so this maps to 0.5-1.0.
+                # Conservative players (low threshold) discount heavily — they need a bigger
+                # point gain to justify swapping into the unknown. Aggressive players take
+                # the swap at closer to face value.
+                discount = 0.5 + (profile.swap_threshold / 16)
                 return point_gain * discount
             return 0.0
 
@@ -1252,8 +1256,6 @@ class GolfAI:
         """If player has exactly 1 face-down card, decide the best go-out swap.
 
         Returns position to swap into, or None to fall through to normal scoring.
-        Uses a sentinel value of -1 (converted to None by caller) is not needed -
-        we return None to indicate "no early decision, continue normal flow".
         """
         options = game.options
         face_down_positions = hidden_positions(player)
@@ -1361,7 +1363,11 @@ class GolfAI:
         if not face_down or random.random() >= 0.5:
             return None
 
-        # SAFETY: Don't randomly go out with a bad score
+        # SAFETY: Don't randomly go out with a bad score.
+        # This duplicates some logic from project_score() on purpose — project_score()
+        # is designed for strategic decisions with weighted estimates, but here we need
+        # a hard pass/fail check with exact pair math. Close enough isn't good enough
+        # when the downside is accidentally ending the round at 30 points.
         if len(face_down) == 1:
             last_pos = face_down[0]
             projected = drawn_value
@@ -1965,7 +1971,8 @@ def _log_cpu_action(logger, game_id: Optional[str], cpu_player: Player, game: Ga
 
 
 async def process_cpu_turn(
-    game: Game, cpu_player: Player, broadcast_callback, game_id: Optional[str] = None
+    game: Game, cpu_player: Player, broadcast_callback, game_id: Optional[str] = None,
+    reveal_callback=None,
 ) -> None:
     """Process a complete turn for a CPU player.
 
@@ -2083,6 +2090,13 @@ async def process_cpu_turn(
 
     if swap_pos is not None:
         old_card = cpu_player.cards[swap_pos]
+        # Reveal the face-down card before swapping
+        if not old_card.face_up and reveal_callback:
+            await reveal_callback(
+                cpu_player.id, swap_pos,
+                {"rank": old_card.rank.value, "suit": old_card.suit.value},
+            )
+            await asyncio.sleep(1.0)
         game.swap_card(cpu_player.id, swap_pos)
         _log_cpu_action(logger, game_id, cpu_player, game,
                         action="swap", card=drawn, position=swap_pos,

@@ -98,6 +98,9 @@ class Room:
         Returns:
             The created RoomPlayer object.
         """
+        # First player in becomes host. On reconnection, the player gets a new
+        # connection_id, so they rejoin as a "new" player — host status may shift
+        # if the original host disconnected and someone else was promoted.
         is_host = len(self.players) == 0
         room_player = RoomPlayer(
             id=player_id,
@@ -173,7 +176,9 @@ class Room:
         if room_player.is_cpu:
             release_profile(room_player.name, self.code)
 
-        # Assign new host if needed
+        # Assign new host if needed. next(iter(...)) gives us the first value in
+        # insertion order (Python 3.7+ dict guarantee). This means the longest-tenured
+        # player becomes host, which is the least surprising behavior.
         if room_player.is_host and self.players:
             next_host = next(iter(self.players.values()))
             next_host.is_host = True
