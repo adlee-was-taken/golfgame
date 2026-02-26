@@ -172,6 +172,8 @@ class GameScreen(Screen):
         self._initial_flip_positions: list[int] = []
         self._can_flip_optional = False
         self._term_width: int = 80
+        self._swap_flash: dict[str, int] = {}  # player_id -> position of last swap
+        self._discard_flash: bool = False  # discard pile just changed
         self._term_height: int = 24
 
     def compose(self) -> ComposeResult:
@@ -210,7 +212,10 @@ class GameScreen(Screen):
 
     def _handle_game_state(self, data: dict) -> None:
         state_data = data.get("game_state", data)
-        self._state = GameState.from_dict(state_data)
+        old_state = self._state
+        new_state = GameState.from_dict(state_data)
+        self._detect_swaps(old_state, new_state)
+        self._state = new_state
         self._full_refresh()
 
     def _handle_your_turn(self, data: dict) -> None:
@@ -320,8 +325,14 @@ class GameScreen(Screen):
         self.action_draw_deck()
 
     def on_play_area_widget_discard_clicked(self, event: PlayAreaWidget.DiscardClicked) -> None:
-        """Handle click on the discard pile."""
-        self.action_pick_discard()
+        """Handle click on the discard pile.
+
+        If holding a card, discard it. Otherwise, draw from discard.
+        """
+        if self._state and self._state.has_drawn_card:
+            self.action_discard_held()
+        else:
+            self.action_pick_discard()
 
     # ------------------------------------------------------------------
     # Keyboard actions
@@ -482,6 +493,46 @@ class GameScreen(Screen):
             lobby.reset_to_pre_room()
 
     # ------------------------------------------------------------------
+    # Swap/discard detection
+    # ------------------------------------------------------------------
+
+    def _detect_swaps(self, old: GameState, new: GameState) -> None:
+        """Compare old and new state to find which card positions changed."""
+        if not old or not new or not old.players or not new.players:
+            return
+
+        old_map = {p.id: p for p in old.players}
+        for np in new.players:
+            op = old_map.get(np.id)
+            if not op:
+                continue
+            for i, (oc, nc) in enumerate(zip(op.cards, np.cards)):
+                # Card changed: was face-down and now face-up with different rank,
+                # or rank/suit changed
+                if oc.rank != nc.rank or oc.suit != nc.suit:
+                    if nc.face_up:
+                        self._swap_flash[np.id] = i
+                        break
+
+        # Detect discard change (new discard top differs from old)
+        if old.discard_top and new.discard_top:
+            if (old.discard_top.rank != new.discard_top.rank or
+                    old.discard_top.suit != new.discard_top.suit):
+                self._discard_flash = True
+        elif not old.discard_top and new.discard_top:
+            self._discard_flash = True
+
+        # Schedule flash clear after 2 seconds
+        if self._swap_flash or self._discard_flash:
+            self.set_timer(1.0, self._clear_flash)
+
+    def _clear_flash(self) -> None:
+        """Clear swap/discard flash highlights and re-render."""
+        self._swap_flash.clear()
+        self._discard_flash = False
+        self._full_refresh()
+
+    # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
@@ -532,7 +583,7 @@ class GameScreen(Screen):
 
         # Play area
         play_area = self.query_one("#play-area", PlayAreaWidget)
-        play_area.update_state(state, local_player_id=self._player_id)
+        play_area.update_state(state, local_player_id=self._player_id, discard_flash=self._discard_flash)
         is_active = self._is_my_turn() and not state.waiting_for_initial_flip
         play_area.set_class(is_active, "my-turn")
 
@@ -551,6 +602,7 @@ class GameScreen(Screen):
                 is_knocker=(me.id == state.finisher_id and state.phase == "final_turn"),
                 is_dealer=(me.id == state.dealer_id),
                 highlight=state.waiting_for_initial_flip,
+                flash_position=self._swap_flash.get(me.id),
             )
         else:
             self.query_one("#local-hand-label", Static).update("")
@@ -588,25 +640,32 @@ class GameScreen(Screen):
             matched = _check_column_match(cards)
             card_lines = _render_card_lines(
                 cards, deck_colors=deck_colors, matched=matched,
+                flash_position=self._swap_flash.get(opp.id),
             )
 
             opp_turn = not state.waiting_for_initial_flip and opp.id == state.current_player_id
+            display_score = opp.score if opp.score is not None else opp.visible_score
             box = render_player_box(
                 opp.name,
-                score=opp.score,
+                score=display_score,
                 total_score=opp.total_score,
                 content_lines=card_lines,
                 is_current_turn=opp_turn,
                 is_knocker=(opp.id == state.finisher_id and state.phase == "final_turn"),
                 is_dealer=(opp.id == state.dealer_id),
-                all_face_up=opp.all_face_up,
             )
             opp_blocks.append(box)
 
         # Determine how many opponents fit per row
-        # Each box is ~21-24 chars wide; use actual widths for accuracy
+        # Account for padding on the opponents-area widget (2 chars each side)
+        try:
+            opp_widget = self.query_one("#opponents-area", Static)
+            avail_width = opp_widget.content_size.width or (width - 4)
+        except Exception:
+            avail_width = width - 4
+
         box_widths = [_visible_len(b[0]) if b else 22 for b in opp_blocks]
-        gap = "  " if width < 120 else "   "
+        gap = "  " if avail_width < 120 else "   "
         gap_len = len(gap)
 
         # Greedily fit as many as possible in one row
@@ -614,7 +673,7 @@ class GameScreen(Screen):
         row_width = 0
         for bw in box_widths:
             needed_width = bw if per_row == 0 else gap_len + bw
-            if row_width + needed_width <= width:
+            if row_width + needed_width <= avail_width:
                 row_width += needed_width
                 per_row += 1
             else:

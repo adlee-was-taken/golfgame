@@ -55,8 +55,8 @@ class GolfApp(App):
         yield KeymapBar(id="keymap-bar")
 
     def on_mount(self) -> None:
-        from tui_client.screens.connect import ConnectScreen
-        self.push_screen(ConnectScreen())
+        from tui_client.screens.splash import SplashScreen
+        self.push_screen(SplashScreen())
         self._update_keymap()
 
     def on_screen_resume(self) -> None:

@@ -6,7 +6,7 @@ import re
 
 # Border colors matching web UI palette
 _BORDER_NORMAL = "#555555"
-_BORDER_TURN_LOCAL = "#9ab973"    # green — your turn
+_BORDER_TURN_LOCAL = "#f4a460"    # sandy orange — your turn (matches opponent turn)
 _BORDER_TURN_OPPONENT = "#f4a460"  # sandy orange — opponent's turn
 _BORDER_KNOCKER = "#ff6b35"        # red-orange — went out
 _NAME_COLOR = "#e0e0e0"
@@ -27,7 +27,6 @@ def render_player_box(
     is_knocker: bool = False,
     is_dealer: bool = False,
     is_local: bool = False,
-    all_face_up: bool = False,
 ) -> list[str]:
     """Render a bordered player container with name/score header.
 
@@ -60,13 +59,9 @@ def render_player_box(
     display_name = name
     if is_dealer:
         display_name = f"Ⓓ {display_name}"
-    if all_face_up:
-        display_name += " ✓"
-    if is_knocker:
-        display_name += " OUT"
-
     # Score text
-    score_text = f"{score}" if score is not None else f"{total_score}"
+    score_val = f"{score}" if score is not None else f"{total_score}"
+    score_text = f"{score_val}"
 
     # Compute box width.  Every line is exactly box_width visible chars.
     # Content row: │ <space> <content> <pad> │  =>  box_width = vis(content) + 4
@@ -109,6 +104,16 @@ def render_player_box(
         )
 
     # Bottom border
-    result.append(f"[{bc}]╰{'─' * inner}╯[/]")
+    if is_knocker:
+        out_label = " OUT "
+        left_fill = 1
+        right_fill = inner - left_fill - len(out_label)
+        result.append(
+            f"[{bc}]╰{'─' * left_fill}[/]"
+            f"[bold {bc}]{out_label}[/]"
+            f"[{bc}]{'─' * max(1, right_fill)}╯[/]"
+        )
+    else:
+        result.append(f"[{bc}]╰{'─' * inner}╯[/]")
 
     return result

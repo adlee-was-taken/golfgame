@@ -9,8 +9,6 @@ from textual.widgets import Static
 from tui_client.models import CardData, PlayerData
 from tui_client.widgets.card import render_card
 
-# Color for the match connector lines (muted green — pairs cancel to 0)
-_MATCH_COLOR = "#6a9955"
 
 
 def _check_column_match(cards: list[CardData]) -> list[bool]:
@@ -38,30 +36,6 @@ def _check_column_match(cards: list[CardData]) -> list[bool]:
     return matched
 
 
-def _build_match_connector(matched: list[bool]) -> str | None:
-    """Build a connector line with ║ ║ under each matched column.
-
-    Card layout:  5-char card, 1-char gap, repeated.
-    Positions:    01234 5 6789A B CDEFG
-                  card0   card1   card2
-
-    For each matched column, place ║ at offsets 1 and 3 within the card span.
-    """
-    has_any = matched[0] or matched[1] or matched[2]
-    if not has_any:
-        return None
-
-    # Build a 17-char line (3 cards * 5 + 2 gaps)
-    chars = list(" " * 17)
-    for col in range(3):
-        if matched[col]:  # top card matched implies column matched
-            base = col * 6  # card start position (0, 6, 12)
-            chars[base + 1] = "║"
-            chars[base + 3] = "║"
-
-    line = "".join(chars)
-    return f"[{_MATCH_COLOR}]{line}[/]"
-
 
 def _render_card_lines(
     cards: list[CardData],
@@ -70,32 +44,35 @@ def _render_card_lines(
     deck_colors: list[str] | None = None,
     matched: list[bool] | None = None,
     highlight: bool = False,
+    flash_position: int | None = None,
 ) -> list[str]:
     """Render the 2x3 card grid as a list of text lines (no box).
 
-    Inserts a connector line with ║ ║ between rows for matched columns.
+    Matched columns use connected borders (├───┤) instead of separate
+    └───┘/┌───┐ to avoid an extra connector row.
     """
     if matched is None:
         matched = _check_column_match(cards)
     lines: list[str] = []
     for row_idx, row_start in enumerate((0, 3)):
-        # Insert connector between row 0 and row 1
-        if row_idx == 1:
-            connector = _build_match_connector(matched)
-            if connector:
-                lines.append(connector)
-
         row_line_parts: list[list[str]] = []
         for i in range(3):
             idx = row_start + i
             card = cards[idx] if idx < len(cards) else None
             pos = idx + 1 if is_local else None
+            # Top row cards: connect_bottom if matched
+            # Bottom row cards: connect_top if matched
+            cb = matched[idx] if row_idx == 0 else False
+            ct = matched[idx] if row_idx == 1 else False
             text = render_card(
                 card,
                 position=pos,
                 deck_colors=deck_colors,
                 dim=matched[idx],
                 highlight=highlight,
+                flash=(flash_position == idx),
+                connect_bottom=cb,
+                connect_top=ct,
             )
             card_lines = text.split("\n")
             while len(row_line_parts) < len(card_lines):
@@ -132,8 +109,8 @@ class HandWidget(Static):
         self._is_current_turn: bool = False
         self._is_knocker: bool = False
         self._is_dealer: bool = False
-        self._has_connector: bool = False
         self._highlight: bool = False
+        self._flash_position: int | None = None
         self._box_width: int = 0
 
     def update_player(
@@ -145,6 +122,7 @@ class HandWidget(Static):
         is_knocker: bool = False,
         is_dealer: bool = False,
         highlight: bool = False,
+        flash_position: int | None = None,
     ) -> None:
         self._player = player
         if deck_colors is not None:
@@ -153,6 +131,7 @@ class HandWidget(Static):
         self._is_knocker = is_knocker
         self._is_dealer = is_dealer
         self._highlight = highlight
+        self._flash_position = flash_position
         self._refresh()
 
     def on_mount(self) -> None:
@@ -171,9 +150,8 @@ class HandWidget(Static):
         # Box layout:
         # Line 0: top border
         # Lines 1-4: row 0 cards (4 lines each)
-        # Line 5 (optional): match connector
-        # Lines 5-8 or 6-9: row 1 cards
-        # Last line: bottom border
+        # Lines 5-8: row 1 cards
+        # Line 9: bottom border
         #
         # Content x: │ <space> then cards at x offsets 2, 8, 14 (each 5 wide, 1 gap)
 
@@ -191,14 +169,12 @@ class HandWidget(Static):
             return
 
         # Determine row from y
-        # y=0: top border, y=1..4: row 0 cards, then optional connector, then row 1
+        # y=0: top border, y=1..4: row 0, y=5..8: row 1, y=9: bottom border
         row = -1
         if 1 <= y <= 4:
             row = 0
-        else:
-            row1_start = 6 if self._has_connector else 5
-            if row1_start <= y <= row1_start + 3:
-                row = 1
+        elif 5 <= y <= 8:
+            row = 1
 
         if row < 0:
             return
@@ -215,7 +191,6 @@ class HandWidget(Static):
 
         cards = self._player.cards
         matched = _check_column_match(cards)
-        self._has_connector = any(matched[:3])
 
         card_lines = _render_card_lines(
             cards,
@@ -223,18 +198,21 @@ class HandWidget(Static):
             deck_colors=self._deck_colors,
             matched=matched,
             highlight=self._highlight,
+            flash_position=self._flash_position,
         )
 
+        # Use visible_score (computed from face-up cards) during play,
+        # server-provided score at round/game over
+        display_score = self._player.score if self._player.score is not None else self._player.visible_score
         box_lines = render_player_box(
             self._player.name,
-            score=self._player.score,
+            score=display_score,
             total_score=self._player.total_score,
             content_lines=card_lines,
             is_current_turn=self._is_current_turn,
             is_knocker=self._is_knocker,
             is_dealer=self._is_dealer,
             is_local=self._is_local,
-            all_face_up=self._player.all_face_up,
         )
 
         # Store box width for click coordinate mapping

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -12,6 +13,9 @@ import websockets
 from websockets.asyncio.client import ClientConnection
 
 logger = logging.getLogger(__name__)
+
+_SESSION_DIR = Path.home() / ".config" / "golfcards"
+_SESSION_FILE = _SESSION_DIR / "session.json"
 
 
 class GameClient:
@@ -46,6 +50,62 @@ class GameClient:
     @property
     def username(self) -> Optional[str]:
         return self._username
+
+    def save_session(self) -> None:
+        """Persist token and server info to disk."""
+        if not self._token:
+            return
+        _SESSION_DIR.mkdir(parents=True, exist_ok=True)
+        data = {
+            "host": self.host,
+            "use_tls": self.use_tls,
+            "token": self._token,
+            "username": self._username,
+        }
+        _SESSION_FILE.write_text(json.dumps(data))
+
+    @staticmethod
+    def load_session() -> dict | None:
+        """Load saved session from disk, or None if not found."""
+        if not _SESSION_FILE.exists():
+            return None
+        try:
+            return json.loads(_SESSION_FILE.read_text())
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    @staticmethod
+    def clear_session() -> None:
+        """Delete saved session file."""
+        try:
+            _SESSION_FILE.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    async def verify_token(self) -> bool:
+        """Check if the current token is still valid via /api/auth/me."""
+        if not self._token:
+            return False
+        try:
+            async with httpx.AsyncClient(verify=self.use_tls) as http:
+                resp = await http.get(
+                    f"{self.http_base}/api/auth/me",
+                    headers={"Authorization": f"Bearer {self._token}"},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    self._username = data.get("username", self._username)
+                    return True
+                return False
+        except Exception:
+            return False
+
+    def restore_session(self, session: dict) -> None:
+        """Restore client state from a saved session dict."""
+        self.host = session["host"]
+        self.use_tls = session["use_tls"]
+        self._token = session["token"]
+        self._username = session.get("username")
 
     async def login(self, username: str, password: str) -> dict:
         """Login via HTTP and store JWT token.

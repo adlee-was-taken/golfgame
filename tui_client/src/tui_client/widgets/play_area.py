@@ -46,9 +46,11 @@ class PlayAreaWidget(Static):
         self._state: GameState | None = None
         self._local_player_id: str = ""
         self._has_holding: bool = False
+        self._discard_flash: bool = False
 
-    def update_state(self, state: GameState, local_player_id: str = "") -> None:
+    def update_state(self, state: GameState, local_player_id: str = "", discard_flash: bool = False) -> None:
         self._state = state
+        self._discard_flash = discard_flash
         if local_player_id:
             self._local_player_id = local_player_id
         self._refresh()
@@ -82,21 +84,17 @@ class PlayAreaWidget(Static):
         deck_lines = deck_text.split("\n")
 
         # Discard card
-        discard_text = render_card(state.discard_top, deck_colors=state.deck_colors)
+        discard_text = render_card(state.discard_top, deck_colors=state.deck_colors, flash=self._discard_flash)
         discard_lines = discard_text.split("\n")
 
-        # Held card — force face_up so render_card shows the face
-        # Only show when it's the local player holding
+        # Held card — show for any player holding
         held_lines = None
-        local_holding = (
-            state.has_drawn_card
-            and state.drawn_card
-            and state.drawn_player_id == self._local_player_id
-        )
-        if local_holding:
+        is_local_holding = False
+        if state.has_drawn_card and state.drawn_card:
             revealed = replace(state.drawn_card, face_up=True)
             held_text = render_card(revealed, deck_colors=state.deck_colors)
             held_lines = held_text.split("\n")
+            is_local_holding = state.drawn_player_id == self._local_player_id
 
         self._has_holding = held_lines is not None
 
@@ -120,7 +118,10 @@ class PlayAreaWidget(Static):
         discard_label = "DISCARD"
         label = _pad_center(deck_label, _COL_WIDTH)
         if held_lines:
-            holding_label = f"[bold {_HOLDING_COLOR}]HOLDING[/]"
+            if is_local_holding:
+                holding_label = f"[bold {_HOLDING_COLOR}]HOLDING[/]"
+            else:
+                holding_label = "[dim]HOLDING[/dim]"
             label += _pad_center(holding_label, _COL_WIDTH)
         else:
             label += " " * _COL_WIDTH

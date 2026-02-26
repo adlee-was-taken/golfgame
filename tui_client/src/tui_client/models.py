@@ -61,6 +61,29 @@ class PlayerData:
     rounds_won: int = 0
     all_face_up: bool = False
 
+    # Standard card values for visible score calculation
+    _CARD_VALUES = {
+        'A': 1, '2': -2, '3': 3, '4': 4, '5': 5, '6': 6,
+        '7': 7, '8': 8, '9': 9, '10': 10, 'J': 10, 'Q': 10, 'K': 0, '★': -2,
+    }
+
+    @property
+    def visible_score(self) -> int:
+        """Compute score from face-up cards, zeroing matched columns."""
+        if len(self.cards) < 6:
+            return 0
+        values = [0] * 6
+        for i, c in enumerate(self.cards):
+            if c.face_up and c.rank:
+                values[i] = self._CARD_VALUES.get(c.rank, 0)
+        # Zero out matched columns (same rank, both face-up)
+        for col in range(3):
+            top, bot = self.cards[col], self.cards[col + 3]
+            if top.face_up and bot.face_up and top.rank and top.rank == bot.rank:
+                values[col] = 0
+                values[col + 3] = 0
+        return sum(values)
+
     @classmethod
     def from_dict(cls, d: dict) -> PlayerData:
         return cls(

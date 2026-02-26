@@ -196,9 +196,14 @@ class LobbyScreen(Screen):
 
             yield Static("", id="lobby-status")
 
+        with Horizontal(classes="screen-footer"):  # Outside lobby-container
+            yield Static("\\[esc] back", id="lobby-footer-left", classes="screen-footer-left")
+            yield Static("\\[esc]\\[esc] quit", id="lobby-footer-right", classes="screen-footer-right")
+
     def on_mount(self) -> None:
         self._update_visibility()
         self._update_keymap()
+        self._update_footer()
 
     def reset_to_pre_room(self) -> None:
         """Reset lobby back to create/join state after leaving a game."""
@@ -228,7 +233,18 @@ class LobbyScreen(Screen):
         except Exception:
             pass
 
+    def _update_footer(self) -> None:
+        try:
+            left = self.query_one("#lobby-footer-left", Static)
+            if self._in_room:
+                left.update("\\[esc] leave")
+            else:
+                left.update("\\[esc] back")
+        except Exception:
+            pass
+
     def _update_keymap(self) -> None:
+        self._update_footer()
         try:
             if self._in_room and self._is_host:
                 self.app.set_keymap("[Esc] Leave  [+] Add CPU  [−] Remove  [Enter] Start  [Esc][Esc] Quit")
@@ -441,6 +457,7 @@ class LobbyScreen(Screen):
     def _handle_player_joined(self, data: dict) -> None:
         self._players = data.get("players", [])
         self._refresh_player_list()
+        self._auto_adjust_decks()
 
     def _handle_game_started(self, data: dict) -> None:
         from tui_client.screens.game import GameScreen
@@ -462,6 +479,19 @@ class LobbyScreen(Screen):
             suffix = f"  {' '.join(tags)}" if tags else ""
             lines.append(f"  {i}. {name}{suffix}")
         self.query_one("#player-list", Static).update("\n".join(lines) if lines else "  (empty)")
+
+    def _auto_adjust_decks(self) -> None:
+        """Auto-set decks to 2 when more than 3 players."""
+        if not self._is_host:
+            return
+        try:
+            sel = self.query_one("#sel-decks", Select)
+            if len(self._players) > 3 and sel.value == 1:
+                sel.value = 2
+            elif len(self._players) <= 3 and sel.value == 2:
+                sel.value = 1
+        except Exception:
+            pass
 
     def _set_room_info(self, text: str) -> None:
         self.query_one("#room-info", Static).update(text)
