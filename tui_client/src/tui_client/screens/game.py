@@ -130,6 +130,9 @@ class GameScreen(Screen):
         self._term_width: int = 80
         self._swap_flash: dict[str, int] = {}  # player_id -> position of last swap
         self._discard_flash: bool = False  # discard pile just changed
+        self._pending_reveal: dict | None = None  # server-sent reveal for opponents
+        self._reveal_active: bool = False  # reveal animation in progress
+        self._deferred_state: GameState | None = None  # queued state during reveal
         self._term_height: int = 24
 
     def compose(self) -> ComposeResult:
@@ -170,9 +173,63 @@ class GameScreen(Screen):
         state_data = data.get("game_state", data)
         old_state = self._state
         new_state = GameState.from_dict(state_data)
-        self._detect_swaps(old_state, new_state)
-        self._state = new_state
+        reveal = self._detect_swaps(old_state, new_state)
+        if reveal:
+            # Briefly show the old face-down card before applying new state
+            self._show_reveal_then_update(reveal, new_state)
+        elif self._reveal_active:
+            # A reveal is showing — queue this state for after it finishes
+            self._deferred_state = new_state
+        else:
+            self._state = new_state
+            self._full_refresh()
+
+    def _show_reveal_then_update(
+        self,
+        reveal: dict,
+        new_state: GameState,
+    ) -> None:
+        """Show the old card face-up for 1s, then apply the new state."""
+        from tui_client.models import CardData
+
+        player_id = reveal["player_id"]
+        position = reveal["position"]
+        old_card_data = reveal["card"]
+
+        # Modify current state to show old card face-up
+        for p in self._state.players:
+            if p.id == player_id and position < len(p.cards):
+                p.cards[position] = CardData(
+                    suit=old_card_data.get("suit"),
+                    rank=old_card_data.get("rank"),
+                    face_up=True,
+                    deck_id=old_card_data.get("deck_id"),
+                )
+                break
+
+        self._reveal_active = True
+        self._deferred_state = new_state
         self._full_refresh()
+
+        # After 1 second, apply the real new state
+        def apply_new():
+            self._reveal_active = False
+            state = self._deferred_state
+            self._deferred_state = None
+            if state:
+                self._state = state
+                self._full_refresh()
+
+        self.set_timer(1.0, apply_new)
+
+    def _handle_card_revealed(self, data: dict) -> None:
+        """Server sent old card data for an opponent's face-down swap."""
+        # Store the reveal data so next game_state can use it
+        self._pending_reveal = {
+            "player_id": data.get("player_id"),
+            "position": data.get("position", 0),
+            "card": data.get("card", {}),
+        }
 
     def _handle_your_turn(self, data: dict) -> None:
         self._awaiting_flip = False
@@ -458,10 +515,17 @@ class GameScreen(Screen):
     # Swap/discard detection
     # ------------------------------------------------------------------
 
-    def _detect_swaps(self, old: GameState, new: GameState) -> None:
-        """Compare old and new state to find which card positions changed."""
+    def _detect_swaps(self, old: GameState, new: GameState) -> dict | None:
+        """Compare old and new state to find which card positions changed.
+
+        Returns reveal info dict if a face-down card was swapped, else None.
+        """
+        reveal = None
         if not old or not new or not old.players or not new.players:
-            return
+            return None
+
+        # Only reveal during active play, not initial flip or round end
+        reveal_eligible = old.phase in ("playing", "final_turn")
 
         old_map = {p.id: p for p in old.players}
         for np in new.players:
@@ -469,12 +533,30 @@ class GameScreen(Screen):
             if not op:
                 continue
             for i, (oc, nc) in enumerate(zip(op.cards, np.cards)):
-                # Card changed: was face-down and now face-up with different rank,
-                # or rank/suit changed
-                if oc.rank != nc.rank or oc.suit != nc.suit:
-                    if nc.face_up:
-                        self._swap_flash[np.id] = i
-                        break
+                # Card changed: rank/suit differ and new card is face-up
+                if (oc.rank != nc.rank or oc.suit != nc.suit) and nc.face_up:
+                    self._swap_flash[np.id] = i
+
+                    # Was old card face-down? If we have its data, reveal it
+                    if reveal_eligible and not oc.face_up and oc.rank and oc.suit:
+                        # Local player — we know face-down card values
+                        reveal = {
+                            "player_id": np.id,
+                            "position": i,
+                            "card": {"rank": oc.rank, "suit": oc.suit, "deck_id": oc.deck_id},
+                        }
+                    elif reveal_eligible and not oc.face_up and self._pending_reveal:
+                        # Opponent — use server-sent reveal data
+                        pr = self._pending_reveal
+                        if pr.get("player_id") == np.id and pr.get("position") == i:
+                            reveal = {
+                                "player_id": np.id,
+                                "position": i,
+                                "card": pr["card"],
+                            }
+                    break
+
+        self._pending_reveal = None
 
         # Detect discard change (new discard top differs from old)
         if old.discard_top and new.discard_top:
@@ -487,6 +569,8 @@ class GameScreen(Screen):
         # Schedule flash clear after 2 seconds
         if self._swap_flash or self._discard_flash:
             self.set_timer(1.0, self._clear_flash)
+
+        return reveal
 
     def _clear_flash(self) -> None:
         """Clear swap/discard flash highlights and re-render."""
