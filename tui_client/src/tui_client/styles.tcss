@@ -245,6 +245,7 @@ LobbyScreen {
 GameScreen {
     align: center top;
     layout: vertical;
+    background: #0a2a1a;
 }
 
 #game-content {
@@ -257,8 +258,8 @@ GameScreen {
 #status-bar {
     height: 1;
     dock: top;
-    background: $primary;
-    color: $text;
+    background: #2a1a0a;
+    color: #f4a460;
     padding: 0 2;
 }
 

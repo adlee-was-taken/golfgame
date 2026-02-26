@@ -50,7 +50,7 @@ class StatusBarWidget(Static):
         # Turn info (skip during initial flip - it's misleading)
         if state.current_player_id and state.players and state.phase != "initial_flip":
             if state.current_player_id == self._player_id:
-                parts.append("[bold #111111 on #ffd700] YOUR TURN! [/bold #111111 on #ffd700]")
+                parts.append("[bold #ffffff on #2e7d32] YOUR TURN [/bold #ffffff on #2e7d32]")
             else:
                 for p in state.players:
                     if p.id == state.current_player_id:

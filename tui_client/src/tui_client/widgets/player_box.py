@@ -101,8 +101,8 @@ def render_player_box(
             f"[{bc}]│[/] {line}{' ' * right_pad}[{bc}]│[/]"
         )
 
-    # Bottom border — dealer Ⓓ on left, OUT on right
-    left_label = " Ⓓ " if is_dealer else ""
+    # Bottom border — dealer (D)on left, OUT on right
+    left_label = " (D)" if is_dealer else ""
     right_label = " OUT " if is_knocker else ""
     mid_fill = max(1, inner - len(left_label) - len(right_label))
     parts = f"[{bc}]╰[/]"

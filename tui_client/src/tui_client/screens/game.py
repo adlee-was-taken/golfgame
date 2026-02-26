@@ -214,17 +214,21 @@ class GameScreen(Screen):
         total_rounds = data.get("total_rounds", 1)
         finisher_id = data.get("finisher_id")
 
-        self.app.push_screen(
-            ScoreboardScreen(
-                scores=scores,
-                title=f"Hole {round_num} Complete",
-                is_game_over=False,
-                is_host=self._is_host,
-                round_num=round_num,
-                total_rounds=total_rounds,
-                finisher_id=finisher_id,
+        # Delay so players can see the final card layout before the overlay
+        self.set_timer(
+            3.0,
+            lambda: self.app.push_screen(
+                ScoreboardScreen(
+                    scores=scores,
+                    title=f"Hole {round_num} Complete",
+                    is_game_over=False,
+                    is_host=self._is_host,
+                    round_num=round_num,
+                    total_rounds=total_rounds,
+                    finisher_id=finisher_id,
+                ),
+                callback=self._on_scoreboard_dismiss,
             ),
-            callback=self._on_scoreboard_dismiss,
         )
 
     def _handle_game_over(self, data: dict) -> None:
