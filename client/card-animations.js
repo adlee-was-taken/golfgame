@@ -1105,7 +1105,7 @@ class CardAnimations {
     // heldRect: position of the held card (or null to use default holding position)
     // options: { rotation, wasHandFaceDown, onComplete }
     animateUnifiedSwap(handCardData, heldCardData, handRect, heldRect, options = {}) {
-        const { rotation = 0, wasHandFaceDown = false, onComplete } = options;
+        const { rotation = 0, wasHandFaceDown = false, onComplete, onStart } = options;
         const T = window.TIMING?.swap || { lift: 100, arc: 320, settle: 100 };
         const discardRect = this.getDiscardRect();
 
@@ -1137,15 +1137,15 @@ class CardAnimations {
                     delete el.dataset.animating;
                     el.remove();
                 });
-                this._runUnifiedSwap(handCardData, heldCardData, handRect, heldRect, discardRect, T, rotation, wasHandFaceDown, onComplete);
+                this._runUnifiedSwap(handCardData, heldCardData, handRect, heldRect, discardRect, T, rotation, wasHandFaceDown, onComplete, onStart);
             }, 350);
             return;
         }
 
-        this._runUnifiedSwap(handCardData, heldCardData, handRect, heldRect, discardRect, T, rotation, wasHandFaceDown, onComplete);
+        this._runUnifiedSwap(handCardData, heldCardData, handRect, heldRect, discardRect, T, rotation, wasHandFaceDown, onComplete, onStart);
     }
 
-    _runUnifiedSwap(handCardData, heldCardData, handRect, heldRect, discardRect, T, rotation, wasHandFaceDown, onComplete) {
+    _runUnifiedSwap(handCardData, heldCardData, handRect, heldRect, discardRect, T, rotation, wasHandFaceDown, onComplete, onStart) {
         // Create the two traveling cards
         const travelingHand = this.createCardFromData(handCardData, handRect, rotation);
         const travelingHeld = this.createCardFromData(heldCardData, heldRect, 0);
@@ -1153,6 +1153,9 @@ class CardAnimations {
         travelingHeld.dataset.animating = 'true';
         document.body.appendChild(travelingHand);
         document.body.appendChild(travelingHeld);
+
+        // Now that overlays cover the originals, hide them
+        if (onStart) onStart();
 
         this.playSound('card');
 

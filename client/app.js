@@ -81,6 +81,7 @@ class GolfGame {
         this.initCardTooltips();
         this.bindEvents();
         this.initMobileDetection();
+        this.initDesktopScorecard();
         this.checkUrlParams();
     }
 
@@ -111,9 +112,11 @@ class GolfGame {
             this.isMobile = e.matches;
             document.body.classList.toggle('mobile-portrait', e.matches);
             setAppHeight();
-            // Close any open drawers on layout change
+            // Close any open drawers/overlays on layout change
             if (!e.matches) {
                 this.closeDrawers();
+            } else {
+                this.closeDesktopScorecard();
             }
         };
         mql.addEventListener('change', update);
@@ -152,6 +155,31 @@ class GolfGame {
         if (backdrop) backdrop.classList.remove('visible');
         const bottomBar = document.getElementById('mobile-bottom-bar');
         if (bottomBar) bottomBar.classList.remove('hidden');
+    }
+
+    initDesktopScorecard() {
+        if (!this.desktopScorecardBtn) return;
+
+        this.desktopScorecardBtn.addEventListener('click', () => {
+            const isOpen = this.desktopScorecardOverlay.classList.contains('open');
+            if (isOpen) {
+                this.closeDesktopScorecard();
+            } else {
+                this.desktopScorecardOverlay.classList.add('open');
+                this.desktopScorecardBtn.classList.add('active');
+                this.desktopScorecardBackdrop.classList.add('visible');
+            }
+        });
+
+        this.desktopScorecardBackdrop.addEventListener('click', () => {
+            this.closeDesktopScorecard();
+        });
+    }
+
+    closeDesktopScorecard() {
+        if (this.desktopScorecardOverlay) this.desktopScorecardOverlay.classList.remove('open');
+        if (this.desktopScorecardBtn) this.desktopScorecardBtn.classList.remove('active');
+        if (this.desktopScorecardBackdrop) this.desktopScorecardBackdrop.classList.remove('visible');
     }
 
     initAudio() {
@@ -544,6 +572,13 @@ class GolfGame {
         this.gameUsername = document.getElementById('game-username');
         this.gameLogoutBtn = document.getElementById('game-logout-btn');
         this.authBar = document.getElementById('auth-bar');
+
+        // Desktop scorecard overlay elements
+        this.desktopScorecardBtn = document.getElementById('desktop-scorecard-btn');
+        this.desktopScorecardOverlay = document.getElementById('desktop-scorecard-overlay');
+        this.desktopScorecardBackdrop = document.getElementById('desktop-scorecard-backdrop');
+        this.desktopStandingsList = document.getElementById('desktop-standings-list');
+        this.desktopScoreTable = document.getElementById('desktop-score-table')?.querySelector('tbody');
     }
 
     bindEvents() {
@@ -1464,12 +1499,8 @@ class GolfGame {
         this.swapAnimationCardEl = handCardEl;
         this.swapAnimationHandCardEl = handCardEl;
 
-        // Hide originals and UI during animation
-        handCardEl.classList.add('swap-out');
+        // Hide discard button during animation (held card hidden later by onStart)
         this.discardBtn.classList.add('hidden');
-        if (this.heldCardFloating) {
-            this.heldCardFloating.style.visibility = 'hidden';
-        }
 
         // Store drawn card data before clearing
         const drawnCardData = this.drawnCard;
@@ -1492,6 +1523,12 @@ class GolfGame {
                     {
                         rotation: 0,
                         wasHandFaceDown: false,
+                        onStart: () => {
+                            handCardEl.classList.add('swap-out');
+                            if (this.heldCardFloating) {
+                                this.heldCardFloating.style.visibility = 'hidden';
+                            }
+                        },
                         onComplete: () => {
                             handCardEl.classList.remove('swap-out');
                             if (this.heldCardFloating) {
@@ -1555,6 +1592,12 @@ class GolfGame {
                 {
                     rotation: 0,
                     wasHandFaceDown: true,
+                    onStart: () => {
+                        if (handCardEl) handCardEl.classList.add('swap-out');
+                        if (this.heldCardFloating) {
+                            this.heldCardFloating.style.visibility = 'hidden';
+                        }
+                    },
                     onComplete: () => {
                         if (handCardEl) handCardEl.classList.remove('swap-out');
                         if (this.heldCardFloating) {
@@ -2887,9 +2930,6 @@ class GolfGame {
             return;
         }
 
-        // Hide the source card during animation
-        sourceCardEl.classList.add('swap-out');
-
         // Use unified swap animation
         if (window.cardAnimations) {
             const heldRect = window.cardAnimations.getHoldingRect();
@@ -2902,6 +2942,9 @@ class GolfGame {
                 {
                     rotation: sourceRotation,
                     wasHandFaceDown: !wasFaceUp,
+                    onStart: () => {
+                        sourceCardEl.classList.add('swap-out');
+                    },
                     onComplete: () => {
                         if (sourceCardEl) sourceCardEl.classList.remove('swap-out');
                         this.opponentSwapAnimation = null;
@@ -4347,6 +4390,11 @@ class GolfGame {
             `;
             this.scoreTable.appendChild(tr);
         });
+
+        // Mirror to desktop overlay
+        if (this.desktopScoreTable) {
+            this.desktopScoreTable.innerHTML = this.scoreTable.innerHTML;
+        }
     }
 
     updateStandings() {
@@ -4384,7 +4432,7 @@ class GolfGame {
             return `<div class="rank-row ${holesRank === 0 && p.rounds_won > 0 ? 'leader' : ''}"><span class="rank-pos">${medal}</span><span class="rank-name">${name}</span><span class="rank-val">${p.rounds_won} wins</span></div>`;
         }).join('');
 
-        this.standingsList.innerHTML = `
+        const standingsContent = `
             <div class="standings-section">
                 <div class="standings-title">By Score</div>
                 ${pointsHtml}
@@ -4394,6 +4442,10 @@ class GolfGame {
                 ${holesHtml}
             </div>
         `;
+        this.standingsList.innerHTML = standingsContent;
+        if (this.desktopStandingsList) {
+            this.desktopStandingsList.innerHTML = standingsContent;
+        }
     }
 
     renderCard(card, clickable, selected) {
@@ -4472,6 +4524,11 @@ class GolfGame {
             `;
             this.scoreTable.appendChild(tr);
         });
+
+        // Mirror to desktop overlay
+        if (this.desktopScoreTable) {
+            this.desktopScoreTable.innerHTML = this.scoreTable.innerHTML;
+        }
 
         // Show rankings announcement only for final results
         const existingAnnouncement = document.getElementById('rankings-announcement');

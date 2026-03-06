@@ -313,22 +313,6 @@ async def handle_swap(data: dict, ctx: ConnectionContext, *, broadcast_game_stat
                     reason=f"swapped {drawn_card.rank.value} into position {position}, replaced {old_rank}",
                 )
 
-            # Broadcast reveal of old face-down card before state update
-            if old_card_data:
-                reveal_msg = {
-                    "type": "card_revealed",
-                    "player_id": ctx.player_id,
-                    "position": position,
-                    "card": old_card_data,
-                }
-                for pid, p in ctx.current_room.players.items():
-                    if not p.is_cpu and p.websocket:
-                        try:
-                            await p.websocket.send_json(reveal_msg)
-                        except Exception:
-                            pass
-                await asyncio.sleep(1.0)
-
             await broadcast_game_state(ctx.current_room)
             await asyncio.sleep(1.0)
             check_and_run_cpu_turn(ctx.current_room)
