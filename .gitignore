@@ -136,7 +136,31 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.example
 .envrc
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Service credentials
+credentials.json
+service-account.json
+*-credentials.json
+
+# SSH keys
+id_rsa
+id_ecdsa
+id_ed25519
+
+# Other sensitive files
+*.secrets
+.htpasswd
 .venv
 env/
 venv/
