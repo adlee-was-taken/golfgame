@@ -431,7 +431,7 @@ async def _close_all_websockets():
 app = FastAPI(
     title="Golf Card Game",
     debug=config.DEBUG,
-    version="3.1.6",
+    version="3.2.0",
     lifespan=lifespan,
 )
 
@@ -943,7 +943,18 @@ if os.path.exists(client_path):
         return FileResponse(os.path.join(client_path, "index.html"))
 
     # Mount static files for everything else (JS, CSS, SVG, etc.)
-    app.mount("/", StaticFiles(directory=client_path), name="static")
+    # Wrap StaticFiles to reject WebSocket requests gracefully instead of
+    # crashing with AssertionError (starlette asserts scope["type"] == "http").
+    static_files = StaticFiles(directory=client_path)
+
+    async def safe_static_files(scope, receive, send):
+        if scope["type"] != "http":
+            if scope["type"] == "websocket":
+                await send({"type": "websocket.close", "code": 1000})
+            return
+        await static_files(scope, receive, send)
+
+    app.mount("/", safe_static_files, name="static")
 
 
 def run():

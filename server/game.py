@@ -782,9 +782,17 @@ class Game:
         for i, player in enumerate(self.players):
             if player.id == player_id:
                 removed = self.players.pop(i)
-                # Adjust dealer_idx if needed after removal
-                if self.players and self.dealer_idx >= len(self.players):
-                    self.dealer_idx = 0
+                if self.players:
+                    # Adjust dealer_idx if needed after removal
+                    if self.dealer_idx >= len(self.players):
+                        self.dealer_idx = 0
+                    # Adjust current_player_index after removal
+                    if i < self.current_player_index:
+                        # Removed player was before current: shift back
+                        self.current_player_index -= 1
+                    elif self.current_player_index >= len(self.players):
+                        # Removed player was at/after current and index is now OOB
+                        self.current_player_index = 0
                 self._emit("player_left", player_id=player_id, reason=reason)
                 return removed
         return None
@@ -807,6 +815,8 @@ class Game:
     def current_player(self) -> Optional[Player]:
         """Get the player whose turn it currently is."""
         if self.players:
+            if self.current_player_index >= len(self.players):
+                self.current_player_index = self.current_player_index % len(self.players)
             return self.players[self.current_player_index]
         return None
 
